@@ -1,0 +1,17 @@
+[project]
+name = "dqc"
+version = "0.0.1"
+description = "Model-agnostic tools for distributed quantum computing, starting with an HDH-based IR."
+authors = [
+    {name = "Maria Gragera Garces",email = "m.gragera.gaces@gmail.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
