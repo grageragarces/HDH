@@ -1,17 +1,24 @@
-[project]
+[tool.poetry]
 name = "dqc"
-version = "0.0.1"
+version = "0.0.2"
 description = "Model-agnostic tools for distributed quantum computing, starting with an HDH-based IR."
-authors = [
-    {name = "Maria Gragera Garces",email = "m.gragera.gaces@gmail.com"}
-]
-license = {text = "MIT"}
+authors = ["Maria Gragera Garces <m.gragera.gaces@gmail.com>"]
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-]
+packages = [{ include = "dqc" }]
+homepage = "https://pypi.org/project/dqc/"
+repository = "https://github.com/grageragarces/dqc"  # ← optional
+keywords = ["quantum", "compiler", "distributed", "hdh"]
 
+[tool.poetry.dependencies]
+python = "^3.10"
+qiskit = "^1.0"
+networkx = "^3.0"
+matplotlib = "^3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.0"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
