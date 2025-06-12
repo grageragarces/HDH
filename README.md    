@@ -1,24 +1,22 @@
-# dqc
+# hdh
 
-**Model-agnostic tools for Distributed Quantum Computing**
+**Hybrid Dependency Hypergraphs for Quantum Computation**
 
 🚧 **Work in Progress**  
-This project is under active development. It aims to provide compiler infrastructure, intermediate representations, and runtime tooling for distributing quantum circuits across heterogeneous devices.
+This library focuses on translating quantum computations into Hybrid Dependency Hypergraph (HDH) representations for analysis, visualization, and partitioning.
 
 ## Project Goals
 
-- Define a usable IR for distributed quantum computing based on Hybrid Dependency Hypergraphs (HDHs)
-- Implement circuit cutting, binning, and scheduling passes
-- Provide a backend-agnostic execution pipeline
-- Benchmark distribution trade-offs: cost, fidelity, parallelism
+- Translate quantum computations into HDH format  
+  - From popular SDKs (e.g., Qiskit)  
+  - From computation classes directly
+- Print HDHs in a readable, canonical format  
+- Apply embedded partitioning strategies (e.g., METIS, KaHyPar) to analyze computational distribution
 
 ## Package Structure
 
-- `hdh/` — Core intermediate representation and compiler passes
-- `examples/` — Example use cases (e.g., Qiskit → HDH → visualization)
-- `tests/` — Unit tests
+????
 
-## Installation (soon)
+## Installation 
 
-```bash
-pip install hdh  # Placeholder — not published yet
+pip install hdh  

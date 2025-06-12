@@ -1,14 +1,14 @@
 [tool.poetry]
-name = "dqc"
-version = "0.0.2"
-description = "Model-agnostic tools for distributed quantum computing, starting with an HDH-based IR."
+name = "hdh"
+version = "0.0.1"
+description = "Hybrid Dependency Hypergraphs for quantum computation: translation, visualization, and partitioning."
 authors = ["Maria Gragera Garces <m.gragera.gaces@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "dqc" }]
-homepage = "https://pypi.org/project/dqc/"
-repository = "https://github.com/grageragarces/dqc"  # ← optional
-keywords = ["quantum", "compiler", "distributed", "hdh"]
+packages = [{ include = "hdh" }]
+homepage = "https://pypi.org/project/hdh/"
+repository = "https://github.com/grageragarces/hdh"  # optional
+keywords = ["quantum", "compiler", "partitioning", "hdh", "hypergraph"]
 
 [tool.poetry.dependencies]
 python = "^3.10"

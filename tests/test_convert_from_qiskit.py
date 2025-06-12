@@ -1,6 +1,6 @@
 from qiskit import QuantumCircuit
-from dqc.hdh.converters.convert_from_qiskit import from_qiskit_circuit
-from dqc.hdh.visualize import plot_hdh
+from hdh.converters.convert_from_qiskit import from_qiskit_circuit
+from hdh.visualize import plot_hdh
 
 qc = QuantumCircuit(3)
 qc.h(0)
