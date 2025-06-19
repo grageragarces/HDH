@@ -1,4 +1,3 @@
-# dqc/hdh/graph.py
 
 class HDHNode:
     def __init__(self, id, type, time):

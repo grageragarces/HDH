@@ -1,1 +1,0 @@
-from .convert_from_qiskit import from_qiskit_circuit

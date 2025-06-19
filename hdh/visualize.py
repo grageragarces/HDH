@@ -2,7 +2,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import re
-from . import HDH
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from hdh.hdh import HDH
 
 def plot_hdh(hdh, save_path=None):
     nodes = list(hdh.S)
