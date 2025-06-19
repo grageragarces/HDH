@@ -15,6 +15,7 @@ python = "^3.10"
 qiskit = "^1.0"
 networkx = "^3.0"
 matplotlib = "^3.0"
+metis = "0.2a5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0"
