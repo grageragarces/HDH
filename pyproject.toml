@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hdh"
-version = "0.0.1"
+version = "0.0.2"
 description = "Hybrid Dependency Hypergraphs for quantum computation: translation, visualization, and partitioning."
 authors = ["Maria Gragera Garces <m.gragera.gaces@gmail.com>"]
 license = "MIT"
@@ -15,6 +15,7 @@ python = "^3.10"
 qiskit = "^1.0"
 networkx = "^3.0"
 matplotlib = "^3.0"
+metis = "0.2a5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0"
