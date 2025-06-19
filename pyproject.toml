@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 packages = [{ include = "hdh" }]
 homepage = "https://pypi.org/project/hdh/"
-repository = "https://github.com/grageragarces/hdh"  # optional
+repository = "https://github.com/grageragarces/hdh"
 keywords = ["quantum", "compiler", "partitioning", "hdh", "hypergraph"]
 
 [tool.poetry.dependencies]
