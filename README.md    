@@ -3,20 +3,12 @@
 **Hybrid Dependency Hypergraphs for Quantum Computation**
 
 🚧 **Work in Progress**  
-This library focuses on translating quantum computations into Hybrid Dependency Hypergraph (HDH) representations for analysis, visualization, and partitioning.
+This library translates quantum computations into Hybrid Dependency Hypergraph (HDH) representations for analysis, visualization, and partitioning.
 
 ## Project Goals
 
-- Translate quantum computations into HDH format  
-  - From popular SDKs (e.g., Qiskit)  
-  - From computation classes directly
+- Convert quantum circuits into HDH format  
+  - Support for popular SDKs (e.g., Qiskit)  
+  - Direct encoding from algorithmic structures
 - Print HDHs in a readable, canonical format  
-- Apply embedded partitioning strategies (e.g., METIS, KaHyPar) to analyze computational distribution
-
-## Package Structure
-
-????
-
-## Installation 
-
-pip install hdh  
+- Apply graph partitioning (e.g., METIS, KaHyPar) for distribution-aware analysis
