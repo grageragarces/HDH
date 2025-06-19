@@ -368,6 +368,17 @@ python-dateutil = ">=2.7"
 dev = ["meson-python (>=0.13.1,<0.17.0)", "pybind11 (>=2.13.2,!=2.13.3)", "setuptools (>=64)", "setuptools_scm (>=7)"]
 
 [[package]]
+name = "metis"
+version = "0.2a5"
+description = "METIS wrapper using ctypes"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "metis-0.2a5.tar.gz", hash = "sha256:c98f4aa129141554bea8d9e62daea5fea8351439f723e8e27fe593c2b7c53903"},
+]
+
+[[package]]
 name = "mpmath"
 version = "1.3.0"
 description = "Python library for arbitrary-precision floating-point arithmetic"
@@ -990,4 +1001,4 @@ markers = {dev = "python_version == \"3.10\""}
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "e3e286c03ad23cf3b15051b57d3c35a4a7ab10eddba59f851a5ed9d254d90d5c"
+content-hash = "623ee817a39fd204a354f0f9fb5d008e49531098ff202b9e08fce6372409efe9"
