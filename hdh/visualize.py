@@ -5,7 +5,7 @@ import re
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hdh.hdh import HDH
+from .hdh import HDH
 
 def plot_hdh(hdh, save_path=None):
     nodes = list(hdh.S)

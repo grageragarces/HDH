@@ -1,11 +1,13 @@
 [tool.poetry]
 name = "hdh"
-version = "0.0.2"
+version = "0.0.6"
 description = "Hybrid Dependency Hypergraphs for quantum computation: translation, visualization, and partitioning."
 authors = ["Maria Gragera Garces <m.gragera.gaces@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "hdh" }]
+packages = [
+  { include = "hdh"},
+]
 homepage = "https://pypi.org/project/hdh/"
 repository = "https://github.com/grageragarces/hdh"
 keywords = ["quantum", "compiler", "partitioning", "hdh", "hypergraph"]
