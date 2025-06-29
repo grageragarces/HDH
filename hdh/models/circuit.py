@@ -104,6 +104,6 @@ class Circuit:
             else:
                 edge_type = "q"
 
-            hdh.add_hyperedge(edge_nodes, edge_type)
+            hdh.add_hyperedge(edge_nodes, edge_type, name=name)
 
         return hdh

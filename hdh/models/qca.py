@@ -25,7 +25,7 @@ class QCA:
 
                 out_node = f"{node}_t{t}"
                 hdh.add_node(out_node, "q", t)
-                hdh.add_hyperedge(frozenset(inputs + [out_node]), "q")
+                hdh.add_hyperedge(frozenset(inputs + [out_node]), "q", name="update")
                 time_map[node] = t
 
         # Add measurement edges
@@ -35,6 +35,6 @@ class QCA:
             cl_index = int(node[1:])  # assumes "q0", "q1", etc.
             c_node = f"c{cl_index}_t{t_meas}"
             hdh.add_node(c_node, "c", t_meas)
-            hdh.add_hyperedge(frozenset({out_node, c_node}), "c")
+            hdh.add_hyperedge(frozenset({out_node, c_node}), "c", name="measure")
 
         return hdh

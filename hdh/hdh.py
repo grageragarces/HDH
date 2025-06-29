@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Set, Tuple, List, Literal, Union
+from typing import Dict, Set, Tuple, List, Literal, Union, Optional  
 
 NodeType = Literal["q", "c"]  # quantum or classical
 EdgeType = Literal["q", "c"]
@@ -14,6 +14,7 @@ class HDH:
         self.sigma: Dict[NodeID, NodeType] = {}  # node types
         self.tau: Dict[frozenset, EdgeType] = {}  # hyperedge types
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
+        self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
 
     def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep):
         self.S.add(node_id)
@@ -21,10 +22,12 @@ class HDH:
         self.time_map[node_id] = time
         self.T.add(time)
 
-    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType):
+    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None):
         edge = frozenset(node_ids)
         self.C.add(edge)
         self.tau[edge] = edge_type
+        if name:
+            self.gate_name[edge] = name.lower()  # ensures 'CX' becomes 'cx', etc.
 
     def get_ancestry(self, node: NodeID) -> Set[NodeID]:
         """Return nodes with paths ending at `node` and earlier time steps."""
@@ -57,3 +60,12 @@ class HDH:
             }
             stack.extend(neighbors - visited)
         return False
+
+    def get_num_qubits(self) -> int:
+        """Returns the total number of distinct qubit indices in the circuit."""
+        qubit_indices = {
+            int(node_id.split("_")[0][1:])
+            for node_id in self.S
+            if self.sigma[node_id] == 'q'
+        }
+        return len(qubit_indices)
