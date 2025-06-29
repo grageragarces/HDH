@@ -44,7 +44,7 @@ class QW:
 
             hdh.add_node(in_id, in_type, in_time)
             hdh.add_node(out_id, out_type, out_time)
-            hdh.add_hyperedge({in_id, out_id}, edge_type)
+            hdh.add_hyperedge({in_id, out_id}, edge_type, name=op_type.lower())
 
             time_map[b] = out_time  # set output time
         return hdh

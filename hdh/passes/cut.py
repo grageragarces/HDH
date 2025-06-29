@@ -100,3 +100,40 @@ def compute_parallelism_by_time(
 
     else:
         raise ValueError("mode must be 'global' or 'local'")
+
+def compute_cut_by_time_percent(hdh: HDH, percent: float) -> List[Set[str]]:
+    """
+    Cut the HDH horizontally across time at a given percentage (e.g. 0.3 = 30%).
+    Returns two partitions: before and after the cut.
+    """
+    assert 0 <= percent <= 1, "Percent must be between 0 and 1"
+    max_time = max(hdh.time_map.values())
+    threshold = int(percent * max_time)
+
+    part0 = {n for n in hdh.S if hdh.time_map[n] <= threshold}
+    part1 = hdh.S - part0
+    return [part0, part1]
+
+def gates_by_partition(hdh, partitions):
+    """
+    Classify HDH edges as intra- or inter-partition based on provided partitions.
+    Returns (intra_edges, inter_edges)
+    """
+    node_to_part = {}
+    for i, part in enumerate(partitions):
+        for node in part:
+            node_to_part[node] = i
+
+    intra = [[] for _ in partitions]
+    inter = []
+
+    for edge in hdh.C:
+        parts = {node_to_part.get(n) for n in edge if n in node_to_part}
+        parts.discard(None)
+
+        if len(parts) == 1:
+            intra[list(parts)[0]].append(edge)
+        elif len(parts) > 1:
+            inter.append(edge)
+
+    return intra, inter

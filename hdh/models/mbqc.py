@@ -39,7 +39,7 @@ class MBQC:
             time_map[b] = op_time
 
             edge_nodes = in_nodes | out_nodes
-            hdh.add_hyperedge(edge_nodes, self._edge_type(op_type))
+            hdh.add_hyperedge(edge_nodes, self._edge_type(op_type), name=op_type.lower())
 
         return hdh
 
