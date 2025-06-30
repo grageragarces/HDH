@@ -8,59 +8,39 @@ from hdh.hdh import HDH
 def get_logical_qubit(node_id: str) -> str:
     return node_id.split('_')[0]
 
-def compute_cut(hdh, num_parts: int, max_qubits_per_partition: Optional[int] = None) -> List[Set[str]]:
+def compute_cut(hdh: HDH, num_parts: int) -> List[Set[str]]:
     """
-    Partition HDH nodes using METIS, enforcing optional qubit caps per QPU.
-
-    Parameters:
-        hdh: Hybrid Dependency Hypergraph object
-        num_parts: number of partitions (QPUs)
-        max_qubits_per_partition: optional cap on logical qubits per partition
-
-    Returns:
-        List of disjoint sets of node IDs per partition
-
-    Raises:
-        ValueError if any partition exceeds the logical qubit limit
+    Use METIS to partition HDH nodes into disjoint blocks.
+    
+    Returns a list of disjoint sets of node IDs.
     """
-    # Step 1: Build undirected graph
+    # 1. Build undirected graph from HDH
     G = nx.Graph()
     G.add_nodes_from(hdh.S)
+    
     for edge in hdh.C:
         edge_nodes = list(edge)
         for i in range(len(edge_nodes)):
             for j in range(i + 1, len(edge_nodes)):
                 G.add_edge(edge_nodes[i], edge_nodes[j])
 
-    # Step 2: Relabel for METIS
+    # 2. Convert to METIS-compatible graph (requires contiguous integer node IDs)
     node_list = list(G.nodes)
     node_idx_map = {node: idx for idx, node in enumerate(node_list)}
     idx_node_map = {idx: node for node, idx in node_idx_map.items()}
+
     metis_graph = nx.relabel_nodes(G, node_idx_map, copy=True)
-
-    # Step 3: Partition
+    
+    # 3. Call METIS
     _, parts = metis.part_graph(metis_graph, nparts=num_parts)
-
-    # Step 4: Build partition sets
+    
+    # 4. Build partition sets
     partition = [set() for _ in range(num_parts)]
     for idx, part in enumerate(parts):
         node_id = idx_node_map[idx]
         partition[part].add(node_id)
-
-    # Step 5: Determine logical qubit limit if not provided
-    if max_qubits_per_partition is None:
-        logical_qubits_all = set(get_logical_qubit(n) for n in hdh.S if n.startswith('q'))
-        estimated_limit = ceil(len(logical_qubits_all) / num_parts * 1.2)
-        max_qubits_per_partition = estimated_limit
-
-    # Step 6: Enforce qubit limits
-    for i, part in enumerate(partition):
-        logical_qubits = set(get_logical_qubit(n) for n in part if n.startswith('q'))
-        if len(logical_qubits) > max_qubits_per_partition:
-            raise ValueError(f"Partition {i} exceeds logical qubit limit: {len(logical_qubits)} > {max_qubits_per_partition}")
-
+    
     return partition
-
 
 def cost(hdh: HDH, partition: List[Set[str]]) -> int:
     """Return number of hyperedges in HDH that span multiple partitions."""
