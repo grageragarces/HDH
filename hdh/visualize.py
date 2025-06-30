@@ -126,10 +126,13 @@ def plot_hdh(hdh, save_path=None):
                     ax.plot([x0, x1], [y0, y1], color=color, linewidth=1.5)
 
     if save_path:
-        plt.savefig(save_path)
+        ext = os.path.splitext(save_path)[1].lower()
+        if ext in [".png", ".jpg"]:
+            plt.savefig(save_path, dpi=600, bbox_inches='tight')
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     else:
         plt.show()
-
 
 def plot_hdh_networkx(hdh: HDH):
     G = nx.DiGraph()
