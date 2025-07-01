@@ -1,6 +1,6 @@
 import os
 from qiskit import QuantumCircuit
-from hdh.converters.convert_from_qiskit import from_qiskit
+from hdh.converters.qiskit import from_qiskit
 from hdh.passes.cut import compute_cut, compute_cut_by_time_percent, gates_by_partition
 
 def load_qiskit_circuit(qasm_path):

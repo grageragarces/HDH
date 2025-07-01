@@ -105,5 +105,9 @@ class Circuit:
                 edge_type = "q"
 
             hdh.add_hyperedge(edge_nodes, edge_type, name=name)
+            edge = hdh.add_hyperedge(edge_nodes, edge_type, name=name)
+            q_with_time = [(q, qubit_time[q]) for q in qargs]
+            c_with_time = [(c, clbit_time.get(c, 0)) for c in cargs]
+            hdh.edge_args[edge] = (q_with_time, c_with_time, modifies_flags)
 
         return hdh

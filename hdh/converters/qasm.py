@@ -1,5 +1,5 @@
 from qiskit import QuantumCircuit
-from hdh.converters.convert_from_qiskit import from_qiskit  # your existing converter
+from hdh.converters.qiskit import from_qiskit  # your existing converter
 
 def from_qasm(input_type: str, qasm: str):
     if input_type == 'file':
