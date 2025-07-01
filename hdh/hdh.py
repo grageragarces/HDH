@@ -15,6 +15,7 @@ class HDH:
         self.tau: Dict[frozenset, EdgeType] = {}  # hyperedge types
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
         self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
+        self.edge_args: Dict[frozenset, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
 
     def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep):
         self.S.add(node_id)
@@ -28,6 +29,7 @@ class HDH:
         self.tau[edge] = edge_type
         if name:
             self.gate_name[edge] = name.lower()  # ensures 'CX' becomes 'cx', etc.
+        return edge
 
     def get_ancestry(self, node: NodeID) -> Set[NodeID]:
         """Return nodes with paths ending at `node` and earlier time steps."""

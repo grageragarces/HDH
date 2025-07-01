@@ -3,7 +3,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hdh.converters.convert_from_qiskit import from_qiskit
+from hdh.converters.qiskit import from_qiskit
 from hdh.visualize import plot_hdh
 from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
 
