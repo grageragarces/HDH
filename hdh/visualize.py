@@ -105,7 +105,7 @@ def plot_hdh(hdh, save_path=None):
                 x0, y0 = node_positions[n1]
                 x1, y1 = node_positions[n2]
 
-                print(f"Edge {edge} has type {edge_type}")
+                #print(f"Edge {edge} has type {edge_type}")
 
                 if edge_type == "c":
                     dx = x1 - x0

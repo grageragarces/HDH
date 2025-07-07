@@ -30,10 +30,10 @@ class Circuit:
         clbit_time: Dict[int, int] = {}
 
         for name, qargs, cargs, modifies_flags in self.instructions:
-            if name in {"barrier", "snapshot", "delay", "label"}:
+            if name in {"barrier", "snapshot", "delay", "label"}: #ignore these
                 continue
 
-            # Init times
+            # Init times 
             for q in qargs:
                 if q not in qubit_time:
                     qubit_time[q] = max(qubit_time.values(), default=0)
@@ -59,7 +59,7 @@ class Circuit:
                     out_nodes.add(out_id)
                     qubit_time[qubit] = t_out
 
-            # Measurement handling — FIXED
+            # Measurement handling 
             if name == "measure":
                 for i, qubit in enumerate(qargs):
                     qname = f"q{qubit}"
