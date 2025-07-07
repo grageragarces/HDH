@@ -16,6 +16,9 @@ class HDH:
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
         self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
         self.edge_args: Dict[frozenset, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
+        self.edge_role: Dict[frozenset, Literal["teledata", "telegate"]] = {}  # tracks nature edges -> for primitive implementation
+        self.motifs = {}  
+        self.edge_metadata: Dict[frozenset, Dict] = {}
 
     def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep):
         self.S.add(node_id)
@@ -23,12 +26,14 @@ class HDH:
         self.time_map[node_id] = time
         self.T.add(time)
 
-    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None):
+    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, role: Optional[Literal["teledata", "telegate"]] = None):
         edge = frozenset(node_ids)
         self.C.add(edge)
         self.tau[edge] = edge_type
         if name:
-            self.gate_name[edge] = name.lower()  # ensures 'CX' becomes 'cx', etc.
+            self.gate_name[edge] = name.lower()
+        if role:
+            self.edge_role[edge] = role
         return edge
 
     def get_ancestry(self, node: NodeID) -> Set[NodeID]:
@@ -64,10 +69,13 @@ class HDH:
         return False
 
     def get_num_qubits(self) -> int:
-        """Returns the total number of distinct qubit indices in the circuit."""
-        qubit_indices = {
-            int(node_id.split("_")[0][1:])
-            for node_id in self.S
-            if self.sigma[node_id] == 'q'
-        }
-        return len(qubit_indices)
+        qubit_indices = set()
+        for node_id in self.S:
+            if self.sigma[node_id] == 'q':
+                try:
+                    base = node_id.split('_')[0]  # e.g. "q4"
+                    idx = int(base[1:])  # skip 'q'
+                    qubit_indices.add(idx)
+                except:
+                    continue
+        return max(qubit_indices) + 1 if qubit_indices else 0
