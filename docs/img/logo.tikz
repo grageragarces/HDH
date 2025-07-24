@@ -1,0 +1,30 @@
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [style=q] (0) at (-9, 0) {};
+		\node [style=q] (1) at (-7, 2) {};
+		\node [style=q] (2) at (-7, -2) {};
+		\node [style=q] (3) at (-6, 2) {};
+		\node [style=q] (4) at (-6, -2) {};
+		\node [style=q] (5) at (-3, 2) {};
+		\node [style=q] (6) at (-1, 0) {};
+		\node [style=q] (7) at (-3, -2) {};
+		\node [style=c] (8) at (-9, 2) {};
+		\node [style=c] (9) at (-7, 0) {};
+		\node [style=c] (10) at (-9, -2) {};
+		\node [style=c] (11) at (-4, 0) {};
+		\node [style=c] (12) at (-3, 0) {};
+		\node [style=c] (13) at (-1, 2) {};
+		\node [style=c] (14) at (-1, -2) {};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw (0) to (9);
+		\draw (8) to (10);
+		\draw (1) to (2);
+		\draw (3) to (4);
+		\draw (3) to (11);
+		\draw (4) to (11);
+		\draw (7) to (5);
+		\draw (13) to (14);
+		\draw (12) to (6);
+	\end{pgfonlayer}
+\end{tikzpicture}

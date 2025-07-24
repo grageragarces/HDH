@@ -21,7 +21,7 @@ def build_sample_circuit() -> QuantumCircuit:
         qc.rx(0.5, i)
     for i in range(5):
         qc.cx(i, i + 1)
-    qc.measure_all() 
+    # qc.measure_all() #TODO: check classical edges not inducing primitives
     return qc
 
 def main():

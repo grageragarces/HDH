@@ -1,4 +1,3 @@
-# hdh
 
 ![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/main/docs/img/logo.png)
 
@@ -31,11 +30,6 @@ It provides a unified structure that makes it easier to:
   - Measurement-Based Quantum Computing (MBQC)
   - Quantum Walks
   - Quantum Cellular Automata (QCA)
-- Analysis tools for:
-  - Cut cost estimation across partitions
-  - Partition size reporting
-  - Parallelism tracking by time step
-  - Integration with `networkx` and `metis`
 
 Includes test examples for:
 
@@ -86,32 +80,6 @@ hdh = from_qasm('file', qasm_path)
 plot_hdh(hdh)
 ```
 
-### Partitioning
-
-```python
-from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
-
-num_parts = 3
-partitions = compute_cut(hdh, num_parts)
-
-print(f"\nMETIS partition into {num_parts} parts:")
-for i, part in enumerate(partitions):
-    print(f"Partition {i}: {sorted(part)}")
-    
-# plot_hdh(hdh)
-cut_cost = cost(hdh, partitions)
-sizes = partition_sizes(partitions)
-global_parallelism = compute_parallelism_by_time(hdh, partitions, mode="global")
-parallelism_at_t3 = compute_parallelism_by_time(hdh, partitions, mode="local", time_step=3)
-
-print("\n--- QW Metrics ---")
-print(f"\nCut cost: {cut_cost}")
-print(f"Partition sizes: {sizes}")
-print(f"Parallelism over time: {global_parallelism}")
-print(f"Parallelism at time t=3: {parallelism_at_t3}")
-
-```
-
 ---
 
 ## Example Use Cases
@@ -119,7 +87,6 @@ print(f"Parallelism at time t=3: {parallelism_at_t3}")
 - Visualize quantum protocols (e.g., teleportation)  
 - Analyze dependencies in quantum walk evolutions  
 - Explore entanglement flow in MBQC patterns  
-- Partition large circuits across heterogeneous QPUs  
 
 ---
 
@@ -128,7 +95,34 @@ print(f"Parallelism at time t=3: {parallelism_at_t3}")
 - Compatibility with Cirq, Braket, and Pennylane  
 - Full graphical UI for HDH visualization  
 - Native noise-aware binning strategies  
-- Better cut handling for distributed execution  
+- Analysis tools for:
+  - Cut cost estimation across partitions
+  - Partition size reporting
+  - Parallelism tracking by time step
+  
+  ```python
+  from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
+
+  num_parts = 3
+  partitions = compute_cut(hdh, num_parts)
+
+  print(f"\nMETIS partition into {num_parts} parts:")
+  for i, part in enumerate(partitions):
+      print(f"Partition {i}: {sorted(part)}")
+      
+  # plot_hdh(hdh)
+  cut_cost = cost(hdh, partitions)
+  sizes = partition_sizes(partitions)
+  global_parallelism = compute_parallelism_by_time(hdh, partitions, mode="global")
+  parallelism_at_t3 = compute_parallelism_by_time(hdh, partitions, mode="local", time_step=3)
+
+  print("\n--- QW Metrics ---")
+  print(f"\nCut cost: {cut_cost}")
+  print(f"Partition sizes: {sizes}")
+  print(f"Parallelism over time: {global_parallelism}")
+  print(f"Parallelism at time t=3: {parallelism_at_t3}")
+
+  ```
 
 ---
 

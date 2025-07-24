@@ -83,11 +83,7 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
     return hdh
 
 def to_qiskit(hdh) -> QuantumCircuit:
-    def extract_index_from_node(n: str) -> int:
-        m = re.search(r'(?:q|c)[A-Za-z_]*?(\d+)', n)
-        if not m:
-            raise ValueError(f"Cannot extract index from: {n}")
-        return int(m.group(1))
+    from collections import defaultdict
 
     def resolve_qidxs(raw_q, anc_q, expected_len, edge, name):
         seen = set()
@@ -111,39 +107,29 @@ def to_qiskit(hdh) -> QuantumCircuit:
 
         return combined[:expected_len]
 
-    qubit_indices = set()
-    cbit_indices = set()
+    # Step 1: Create global contiguous index maps
+    q_nodes = sorted(n for n in hdh.S if hdh.sigma[n] == 'q')
+    c_nodes = sorted(n for n in hdh.S if hdh.sigma[n] == 'c')
 
-    for node in hdh.S:
-        idx = extract_index_from_node(node)
-        if hdh.sigma[node] == 'q':
-            qubit_indices.add(idx)
-        elif hdh.sigma[node] == 'c':
-            cbit_indices.add(idx)
+    node_to_qidx = {n: i for i, n in enumerate(q_nodes)}
+    node_to_cidx = {n: i for i, n in enumerate(c_nodes)}
 
-    for meta in hdh.edge_metadata.values():
-        qubit_indices.update(meta.get("qubits", []))
-        cbit_indices.update(meta.get("cbits", []))
-
+    # Also include ancilla nodes from motifs
     if hasattr(hdh, "motifs"):
         for motif in hdh.motifs.values():
-            qubit_indices.update([
-                extract_index_from_node(n)
-                for n in motif.get("ancilla_qubits", [])
-                if hdh.sigma.get(n) == "q"
-            ])
-            cbit_indices.update([
-                extract_index_from_node(n)
-                for n in motif.get("ancilla_bits", [])
-                if hdh.sigma.get(n) == "c"
-            ])
+            for n in motif.get("ancilla_qubits", []):
+                if hdh.sigma.get(n) == 'q' and n not in node_to_qidx:
+                    node_to_qidx[n] = len(node_to_qidx)
+            for n in motif.get("ancilla_bits", []):
+                if hdh.sigma.get(n) == 'c' and n not in node_to_cidx:
+                    node_to_cidx[n] = len(node_to_cidx)
 
-    max_q = max(qubit_indices) if qubit_indices else 0
-    max_c = max(cbit_indices) if cbit_indices else 0
-    print(f"[INFO] Allocating QuantumRegister({max_q+1}), ClassicalRegister({max_c+1})")
+    print(f"[INFO] Allocating QuantumRegister({len(node_to_qidx)}), ClassicalRegister({len(node_to_cidx)})")
+    print("[DEBUG] node_to_qidx:", node_to_qidx)
+    print("[DEBUG] node_to_cidx:", node_to_cidx)
 
-    qr = QuantumRegister(max_q + 1, 'q')
-    cr = ClassicalRegister(max_c + 1, 'c')
+    qr = QuantumRegister(len(node_to_qidx), 'q')
+    cr = ClassicalRegister(len(node_to_cidx), 'c')
     qc = QuantumCircuit(qr, cr)
 
     found_telegate = False
@@ -152,24 +138,15 @@ def to_qiskit(hdh) -> QuantumCircuit:
     for edge in sorted(hdh.C, key=lambda e: hdh.edge_metadata.get(e, {}).get("timestep", 0)):
         meta = hdh.edge_metadata.get(edge, {})
         name = hdh.gate_name.get(edge, "unknown")
-        role = meta.get("role")
-        raw_q_idxs = list(meta.get("qubits", []))
-        c_idxs = list(meta.get("cbits", []))
+        raw_q_idxs = [node_to_qidx[q] for q in meta.get("qubits", []) if q in node_to_qidx]
+        c_idxs = [node_to_cidx[c] for c in meta.get("cbits", []) if c in node_to_cidx]
 
         anc_qidxs = []
         anc_cidxs = []
         if edge in getattr(hdh, "motifs", {}):
             motif = hdh.motifs[edge]
-            anc_qidxs = [
-                extract_index_from_node(n)
-                for n in motif.get("ancilla_qubits", [])
-                if hdh.sigma.get(n) == "q"
-            ]
-            anc_cidxs = [
-                extract_index_from_node(n)
-                for n in motif.get("ancilla_bits", [])
-                if hdh.sigma.get(n) == "c"
-            ]
+            anc_qidxs = [node_to_qidx[n] for n in motif.get("ancilla_qubits", []) if n in node_to_qidx]
+            anc_cidxs = [node_to_cidx[n] for n in motif.get("ancilla_bits", []) if n in node_to_cidx]
 
         anc_qidxs = [a for a in anc_qidxs if a not in raw_q_idxs]
         anc_cidxs = [c for c in anc_cidxs if c not in c_idxs]
@@ -190,6 +167,9 @@ def to_qiskit(hdh) -> QuantumCircuit:
                 print(f"[DEBUG] Appending cx on edge {edge}")
                 qc.cx(qr[raw_q_idxs[0]], qr[raw_q_idxs[1]])
             elif gate == "measure":
+                if not raw_q_idxs or not c_idxs:
+                    print(f"[ERROR] Cannot apply measure on edge {edge}: missing qubit or cbit idxs")
+                    continue
                 print(f"[DEBUG] Appending measure on edge {edge}")
                 qc.measure(qr[raw_q_idxs[0]], cr[c_idxs[0]])
             else:
@@ -223,13 +203,16 @@ def to_qiskit(hdh) -> QuantumCircuit:
         clbits = [cr[i] for i in c_idxs]
 
         if name == 'measure':
+            if not qubits or not clbits:
+                print(f"[ERROR] Cannot apply measure on edge {edge}: missing qubit or cbit idxs")
+                continue
             print(f"[DEBUG] Appending measure on edge {edge}")
             qc.measure(qubits[0], clbits[0])
         elif isinstance(sub, QuantumCircuit):
             print(f"[DEBUG] Appending {name} on edge {edge} (circuit with {len(sub.data)} ops)")
-            if role == 'telegate':
+            if name == 'telegate':
                 found_telegate = True
-            if role == 'teledata':
+            if name == 'teledata':
                 found_teledata = True
             for g in sub.data:
                 gate, qargs, cargs = g
@@ -238,17 +221,17 @@ def to_qiskit(hdh) -> QuantumCircuit:
                 qc.append(gate, qidxs, cidxs)
         else:
             print(f"[DEBUG] Appending {name} on edge {edge} (inst)")
-            if role == 'telegate':
+            if name == 'telegate':
                 found_telegate = True
-            if role == 'teledata':
+            if name == 'teledata':
                 found_teledata = True
             qc.append(inst, qubits, clbits)
 
     if not found_telegate and not found_teledata:
         print("[WARNING] No communication primitives (telegate/teledata) appended!")
 
-    num_teledata = sum(1 for meta in hdh.edge_metadata.values() if meta.get("role") == 'teledata')
-    num_telegate = sum(1 for meta in hdh.edge_metadata.values() if meta.get("role") == 'telegate')
+    num_teledata = sum(1 for name in hdh.gate_name.values() if name == 'teledata')
+    num_telegate = sum(1 for name in hdh.gate_name.values() if name == 'telegate')
     print(f"[DEBUG] teledata count: {num_teledata}, telegate count: {num_telegate}")
     print(f"[DEBUG] Final circuit has {qc.num_qubits} qubits and {qc.count_ops()} total ops")
     return qc

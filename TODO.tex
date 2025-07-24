@@ -1,7 +1,26 @@
+DEBUG: 
+- motif generation from circuit
+- qiskit to hdh translation - not matching hdhs
+- delete cutting stuff -- make sure to also delete from README & test
 
-Mid term:
+Short term: FIX MEASUREMENT AND HYPEREDGE INTERPRETATION
 - make sure hyperedges are considered as hyperedges - not as edges (may be "extra counted")
+- fix measurement: measure_all() defo broken, maybe so is measure
 
-Long run:
-- fix qiskit backwards conside 
+Mid term: TRANSLATIONS BACK + PRIMITIVES + TESTS 
+- to_qiskit: broken - can't do it for 1 partition + primitives defo not being injected correctly + for >1 partition hdhs not doing great
+    -> cut_and_rewrite_hdh
 - revise telegate and teledata primitives
+- make it possible to inject communication channel noise through telegate and teledata primitive noise injections 
+    - for simulations
+    - for real implementations?: is this even duable on qiskit?
+- actually make tests into real tests
+
+Long term: QMETIS (FM?)     -> cut_and_rewrite_hdh
+- recognise nodes form one qubit as a group
+- cluster nodes into qubit
+- further cluster by weight
+- cut
+- decluster
+
+Make node logo - HDH

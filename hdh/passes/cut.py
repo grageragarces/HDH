@@ -1,3 +1,9 @@
+"""
+This code is currently under development and is subject to change.
+Current cut functions do not take into account qubit capacities and thus generally default to teledata cuts.
+Full integration with primitives is still pending.
+"""
+
 import networkx as nx
 import networkx.algorithms.community as nx_comm
 import metis
@@ -32,39 +38,39 @@ def extract_cidx(n):
 def get_logical_qubit(node_id: str) -> str:
     return node_id.split('_')[0]
 
-def compute_cut(hdh: HDH, num_parts: int) -> List[Set[str]]:
-    """
-    Use METIS to partition HDH nodes into disjoint blocks.
+# def compute_cut(hdh: HDH, num_parts: int) -> List[Set[str]]:
+#     """
+#     Use METIS to partition HDH nodes into disjoint blocks.
     
-    Returns a list of disjoint sets of node IDs.
-    """
-    # 1. Build undirected graph from HDH
-    G = nx.Graph()
-    G.add_nodes_from(hdh.S)
+#     Returns a list of disjoint sets of node IDs.
+#     """
+#     # 1. Build undirected graph from HDH
+#     G = nx.Graph()
+#     G.add_nodes_from(hdh.S)
     
-    for edge in hdh.C:
-        edge_nodes = list(edge)
-        for i in range(len(edge_nodes)):
-            for j in range(i + 1, len(edge_nodes)):
-                G.add_edge(edge_nodes[i], edge_nodes[j])
+#     for edge in hdh.C:
+#         edge_nodes = list(edge)
+#         for i in range(len(edge_nodes)):
+#             for j in range(i + 1, len(edge_nodes)):
+#                 G.add_edge(edge_nodes[i], edge_nodes[j])
 
-    # 2. Convert to METIS-compatible graph (requires contiguous integer node IDs)
-    node_list = list(G.nodes)
-    node_idx_map = {node: idx for idx, node in enumerate(node_list)}
-    idx_node_map = {idx: node for node, idx in node_idx_map.items()}
+#     # 2. Convert to METIS-compatible graph (requires contiguous integer node IDs)
+#     node_list = list(G.nodes)
+#     node_idx_map = {node: idx for idx, node in enumerate(node_list)}
+#     idx_node_map = {idx: node for node, idx in node_idx_map.items()}
 
-    metis_graph = nx.relabel_nodes(G, node_idx_map, copy=True)
+#     metis_graph = nx.relabel_nodes(G, node_idx_map, copy=True)
     
-    # 3. Call METIS
-    _, parts = metis.part_graph(metis_graph, nparts=num_parts)
+#     # 3. Call METIS
+#     _, parts = metis.part_graph(metis_graph, nparts=num_parts)
     
-    # 4. Build partition sets
-    partition = [set() for _ in range(num_parts)]
-    for idx, part in enumerate(parts):
-        node_id = idx_node_map[idx]
-        partition[part].add(node_id)
+#     # 4. Build partition sets
+#     partition = [set() for _ in range(num_parts)]
+#     for idx, part in enumerate(parts):
+#         node_id = idx_node_map[idx]
+#         partition[part].add(node_id)
     
-    return partition
+#     return partition
 
 def select_comm_primitive(role, node_type, allowed):
     if role == "teledata":
@@ -81,166 +87,148 @@ def extract_cidx(n):
         return int(m.group(1))
     raise ValueError(f"Cannot extract classical bit index from: {n}")
 
-def cut_and_rewrite_hdh(
-    hdh,
-    num_parts: int,
-    allowed_primitives: Dict[str, Set[str]],
-    insert_qiskit_circuits: bool = False,
-    qiskit_primitives: Optional[Dict[str, QuantumCircuit]] = None
-) -> List:
+# def cut_and_rewrite_hdh(
+#     hdh,
+#     num_parts: int,
+#     allowed_primitives: Dict[str, Set[str]],
+#     insert_qiskit_circuits: bool = False,
+#     qiskit_primitives: Optional[Dict[str, QuantumCircuit]] = None
+# ) -> List:
 
-    def select_comm_primitive(role, node_type, allowed, primitive_lib=None):
-        if role == "teledata":
-            label = "tp" if "tp" in allowed["quantum"] else "cat"
-        elif role == "telegate":
-            label = "cat"
-        elif role == "classical":
-            label = "ccom" if "ccom" in allowed["classical"] else "crep"
-        else:
-            raise ValueError(f"Unknown role: {role}")
+#     partitions = compute_cut(hdh, num_parts)
+#     node_to_part = {node: i for i, part in enumerate(partitions) for node in part}
+#     cut_edges = [e for e in hdh.C if len({node_to_part[n] for n in e}) > 1]
+#     print(f"[DEBUG] Number of cut edges: {len(cut_edges)}")
 
-        circ = None
-        if primitive_lib:
-            circ = primitive_lib.get(label)
-            if not isinstance(circ, QuantumCircuit):
-                print(f"Warning: primitive '{label}' is not a valid Qiskit circuit. Skipping circuit insert.")
-                circ = None
-        return label, circ
+#     partitioned_hdhs = [hdh.__class__() for _ in range(num_parts)]
+#     anc = AncillaAllocator()
 
-    partitions = compute_cut(hdh, num_parts)
-    node_to_part = {node: i for i, part in enumerate(partitions) for node in part}
-    cut_edges = [e for e in hdh.C if len({node_to_part[n] for n in e}) > 1]
-    print(f"[DEBUG] Number of cut edges: {len(cut_edges)}")
+#     # Copy nodes
+#     for i, part in enumerate(partitions):
+#         for node in part:
+#             partitioned_hdhs[i].add_node(node, hdh.sigma[node], hdh.time_map[node])
 
-    partitioned_hdhs = [hdh.__class__() for _ in range(num_parts)]
-    anc = AncillaAllocator()
+#     # Copy non-cut edges
+#     for edge in hdh.C - set(cut_edges):
+#         parts = {node_to_part[n] for n in edge}
+#         p = parts.pop()
+#         new_edge = partitioned_hdhs[p].add_hyperedge(
+#             edge,
+#             hdh.tau[edge],
+#             name=hdh.gate_name.get(edge),
+#             role=hdh.edge_role.get(edge)
+#         )
+#         if edge in hdh.edge_args:
+#             partitioned_hdhs[p].edge_args[new_edge] = hdh.edge_args[edge]
+#         if hasattr(hdh, "edge_metadata") and edge in hdh.edge_metadata:
+#             partitioned_hdhs[p].edge_metadata[new_edge] = hdh.edge_metadata[edge]
 
-    # Copy nodes
-    for i, part in enumerate(partitions):
-        for node in part:
-            partitioned_hdhs[i].add_node(node, hdh.sigma[node], hdh.time_map[node])
+#     # Handle cut edges
+#     for edge in cut_edges:
+#         parts = list({node_to_part[n] for n in edge})
+#         if len(parts) != 2:
+#             continue  # Only handle bipartition edges
 
-    # Copy non-cut edges
-    for edge in hdh.C - set(cut_edges):
-        parts = {node_to_part[n] for n in edge}
-        p = parts.pop()
-        new_edge = partitioned_hdhs[p].add_hyperedge(
-            edge,
-            hdh.tau[edge],
-            name=hdh.gate_name.get(edge),
-            role=hdh.edge_role.get(edge)
-        )
-        if edge in hdh.edge_args:
-            partitioned_hdhs[p].edge_args[new_edge] = hdh.edge_args[edge]
-        if hasattr(hdh, "edge_metadata") and edge in hdh.edge_metadata:
-            partitioned_hdhs[p].edge_metadata[new_edge] = hdh.edge_metadata[edge]
+#         print(f"[DEBUG] Cutting edge: {edge} with name: {hdh.gate_name.get(edge)}")
 
-    # Handle cut edges
-    for edge in cut_edges:
-        parts = list({node_to_part[n] for n in edge})
-        if len(parts) != 2:
-            continue  # Only handle bipartition edges
+#         nodes = list(edge)
+#         for i in range(len(nodes)):
+#             for j in range(i + 1, len(nodes)):
+#                 n1, n2 = nodes[i], nodes[j]
+#                 if node_to_part[n1] != node_to_part[n2]:
+#                     src, dst = (n1, n2) if hdh.time_map[n1] <= hdh.time_map[n2] else (n2, n1)
+#                     t_src, t_dst = hdh.time_map[src], hdh.time_map[dst]
+#                     qtype = hdh.sigma[src]
+#                     role = hdh.edge_role.get(edge)
 
-        print(f"[DEBUG] Cutting edge: {edge} with name: {hdh.gate_name.get(edge)}")
+#                     if role is None:
+#                         label = hdh.gate_name.get(edge, "")
+#                         if label in {"cx", "cz"}:
+#                             role = "telegate"
+#                         else:
+#                             role = "teledata"
 
-        nodes = list(edge)
-        for i in range(len(nodes)):
-            for j in range(i + 1, len(nodes)):
-                n1, n2 = nodes[i], nodes[j]
-                if node_to_part[n1] != node_to_part[n2]:
-                    src, dst = (n1, n2) if hdh.time_map[n1] <= hdh.time_map[n2] else (n2, n1)
-                    t_src, t_dst = hdh.time_map[src], hdh.time_map[dst]
-                    qtype = hdh.sigma[src]
-                    role = hdh.edge_role.get(edge)
+#                     primitive, qiskit_circuit = select_comm_primitive(
+#                         role, qtype, allowed_primitives, qiskit_primitives if insert_qiskit_circuits else None
+#                     )
 
-                    if role is None:
-                        label = hdh.gate_name.get(edge, "")
-                        if label in {"cx", "cz"}:
-                            role = "telegate"
-                        else:
-                            role = "teledata"
+#                     print(f"[DEBUG] Assigning primitive '{primitive}' for edge {edge}, role: {role}")
 
-                    primitive, qiskit_circuit = select_comm_primitive(
-                        role, qtype, allowed_primitives, qiskit_primitives if insert_qiskit_circuits else None
-                    )
+#                     if insert_qiskit_circuits and qiskit_circuit is None:
+#                         qiskit_circuit = default_primitive(primitive)
 
-                    print(f"[DEBUG] Assigning primitive '{primitive}' for edge {edge}, role: {role}")
+#                     src_part = node_to_part[src]
+#                     dst_part = node_to_part[dst]
+#                     if src_part == dst_part:
+#                         continue
 
-                    if insert_qiskit_circuits and qiskit_circuit is None:
-                        qiskit_circuit = default_primitive(primitive)
+#                     src_stub = f"{src}_send"
+#                     dst_stub = f"{dst}_recv"
 
-                    src_part = node_to_part[src]
-                    dst_part = node_to_part[dst]
-                    if src_part == dst_part:
-                        continue
+#                     partitioned_hdhs[src_part].add_node(src_stub, qtype, t_src)
+#                     partitioned_hdhs[dst_part].add_node(dst_stub, qtype, t_dst)
 
-                    src_stub = f"{src}_send"
-                    dst_stub = f"{dst}_recv"
+#                     partitioned_hdhs[src_part].add_hyperedge({src, src_stub}, qtype)
+#                     partitioned_hdhs[dst_part].add_hyperedge({dst_stub, dst}, qtype)
 
-                    partitioned_hdhs[src_part].add_node(src_stub, qtype, t_src)
-                    partitioned_hdhs[dst_part].add_node(dst_stub, qtype, t_dst)
+#                     comm_nodes = {src_stub, dst_stub}
 
-                    partitioned_hdhs[src_part].add_hyperedge({src, src_stub}, qtype)
-                    partitioned_hdhs[dst_part].add_hyperedge({dst_stub, dst}, qtype)
+#                     anc_qs = []
+#                     anc_cs = []
 
-                    comm_nodes = {src_stub, dst_stub}
+#                     if insert_qiskit_circuits and qiskit_circuit:
+#                         print(f"[DEBUG] Inserting circuit for edge {edge}: {qiskit_circuit.name}")
+#                         for _ in range(qiskit_circuit.num_qubits):
+#                             anc_q = anc.new("qA", t_src)
+#                             partitioned_hdhs[src_part].add_node(anc_q, 'q', t_src)
+#                             comm_nodes.add(anc_q)
+#                             anc_qs.append(anc_q)
+#                         for _ in range(qiskit_circuit.num_clbits):
+#                             anc_c = anc.new("c", t_src)
+#                             partitioned_hdhs[src_part].add_node(anc_c, 'c', t_src)
+#                             anc_cs.append(anc_c)
 
-                    anc_qs = []
-                    anc_cs = []
+#                     comm_edge = partitioned_hdhs[src_part].add_hyperedge(
+#                         comm_nodes,
+#                         primitive,
+#                         name=primitive,
+#                         role=role
+#                     )
 
-                    if insert_qiskit_circuits and qiskit_circuit:
-                        print(f"[DEBUG] Inserting circuit for edge {edge}: {qiskit_circuit.name}")
-                        for _ in range(qiskit_circuit.num_qubits):
-                            anc_q = anc.new("qA", t_src)
-                            partitioned_hdhs[src_part].add_node(anc_q, 'q', t_src)
-                            comm_nodes.add(anc_q)
-                            anc_qs.append(anc_q)
-                        for _ in range(qiskit_circuit.num_clbits):
-                            anc_c = anc.new("c", t_src)
-                            partitioned_hdhs[src_part].add_node(anc_c, 'c', t_src)
-                            anc_cs.append(anc_c)
+#                     if insert_qiskit_circuits and qiskit_circuit:
+#                         partitioned_hdhs[src_part].edge_args[comm_edge] = qiskit_circuit
 
-                    comm_edge = partitioned_hdhs[src_part].add_hyperedge(
-                        comm_nodes,
-                        primitive,
-                        name=primitive,
-                        role=role
-                    )
+#                         q_order = [src_stub, dst_stub] + anc_qs
+#                         qubit_candidates = [n for n in q_order if n.startswith('q')]
+#                         if len(qubit_candidates) < qiskit_circuit.num_qubits:
+#                             raise ValueError(
+#                                 f"Edge {edge} ({primitive}) expects {qiskit_circuit.num_qubits} qubits, "
+#                                 f"but got only {len(qubit_candidates)}: {qubit_candidates}"
+#                             )
 
-                    if insert_qiskit_circuits and qiskit_circuit:
-                        partitioned_hdhs[src_part].edge_args[comm_edge] = qiskit_circuit
+#                         qubit_idxs = [extract_qidx(n) for n in qubit_candidates[:qiskit_circuit.num_qubits]]
+#                         cbit_idxs = [extract_cidx(n) for n in anc_cs[:qiskit_circuit.num_clbits]]
 
-                        q_order = [src_stub, dst_stub] + anc_qs
-                        qubit_candidates = [n for n in q_order if n.startswith('q')]
-                        if len(qubit_candidates) < qiskit_circuit.num_qubits:
-                            raise ValueError(
-                                f"Edge {edge} ({primitive}) expects {qiskit_circuit.num_qubits} qubits, "
-                                f"but got only {len(qubit_candidates)}: {qubit_candidates}"
-                            )
+#                         partitioned_hdhs[src_part].edge_metadata[comm_edge] = {
+#                             "qubits": qubit_idxs,
+#                             "cbits": cbit_idxs,
+#                             "timestep": t_src,
+#                             "gate": qiskit_circuit.to_instruction()
+#                         }
 
-                        qubit_idxs = [extract_qidx(n) for n in qubit_candidates[:qiskit_circuit.num_qubits]]
-                        cbit_idxs = [extract_cidx(n) for n in anc_cs[:qiskit_circuit.num_clbits]]
+#                     partitioned_hdhs[src_part].motifs[comm_edge] = {
+#                         "type": primitive,
+#                         "role": role,
+#                         "source": src,
+#                         "target": dst,
+#                         "qtype": qtype,
+#                         "time_src": t_src,
+#                         "time_dst": t_dst,
+#                         "ancilla_qubits": anc_qs,
+#                         "ancilla_bits": anc_cs
+#                     }
 
-                        partitioned_hdhs[src_part].edge_metadata[comm_edge] = {
-                            "qubits": qubit_idxs,
-                            "cbits": cbit_idxs,
-                            "timestep": t_src,
-                            "gate": qiskit_circuit.to_instruction()
-                        }
-
-                    partitioned_hdhs[src_part].motifs[comm_edge] = {
-                        "type": primitive,
-                        "role": role,
-                        "source": src,
-                        "target": dst,
-                        "qtype": qtype,
-                        "time_src": t_src,
-                        "time_dst": t_dst,
-                        "ancilla_qubits": anc_qs,
-                        "ancilla_bits": anc_cs
-                    }
-
-    return partitioned_hdhs
+#     return partitioned_hdhs
 
 def cost(hdh: HDH, partition: List[Set[str]]) -> int:
     """Return number of hyperedges in HDH that span multiple partitions."""
