@@ -1,3 +1,10 @@
+"""
+This module is still under development and is subject to change.
+It currently implements a limited amount of quantum communication primitives for Qiskit circuits.
+The goal is to provide SDK agnostic primitives that can be translated from the Circuit class to other SDKs.
+This work is still ongoing.
+"""
+
 from qiskit import QuantumCircuit, QuantumRegister
 from qiskit.circuit import Instruction
 from qiskit.circuit.library import XGate
