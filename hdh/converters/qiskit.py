@@ -9,81 +9,33 @@ from collections import defaultdict,Counter
 from qiskit.circuit import Instruction, InstructionSet, Measure, Reset
 import re
 
-def from_qiskit(qc: QuantumCircuit) -> HDH: 
-    hdh = HDH()
+from hdh.models.circuit import Circuit
 
-    qstates = {}
-    cstates = {}
-    for i, q in enumerate(qc.qubits):
-        name = f"q{i}_t0"
-        hdh.add_node(name, 'q', 0)
-        qstates[q] = name
+def from_qiskit(qc: QuantumCircuit) -> HDH:
+    circuit = Circuit()
 
-    for i, c in enumerate(qc.clbits):
-        name = f"c{i}_t0"
-        hdh.add_node(name, 'c', 0)
-        cstates[c] = name
-
-    timestep = 1
     for instr, qargs, cargs in qc.data:
-        if instr.name == "measure":
-            q = qargs[0]
-            c = cargs[0]
-
-            q_old = qstates[q]
-            q_new = f"q{qc.qubits.index(q)}_t{timestep}"
-            hdh.add_node(q_new, 'q', timestep)
-
-            c_old = cstates.get(c, f"c{qc.clbits.index(c)}_t0")
-            c_new = f"c{qc.clbits.index(c)}_t{timestep}"
-            hdh.add_node(c_new, 'c', timestep)
-            cstates[c] = c_new
-
-            edge = hdh.add_hyperedge({q_old, q_new, c_old, c_new}, edge_type='c', name='measure')
-
-            hdh.edge_args[edge] = QuantumCircuit(1,1).measure(0,0)
-            hdh.gate_name[edge] = 'measure'
-            hdh.edge_metadata[edge] = {
-                "gate": instr.name,
-                "qubits": [qc.qubits.index(q)],
-                "cbits": [qc.clbits.index(c)],
-                "timestep": timestep
-            }
-
-            qstates[q] = q_new
-            timestep += 1
+        if instr.name in {"barrier", "snapshot", "delay", "label"}:
             continue
 
-        old = [qstates[q] for q in qargs]
-        new = [f"q{qc.qubits.index(q)}_t{timestep}" for q in qargs]
+        q_indices = [qc.qubits.index(q) for q in qargs]
+        c_indices = [qc.clbits.index(c) for c in cargs]
 
-        for node in new:
-            hdh.add_node(node, 'q', timestep)
+        # Measurement modifies qubit (logically yes), and yields classical
+        if instr.name == "measure":
+            circuit.add_instruction("measure", q_indices, c_indices)
+        else:
+            # Default: all qubit operands are modified
+            modifies_flags = [True] * len(q_indices)
+            circuit.add_instruction(instr.name, q_indices, c_indices, modifies_flags)
 
-        edge_nodes = set(old + new)
-        edge = hdh.add_hyperedge(edge_nodes, edge_type='q', name=instr.name)
-
-        sub_qc = QuantumCircuit(len(qargs))
-        sub_qc.append(instr, list(range(len(qargs))))
-        hdh.edge_args[edge] = sub_qc
-        hdh.gate_name[edge] = instr.name
-        hdh.edge_metadata[edge] = {
-            "gate": instr.name,
-            "qubits": [qc.qubits.index(q) for q in qargs],
-            "params": instr.params,
-            "timestep": timestep
-        }
-
-        for i, q in enumerate(qargs):
-            qstates[q] = new[i]
-
-        timestep += 1
-
-    print(f"[DEBUG] Total gates in from_qiskit: {len(hdh.C)}")
-    return hdh
+    return circuit.build_hdh()
 
 def to_qiskit(hdh) -> QuantumCircuit:
-    from collections import defaultdict
+
+    """
+    No longer compatible with from_qiskit
+    """
 
     def resolve_qidxs(raw_q, anc_q, expected_len, edge, name):
         seen = set()
