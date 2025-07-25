@@ -142,7 +142,8 @@ class Circuit:
             something wrong with next step - not advacing correctly post the operation
             """
             if gate_name in {"cx", "ccx"}:
-                raise ValueError(f"Multiqubit conditional gates are unsupported at the moment.If this you would like them to be supported please open an issue on GitHub: {gate_name}")
+                raise NotImplementedError(f"Multiqubit conditional gates are unsupported at the moment.If this you would like them to be supported please open an issue on GitHub: {gate_name}")
+            
             # Resolve classical time (and create classical node)
             cname = f"c{meas_q}"
             if meas_q not in clbit_time:
@@ -168,18 +169,15 @@ class Circuit:
             q_in_node = f"{qname}_t{q_in_time}"
             q_out_node = f"{qname}_t{q_out_time}"
             hdh.add_node(q_out_node, "q", q_out_time)
-            qubit_time[target_q] = q_out_time
+            qubit_time[target_q] = q_out_time 
             
             # Add classical control edge
-            c_in_node = f"{cname}_t{c_in_time-1}" # do not create a new node
+            c_in_node = f"{cname}_t{c_in_time-1}" # does not create a new node
             hdh.add_hyperedge({q_in_node, c_in_node}, "c", name=f"{gate_name}_if_{meas_q}")
-            print(c_in_node, c_in_time, c_out_node, c_out_time, q_in_node, q_in_time, q_out_node, q_out_time)
             
             # Add quantum gate edge
             hdh.add_hyperedge({q_in_node, q_out_node}, "q", name=gate_name)
             print(c_in_node, c_in_time, c_out_node, c_out_time, q_in_node, q_in_time, q_out_node, q_out_time)
             
-            qubit_time[target_q] = q_out_time + 1
-            clbit_time[meas_q] = c_out_time + 1
 
         return hdh
