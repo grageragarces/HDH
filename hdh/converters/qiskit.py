@@ -7,6 +7,7 @@ from hdh.hdh import HDH
 from models.circuit import Circuit
 from collections import defaultdict,Counter
 from qiskit.circuit import Instruction, InstructionSet, Measure, Reset
+from qiskit.circuit.controlflow import IfElseOp
 import re
 
 from hdh.models.circuit import Circuit
@@ -21,11 +22,36 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
         q_indices = [qc.qubits.index(q) for q in qargs]
         c_indices = [qc.clbits.index(c) for c in cargs]
 
-        # Measurement modifies qubit (logically yes), and yields classical
+        # Handle conditionals
+        if isinstance(instr, IfElseOp):
+            # Support only: if (c[bit_index] == 1): gate(...)
+            cond = instr.condition  # (Clbit, int)
+            if isinstance(cond, tuple) and cond[0] in qc.clbits:
+                bit_index = qc.clbits.index(cond[0])
+                true_body = instr.blocks[0]
+
+                for inner_instr, inner_qargs, _ in true_body.data:
+                    if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
+                        continue
+                    q_indices = [qc.qubits.index(q) for q in inner_qargs]
+
+                    # Insert measurement first
+                    circuit.add_instruction("measure", [bit_index])
+
+                    # Add conditional gate, input classical node is c{bit_index}, not c{bit_index-1}
+                    circuit.add_conditional_gate(
+                        meas_qubit=bit_index,
+                        target_qubit=q_indices[0],
+                        gate_name=inner_instr.name
+                    )
+                continue
+            else:
+                raise NotImplementedError("Only single-bit IfElseOp conditions are supported.")
+
+        # Handle standard instructions
         if instr.name == "measure":
-            circuit.add_instruction("measure", q_indices, c_indices)
+            circuit.add_instruction("measure", q_indices, None)  # <--- fixed here
         else:
-            # Default: all qubit operands are modified
             modifies_flags = [True] * len(q_indices)
             circuit.add_instruction(instr.name, q_indices, c_indices, modifies_flags)
 
