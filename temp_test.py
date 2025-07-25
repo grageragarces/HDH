@@ -5,7 +5,6 @@ import hdh
 from hdh.models.circuit import Circuit
 from hdh.converters.qiskit import from_qiskit
 from hdh.visualize import plot_hdh
-from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit.visualization import circuit_drawer
 

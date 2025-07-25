@@ -94,20 +94,26 @@ class Circuit:
                     hdh.add_node(out_id, "c", t + 1)
                     out_nodes.add(out_id)
                     clbit_time[clbit] = t + 2
-
+            
             # Classify edge type
-            edge_nodes = in_nodes.union(out_nodes)
-            if all(n.startswith("c") for n in edge_nodes):
+            all_nodes = in_nodes | out_nodes
+            if all(n.startswith("c") for n in all_nodes):
                 edge_type = "c"
-            elif any(n.startswith("c") for n in edge_nodes):
+            elif any(n.startswith("c") for n in all_nodes):
                 edge_type = "c"
             else:
                 edge_type = "q"
 
-            hdh.add_hyperedge(edge_nodes, edge_type, name=name)
-            edge = hdh.add_hyperedge(edge_nodes, edge_type, name=name)
+            # Connect each input to all outputs (fan-out)
+            edges = []
+            for in_node in in_nodes:
+                edge_nodes = {in_node} | out_nodes
+                edge = hdh.add_hyperedge(edge_nodes, edge_type, name=name)
+                edges.append(edge)
+
             q_with_time = [(q, qubit_time[q]) for q in qargs]
             c_with_time = [(c, clbit_time.get(c, 0)) for c in cargs]
-            hdh.edge_args[edge] = (q_with_time, c_with_time, modifies_flags)
+            for edge in edges:
+                hdh.edge_args[edge] = (q_with_time, c_with_time, modifies_flags)
 
         return hdh
