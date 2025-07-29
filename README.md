@@ -1,11 +1,20 @@
 
 ![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/main/docs/img/logo.png)
 
-**Hybrid Dependency Hypergraphs for Quantum Computation**  
-[![PyPI version](https://badge.fury.io/py/hdh.svg)](https://pypi.org/project/hdh/)  · MIT Licensed · Author: Maria Gragera Garces  
-[![Unitary Foundation](https://img.shields.io/badge/Supported%20By-UNITARY%20FOUNDATION-brightgreen.svg?style=for-the-badge)](https://unitary.foundation)
+# Hybrid Dependency Hypergraphs for Quantum Computation
 
-**Work in Progress — Preparing for 1.0**
+<p style="text-align:center">
+  <a href="https://pypi.org/project/hdh/">
+    <img src="https://badge.fury.io/py/hdh.svg" alt="PyPI version">
+  </a>
+  · MIT Licensed ·
+  <a href="https://unitary.foundation">
+    <img src="https://img.shields.io/badge/Supported%20By-UNITARY%20FOUNDATION-brightgreen.svg?style=for-the-badge" alt="Unitary Foundation">
+  </a>
+  · Author: Maria Gragera Garces
+  <br><br>
+  <em>Work in Progress - Preparing for 1.0</em>
+</p>
 
 ---
 
