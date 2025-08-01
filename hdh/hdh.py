@@ -3,7 +3,10 @@ from typing import Dict, Set, Tuple, List, Literal, Union, Optional
 
 NodeType = Literal["q", "c"]  # quantum or classical
 EdgeType = Literal["q", "c"]
+NodeReal = Literal["a", "p"]  # actualized or predicted
+EdgeReal = Literal["a", "p"]
 NodeID = str
+# need an edge ID? - to map back?
 TimeStep = int
 
 class HDH:
@@ -13,6 +16,8 @@ class HDH:
         self.T: Set[TimeStep] = set()
         self.sigma: Dict[NodeID, NodeType] = {}  # node types
         self.tau: Dict[frozenset, EdgeType] = {}  # hyperedge types
+        self.upsilon: Dict[NodeID, NodeReal] = {} # node realization 
+        self.phi: Dict[frozenset, EdgeReal] = {} # hyperedge realization 
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
         self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
         self.edge_args: Dict[frozenset, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
@@ -20,16 +25,18 @@ class HDH:
         self.motifs = {}  
         self.edge_metadata: Dict[frozenset, Dict] = {}
 
-    def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep):
+    def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep, node_real: NodeReal = "a"):
         self.S.add(node_id)
         self.sigma[node_id] = node_type
         self.time_map[node_id] = time
         self.T.add(time)
+        self.upsilon[node_id] = node_real
 
-    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, role: Optional[Literal["teledata", "telegate"]] = None):
+    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, node_real: EdgeReal = "a", role: Optional[Literal["teledata", "telegate"]] = None):
         edge = frozenset(node_ids)
         self.C.add(edge)
         self.tau[edge] = edge_type
+        self.phi[edge] = node_real
         if name:
             self.gate_name[edge] = name.lower()
         if role:
