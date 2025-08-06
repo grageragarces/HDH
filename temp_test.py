@@ -71,6 +71,10 @@ def test():
     circuit.add_instruction("cx", [3, 4])
     circuit.add_instruction("measure", [4])
     circuit.add_instruction("z", [4,4], cond_flag="p")
+    circuit.add_instruction("cx", [0, 3])
+    circuit.add_instruction("measure", [2])
+    circuit.add_instruction("measure", [4])
+    circuit.add_instruction("measure", [5])
 
 
     hdh = circuit.build_hdh()

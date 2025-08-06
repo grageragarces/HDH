@@ -14,9 +14,9 @@ class HDH:
         self.S: Set[NodeID] = set()
         self.C: Set[frozenset] = set()
         self.T: Set[TimeStep] = set()
-        self.sigma: Dict[NodeID, NodeType] = {}  # node types
+        self.sigma: Dict[NodeID, NodeType] = {}  # node types 
         self.tau: Dict[frozenset, EdgeType] = {}  # hyperedge types
-        self.upsilon: Dict[NodeID, NodeReal] = {} # node realization 
+        self.upsilon: Dict[NodeID, NodeReal] = {} # node realization a,p
         self.phi: Dict[frozenset, EdgeReal] = {} # hyperedge realization 
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
         self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
