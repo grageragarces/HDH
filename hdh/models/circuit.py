@@ -35,15 +35,21 @@ class Circuit:
         hdh = hdh_cls()
         qubit_time: Dict[int, int] = {}
         bit_time: Dict[int, int] = {}
+        last_gate_input_time: Dict[int, int] = {}
 
         for name, qargs, cargs, modifies_flags, cond_flag in self.instructions:
-            if name in {"barrier", "snapshot", "delay", "label"}:
+            #DEBUG
+            print(f"\n=== Adding instruction: {name} on qubits {qargs} ===")
+            for q in qargs:
+                print(f"  [before] qubit_time[{q}] = {qubit_time.get(q)}")
+                
+            if name in {"barrier", "snapshot", "delay", "label"}: #ignore these
                 continue
             
             # Conditional gate handling
             if cond_flag == "p":
                 if len(qargs) < 2:
-                    raise ValueError("Conditional gates must be of the form: [control_clbit, target_qubit]. These may be one and the same.")
+                    raise ValueError("Conditional gates must be of the form: [control_clbit, target_qubit].")
 
                 ctrl_idx = qargs[0]
                 target_qubits = qargs[1:]
@@ -58,43 +64,80 @@ class Circuit:
                     q_out = f"{qname}_t{t_out}"
 
                     hdh.add_node(q_out, "q", t_out)
+                    # DEBUG
+                    print(f"    [+] Node added: {in_id} (type q, time {t_in})")
 
                     hdh.add_hyperedge({ctrl_node, q_out}, "c", name=name, node_real="p")
+                    # DEBUG
+                    print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage1")
 
-                    # Advance times
+                    # Advance time
                     qubit_time[tq] = t_out
                     bit_time[ctrl_idx] = max(bit_time.get(ctrl_idx, 0), t_out)
 
-            # Non-conditional (actualized) gate
+            #Actualized gate (non-conditional)
             for q in qargs:
                 if q not in qubit_time:
                     qubit_time[q] = max(qubit_time.values(), default=0)
+                    last_gate_input_time[q] = qubit_time[q]  # initial input time
 
             active_times = [qubit_time[q] for q in qargs]
             time_step = max(active_times) + 1 if active_times else 0
 
-            in_nodes: Set[str] = set()
-            out_nodes: Set[str] = set()
+            in_nodes: List[str] = []
+            out_nodes: List[str] = []
+
+            intermediate_nodes: List[str] = []
+            final_nodes: List[str] = []
+            post_nodes: List[str] = []
+            
+            #DEBUG
+            print(f"  [after] qubit_time[{q}] = {qubit_time[q]}")
 
             for i, qubit in enumerate(qargs):
                 t_in = qubit_time[qubit]
                 qname = f"q{qubit}"
                 in_id = f"{qname}_t{t_in}"
                 hdh.add_node(in_id, "q", t_in, node_real=cond_flag)
-                in_nodes.add(in_id)
+                # DEBUG
+                print(f"    [+] Node added: {in_id} (type q, time {t_in})")
+                in_nodes.append(in_id)
+                # DEBUG
+                print(f"    [qubit {qubit}] modifies_flag = {modifies_flags[i]}")
 
                 if modifies_flags[i] and name != "measure":
-                    t_out = time_step
-                    out_id = f"{qname}_t{t_out}"
-                    hdh.add_node(out_id, "q", t_out, node_real=cond_flag)
-                    out_nodes.add(out_id)
-                    qubit_time[qubit] = t_out
+                    t1 = t_in + 1
+                    t2 = t1 + 1
+                    t3 = t2 + 1
+                    
+                    last_gate_input_time[qubit] = t_in
+                    qubit_time[qubit] = t3
+
+                    mid_id = f"{qname}_t{t1}"
+                    final_id = f"{qname}_t{t2}"
+                    post_id = f"{qname}_t{t3}"
+                    
+                    last_gate_input_time[qubit] = t_in
+
+                    hdh.add_node(mid_id, "q", t1, node_real=cond_flag)
+                    # DEBUG
+                    print(f"    [+] Node added: {in_id} (type q, time {t_in})")
+                    hdh.add_node(final_id, "q", t2, node_real=cond_flag)
+                    # DEBUG
+                    print(f"    [+] Node added: {in_id} (type q, time {t_in})")
+                    hdh.add_node(post_id, "q", t3, node_real=cond_flag)
+                    # DEBUG
+                    print(f"    [+] Node added: {in_id} (type q, time {t_in})")
+
+                    intermediate_nodes.append(mid_id)
+                    final_nodes.append(final_id)
+                    post_nodes.append(post_id)
 
             if name == "measure":
                 for i, qubit in enumerate(qargs):
                     qname = f"q{qubit}"
                     in_id = f"{qname}_t{qubit_time[qubit]}"
-                    in_nodes.add(in_id)
+                    in_nodes.append(in_id)
 
                     latest_q_time = qubit_time[qubit]
 
@@ -103,7 +146,7 @@ class Circuit:
                     t_out = latest_q_time + 1
                     out_id = f"{cname}_t{t_out}"
                     hdh.add_node(out_id, "c", t_out, node_real=cond_flag)
-                    out_nodes.add(out_id)
+                    out_nodes.append(out_id)
                     bit_time[bit] = t_out + 1
 
             for bit in cargs:
@@ -112,10 +155,10 @@ class Circuit:
                     cname = f"c{bit}"
                     out_id = f"{cname}_t{t + 1}"
                     hdh.add_node(out_id, "c", t + 1, node_real=cond_flag)
-                    out_nodes.add(out_id)
+                    out_nodes.append(out_id)
                     bit_time[bit] = t + 1
 
-            all_nodes = in_nodes | out_nodes
+            all_nodes = set(in_nodes) | set(out_nodes)
             if all(n.startswith("c") for n in all_nodes):
                 edge_type = "c"
             elif any(n.startswith("c") for n in all_nodes):
@@ -124,10 +167,51 @@ class Circuit:
                 edge_type = "q"
 
             edges = []
-            for in_node in in_nodes:
-                edge_nodes = {in_node} | out_nodes
-                edge = hdh.add_hyperedge(edge_nodes, edge_type, name=name, node_real=cond_flag)
-                edges.append(edge)
+
+            if len(qargs) > 1:
+                # Multi-qubit gate 
+                # Stage 1: input → intermediate (1:1)
+                for in_node, mid_node in zip(in_nodes, intermediate_nodes):
+                    edge = hdh.add_hyperedge({in_node, mid_node}, "q", name=f"{name}_stage1", node_real=cond_flag)
+                    # DEBUG
+                    print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage1")
+                    edges.append(edge)
+
+                # Stage 2: full multiqubit edge from intermediate → final
+                edge2 = hdh.add_hyperedge(set(intermediate_nodes) | set(final_nodes), "q", name=f"{name}_stage2", node_real=cond_flag)
+                # DEBUG
+                print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage1")
+                edges.append(edge2)
+
+                # Stage 3: final → post (1:1 again)
+                for final_node, post_node in zip(final_nodes, post_nodes):
+                    edge = hdh.add_hyperedge({final_node, post_node}, "q", name=f"{name}_stage3", node_real=cond_flag)
+                    # DEBUG
+                    print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage1")
+                    edges.append(edge)
+                                                    
+            else:
+                # Single-qubit gate
+                for i, qubit in enumerate(qargs):
+                    
+                    if modifies_flags[i] and name != "measure":
+                        t_in = last_gate_input_time[qubit]
+                        t_out = t_in + 1
+                        qname = f"q{qubit}"
+                        in_id = f"{qname}_t{t_in}"
+                        out_id = f"{qname}_t{t_out}"
+                        # DEBUG
+                        print(f"[{name}] Q{qubit} t_in = {t_in}, expected from qubit_time = {qubit_time[qubit]}")
+                        hdh.add_node(out_id, "q", t_out, node_real=cond_flag)
+                        # DEBUG
+                        print(f"    [+] Node added: {in_id} (type q, time {t_in})")
+                        edge = hdh.add_hyperedge({in_id, out_id}, "q", name=name, node_real=cond_flag)
+                        # DEBUG
+                        print(f"    [~] Hyperedge added over: {in_id} → {out_id}, label: {name}_stage1")
+                        edges.append(edge)
+                        # Update time
+                        qubit_time[qubit] = t_out
+                        last_gate_input_time[qubit] = t_in
 
             q_with_time = [(q, qubit_time[q]) for q in qargs]
             c_with_time = [(c, bit_time.get(c, 0)) for c in cargs]
