@@ -50,7 +50,7 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
 
         # Handle standard instructions
         if instr.name == "measure":
-            circuit.add_instruction("measure", q_indices, None)  # <--- fixed here
+            circuit.add_instruction("measure", q_indices, None)  
         else:
             modifies_flags = [True] * len(q_indices)
             circuit.add_instruction(instr.name, q_indices, c_indices, modifies_flags)

@@ -21,9 +21,6 @@ class Circuit:
         name = name.lower()
 
         if name == "measure":
-            if bits is not None:
-                raise ValueError("Do not specify classical bits for 'measure'. They are assumed to match qubit indices.")
-            bits = qubits.copy()
             modifies_flags = [True] * len(qubits)
         else:
             bits = bits or []
@@ -38,7 +35,21 @@ class Circuit:
         last_gate_input_time: Dict[int, int] = {}
 
         for name, qargs, cargs, modifies_flags, cond_flag in self.instructions:
-            #DEBUG
+            # --- Canonicalize inputs ---
+            qargs = list(qargs or [])
+            if name == "measure":
+                cargs = list(cargs) if cargs is not None else qargs.copy()  # 1:1 map
+                if len(cargs) != len(qargs):
+                    raise ValueError("measure: len(bits) must equal len(qubits)")
+                modifies_flags = [True] * len(qargs)
+            else:
+                cargs = list(cargs or [])
+                if modifies_flags is None:
+                    modifies_flags = [True] * len(qargs)
+                elif len(modifies_flags) != len(qargs):
+                    raise ValueError("len(modifies_flags) must equal len(qubits)")
+            # ---------------------------
+            
             print(f"\n=== Adding instruction: {name} on qubits {qargs} ===")
             for q in qargs:
                 print(f"  [before] qubit_time[{q}] = {qubit_time.get(q)}")
@@ -92,7 +103,7 @@ class Circuit:
             post_nodes: List[str] = []
             
             #DEBUG
-            print(f"  [after] qubit_time[{q}] = {qubit_time[q]}")
+            print("  [after]", {q: qubit_time[q] for q in qargs})
 
             for i, qubit in enumerate(qargs):
                 t_in = qubit_time[qubit]
@@ -136,21 +147,21 @@ class Circuit:
             if name == "measure":
                 for i, qubit in enumerate(qargs):
                     qname = f"q{qubit}"
-                    in_id = f"{qname}_t{qubit_time[qubit]}"
-                    in_nodes.append(in_id)
+                    t_in = qubit_time.get(qubit, 0)
+                    q_in = f"{qname}_t{t_in}"
+                    hdh.add_node(q_in, "q", t_in, node_real=cond_flag)
 
-                    latest_q_time = qubit_time[qubit]
-
-                    bit = cargs[i]
+                    bit = cargs[i]  # safe now
                     cname = f"c{bit}"
-                    t_out = latest_q_time + 1
-                    out_id = f"{cname}_t{t_out}"
-                    hdh.add_node(out_id, "c", t_out, node_real=cond_flag)
-                    out_nodes.append(out_id)
+                    t_out = t_in + 1
+                    c_out = f"{cname}_t{t_out}"
+                    hdh.add_node(c_out, "c", t_out, node_real=cond_flag)
+
+                    hdh.add_hyperedge({q_in, c_out}, "c", name="measure", node_real=cond_flag)
                     bit_time[bit] = t_out + 1
 
-            for bit in cargs:
-                if name != "measure":
+            if name != "measure":
+                for bit in cargs:
                     t = bit_time.get(bit, 0)
                     cname = f"c{bit}"
                     out_id = f"{cname}_t{t + 1}"
