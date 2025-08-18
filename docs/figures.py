@@ -13,16 +13,14 @@ from hdh.converters import cirq
 from hdh.models import circuit
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import hdh
-from hdh.models.circuit import Circuit
+# from hdh.models.circuit import Circuit
 from hdh.converters.qiskit import from_qiskit
 from hdh.visualize import plot_hdh
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit.visualization import circuit_drawer
 from qiskit.circuit.controlflow import IfElseOp
-from hdh.models import circuit
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import hdh
-from hdh.models.circuit import Circuit
 from hdh.visualize import plot_hdh
 from hdh.hdh import HDH
 from typing import List, Tuple, Optional, Set, Dict
@@ -36,6 +34,10 @@ import warnings
 
 import cirq
 from hdh.converters.cirq import from_cirq
+
+import braket._sdk as braket
+from braket.circuits import Circuit 
+from hdh.converters.braket import from_braket
 
 def circuit_test():
     qc = QuantumCircuit(2,2)
@@ -322,5 +324,13 @@ def test_cirq():
     hdh = from_cirq(qc)
     plot_hdh(hdh)
     
+def test_braket():
+    qc = Circuit()
+    qc.h(0)
+    qc.cnot(control=0, target=1)
+    qc.measure(1)
+    hdh = from_braket(qc)
+    plot_hdh(hdh)
+    
 if __name__ == "__main__":
-    test_cirq()
+    test_braket()
