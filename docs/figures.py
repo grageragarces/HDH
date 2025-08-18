@@ -28,6 +28,11 @@ from typing import List, Tuple, Optional, Set, Dict
 from hdh.visualize import plot_hdh
 from qiskit.qasm3 import dumps
 
+# tests/test_pennylane_converter.py
+import pennylane as qml
+from pennylane.tape import OperationRecorder
+from hdh.converters.pennylane import from_pennylane
+
 def circuit_test():
     qc = QuantumCircuit(2,2)
 
@@ -267,5 +272,22 @@ def test_cond():
     hdh = qc.build_hdh()
     fig = plot_hdh(hdh)
     
+dev = qml.device("default.qubit", wires=2, shots=None)
+
+@qml.qnode(dev)
+def qml_circuit():
+    qml.Hadamard(0)
+    qml.RX(10, wires=1)
+    qml.CNOT([0, 1])
+    return qml.probs(wires=[0, 1])
+
+def test_penny():
+    # Record the underlying Python function WITHOUT executing the device
+    with OperationRecorder() as rec:
+        qml_circuit.func()   # call the wrapped function directly
+
+    hdh = from_pennylane(rec) # your converter accepts OperationRecorder
+    plot_hdh(hdh)
+
 if __name__ == "__main__":
-    qiskit_test_cond()
+    test_penny()

@@ -206,7 +206,7 @@ class Circuit:
                 # Stage 2: full multiqubit edge from intermediate → final
                 edge2 = hdh.add_hyperedge(set(intermediate_nodes) | set(final_nodes), "q", name=f"{name}_stage2", node_real=cond_flag)
                 # DEBUG
-                print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage1")
+                print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage2")
                 edges.append(edge2)
 
                 # Stage 3: final → post (1:1 again)
