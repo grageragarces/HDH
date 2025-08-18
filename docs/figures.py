@@ -2,7 +2,7 @@
 This set of functions has been use to create the figures presented accross HDH papers and posters.
 Published versions may sligthly differ from the library's final product due to patches and updates.
 The structures are in no way special, they simply often showcase many of the building blocks of HDHs and thus serve as good examples.
-They have often also been used to study bugs thus why some comments may seem out of place sometimes.
+They have often also been used to study bugs thus why some comments may seem out of place sometimes & some functions may be from deprecated old versions.
 """
 
 from qiskit import QuantumCircuit
@@ -26,6 +26,7 @@ from hdh.visualize import plot_hdh
 from hdh.hdh import HDH
 from typing import List, Tuple, Optional, Set, Dict
 from hdh.visualize import plot_hdh
+from qiskit.qasm3 import dumps
 
 def circuit_test():
     qc = QuantumCircuit(2,2)
@@ -235,11 +236,36 @@ def test():
     
     qc.add_instruction("h", [0])
     qc.add_instruction("cx", [0, 1])
-    qc.add_instruction("measure", [0])
+    qc.add_instruction("measure", [0],[2])
     qc.add_instruction("measure", [1],[1])
 
     hdh = qc.build_hdh()
     fig = plot_hdh(hdh)
+    
+def qiskit_test_cond():
+    qr = QuantumRegister(1, "q")
+    cr = ClassicalRegister(1, "c")
+    qc = QuantumCircuit(qr, cr)
 
+    qc.h(0)
+    qc.measure(0, 0)
+
+    with qc.if_test((cr, 1)):
+        qc.x(0)
+    
+    # print(dumps(qc))
+    hdh = from_qiskit(qc)
+    fig = plot_hdh(hdh)
+
+def test_cond():
+    qc = Circuit()
+    
+    qc.add_instruction("h", [0])
+    qc.add_instruction("cx", [0, 1], cond_flag="p")
+    qc.add_instruction("measure", [0],[2])
+    
+    hdh = qc.build_hdh()
+    fig = plot_hdh(hdh)
+    
 if __name__ == "__main__":
-    test()
+    qiskit_test_cond()

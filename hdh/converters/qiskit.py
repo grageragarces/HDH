@@ -6,11 +6,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from hdh.hdh import HDH
 from models.circuit import Circuit
 from collections import defaultdict,Counter
-from qiskit.circuit import Instruction, InstructionSet, Measure, Reset
+from qiskit.circuit import Instruction, InstructionSet, Measure, Reset, Clbit
 from qiskit.circuit.controlflow import IfElseOp
 import re
 
 from hdh.models.circuit import Circuit
+
+def _bit_index_from_cond_target(qc, target):
+    # target can be Clbit or ClassicalRegister(1)
+    if isinstance(target, Clbit):
+        return qc.clbits.index(target)
+    if isinstance(target, ClassicalRegister):
+        if len(target) != 1:
+            raise NotImplementedError("Only 1-bit ClassicalRegister conditions are supported.")
+        return qc.clbits.index(target[0])
+    raise NotImplementedError(f"Unsupported condition target type: {type(target)}")
 
 def from_qiskit(qc: QuantumCircuit) -> HDH:
     circuit = Circuit()
@@ -22,33 +32,27 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
         q_indices = [qc.qubits.index(q) for q in qargs]
         c_indices = [qc.clbits.index(c) for c in cargs]
 
-        # Handle conditionals
+        # Handles conditionals
         if isinstance(instr, IfElseOp):
-            # Support only: if (c[bit_index] == 1): gate(...)
-            cond = instr.condition  # (Clbit, int)
-            if isinstance(cond, tuple) and cond[0] in qc.clbits:
-                bit_index = qc.clbits.index(cond[0])
-                true_body = instr.blocks[0]
+            cond = instr.condition  # (Clbit|ClassicalRegister, int)
+            target, val = cond
+            if int(val) != 1:
+                raise NotImplementedError("Only IfElseOp conditions == 1 are supported.")
+            bit_index = _bit_index_from_cond_target(qc, target)
 
-                for inner_instr, inner_qargs, _ in true_body.data:
-                    if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
-                        continue
-                    q_indices = [qc.qubits.index(q) for q in inner_qargs]
+            true_body = instr.blocks[0]
+            for inner_instr, inner_qargs, _ in true_body.data:
+                inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
+                circuit.add_instruction(
+                    inner_instr.name,
+                    inner_qidx,
+                    bits=[bit_index],
+                    modifies_flags=[True]*len(inner_qidx),
+                    cond_flag="p"
+                )
+            continue
 
-                    # Insert measurement first
-                    circuit.add_instruction("measure", [bit_index])
-
-                    # Add conditional gate, input classical node is c{bit_index}, not c{bit_index-1}
-                    circuit.add_conditional_gate(
-                        meas_qubit=bit_index,
-                        target_qubit=q_indices[0],
-                        gate_name=inner_instr.name
-                    )
-                continue
-            else:
-                raise NotImplementedError("Only single-bit IfElseOp conditions are supported.")
-
-        # Handle standard instructions
+        # Handles standard instructions
         if instr.name == "measure":
             circuit.add_instruction("measure", q_indices, None)  
         else:
@@ -85,7 +89,7 @@ def to_qiskit(hdh) -> QuantumCircuit:
 
         return combined[:expected_len]
 
-    # Step 1: Create global contiguous index maps
+    # Creates global contiguous index maps
     q_nodes = sorted(n for n in hdh.S if hdh.sigma[n] == 'q')
     c_nodes = sorted(n for n in hdh.S if hdh.sigma[n] == 'c')
 

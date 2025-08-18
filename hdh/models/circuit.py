@@ -58,33 +58,48 @@ class Circuit:
                 continue
             
             # Conditional gate handling
-            if cond_flag == "p":
-                if len(qargs) < 2:
-                    raise ValueError("Conditional gates must be of the form: [control_clbit, target_qubit].")
+            if name != "measure" and cond_flag == "p" and cargs:
+                # Supports 1 classical control; extend to many if you like
+                ctrl = cargs[0]
 
-                ctrl_idx = qargs[0]
-                target_qubits = qargs[1:]
-                cname = f"c{ctrl_idx}"
-                c_time = bit_time.get(ctrl_idx, 1) - 1  # use the time of the last created classical output
-                ctrl_node = f"{cname}_t{c_time}"
+                # Ensure times exist
+                for q in qargs:
+                    if q not in qubit_time:
+                        qubit_time[q] = max(qubit_time.values(), default=0)
+                        last_gate_input_time[q] = qubit_time[q]
 
-                for tq in target_qubits:
+                # Classical node must already exist (e.g., produced by a prior measure)
+                # bit_time points to "next free" slot; the latest existing node is at t = bit_time-1
+                c_latest = bit_time.get(ctrl, 1) - 1
+                cnode = f"c{ctrl}_t{c_latest}"
+                hdh.add_node(cnode, "c", c_latest, node_real=cond_flag)
+
+                edges = []
+                for tq in qargs:
+                    # gate happens at next tick after both inputs are ready
+                    t_in_q = qubit_time[tq]
+                    t_gate = max(t_in_q, c_latest) + 1
                     qname = f"q{tq}"
-                    t_out = c_time + 1
+                    qout = f"{qname}_t{t_gate}"
 
-                    q_out = f"{qname}_t{t_out}"
+                    # ensure the quantum output node exists at gate time
+                    hdh.add_node(qout, "q", t_gate, node_real=cond_flag)
 
-                    hdh.add_node(q_out, "q", t_out)
-                    # DEBUG
-                    print(f"    [+] Node added: {in_id} (type q, time {t_in})")
+                    # add classical hyperedge feeding the quantum node
+                    e = hdh.add_hyperedge({cnode, qout}, "c", name=name, node_real=cond_flag)
+                    edges.append(e)
 
-                    hdh.add_hyperedge({ctrl_node, q_out}, "c", name=name, node_real="p")
-                    # DEBUG
-                    print(f"    [~] Hyperedge added over: {in_node} → {mid_node}, label: {name}_stage1")
+                    # advance quantum time
+                    last_gate_input_time[tq] = t_in_q
+                    qubit_time[tq] = t_gate
 
-                    # Advance time
-                    qubit_time[tq] = t_out
-                    bit_time[ctrl_idx] = max(bit_time.get(ctrl_idx, 0), t_out)
+                # store edge_args for reconstruction/debug
+                q_with_time = [(q, qubit_time[q]) for q in qargs]
+                c_with_time = [(ctrl, c_latest + 1)]  # next-free convention; adjust if you track exact
+                for e in edges:
+                    hdh.edge_args[e] = (q_with_time, c_with_time, modifies_flags or [True] * len(qargs))
+
+                continue
 
             #Actualized gate (non-conditional)
             for q in qargs:
