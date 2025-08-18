@@ -20,21 +20,19 @@
 
 ## What is HDH?
 
-**HDH (Hybrid Dependency Hypergraph)** is an intermediate representation designed to describe quantum computations in a model-agnostic way.
+**HDH (Hybrid Dependency Hypergraph)** is an intermediate directed hypergraph-based representation designed to encode the dependecies arising in any quantum workload.
 It provides a unified structure that makes it easier to:
 
-- Translate quantum programs (e.g., from Qiskit or QASM) into a common hypergraph format
+- Translate quantum programs (e.g., a circuit or a mbqc pattern) into a unified hypergraph format
 - Analyze and visualize the logical and temporal dependencies within a computation
-- Partition workloads across devices using tools like METIS or KaHyPar, taking into account hardware and network constraints
+<!-- - Partition workloads across devices using tools like METIS or KaHyPar, taking into account hardware and network constraints -->
 
 ---
 
 ## Current Capabilities
 
-- Qiskit circuit translation  
+- Qiskit, Braket, Cirq and Pennylane circuit mappings to HDHs
 - OpenQASM 2.0 file parsing  
-- Graph-based printing and canonical formatting  
-- Partitioning with METIS using custom HDH-to-graph translation  
 - Model-specific abstractions for:
   - Quantum Circuits
   - Measurement-Based Quantum Computing (MBQC)
@@ -89,54 +87,9 @@ hdh = from_qasm('file', qasm_path)
 
 plot_hdh(hdh)
 ```
-
 ---
 
-## Example Use Cases
-
-- Visualize quantum protocols (e.g., teleportation)  
-- Analyze dependencies in quantum walk evolutions  
-- Explore entanglement flow in MBQC patterns  
-
----
-
-## Coming Soon
-
-- Compatibility with Cirq, Braket, and Pennylane  
-- Full graphical UI for HDH visualization  
-- Native noise-aware binning strategies  
-- Analysis tools for:
-  - Cut cost estimation across partitions
-  - Partition size reporting
-  - Parallelism tracking by time step
-  
-  ```python
-  from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
-
-  num_parts = 3
-  partitions = compute_cut(hdh, num_parts)
-
-  print(f"\nMETIS partition into {num_parts} parts:")
-  for i, part in enumerate(partitions):
-      print(f"Partition {i}: {sorted(part)}")
-      
-  # plot_hdh(hdh)
-  cut_cost = cost(hdh, partitions)
-  sizes = partition_sizes(partitions)
-  global_parallelism = compute_parallelism_by_time(hdh, partitions, mode="global")
-  parallelism_at_t3 = compute_parallelism_by_time(hdh, partitions, mode="local", time_step=3)
-
-  print("\n--- QW Metrics ---")
-  print(f"\nCut cost: {cut_cost}")
-  print(f"Partition sizes: {sizes}")
-  print(f"Parallelism over time: {global_parallelism}")
-  print(f"Parallelism at time t=3: {parallelism_at_t3}")
-
-  ```
-
----
-
-## Tests and Demos
+<!-- ## Tests and Demos
 
 All tests are under `tests/` and can be run with:
 
@@ -151,15 +104,16 @@ If you're interested in the HDH of a specific model, see in manual_tests:
 - `qw_test.py` for Quantum Walks  
 - `teleportation_protocol_logo.py` for a protocol-specific demo  
 
----
+--- -->
 
 ## Contributing
 
 Pull requests welcome. Please open an issue or get in touch if you're interested in:
 
 - SDK compatibility  
-- Optimization strategies  
-- Frontend tools (visualization, benchmarking)  
+- Frontend tools (visualization, benchmarking) 
+
+or if you've found a bug! 
 
 ---
 

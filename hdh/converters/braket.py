@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from hdh.hdh import HDH
 from hdh.models.circuit import Circuit
 
-# Braket SDK
+import braket._sdk as braket
 from braket.circuits import Circuit as BraketCircuit
 from braket.circuits import Instruction as BraketInstruction
 
