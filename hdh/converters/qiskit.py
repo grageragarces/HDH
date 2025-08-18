@@ -1,11 +1,9 @@
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
-from typing import Set
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from hdh.hdh import HDH
 from models.circuit import Circuit
-from collections import defaultdict,Counter
 from qiskit.circuit import Instruction, InstructionSet, Measure, Reset, Clbit
 from qiskit.circuit.controlflow import IfElseOp
 import re

@@ -1,11 +1,10 @@
-# hdh/converters/pennylane.py
-from typing import Dict, List, Any, Tuple, Optional, Union
+from typing import Dict, List, Any, Union
 import warnings
 
 import pennylane as qml
 from pennylane.tape import QuantumScript, OperationRecorder
 from pennylane.ops.op_math import Conditional
-from pennylane.measurements import MidMeasureMP, MeasurementValue
+from pennylane.measurements import MidMeasureMP,ProbabilityMP, ExpectationMP, SampleMP
 
 from hdh.hdh import HDH
 from hdh.models.circuit import Circuit
@@ -48,11 +47,7 @@ def _mk_op(name: str, params: List[Any], wires: List[int]):
 
 def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
     """
-    Convert a PennyLane QuantumScript (or OperationRecorder) → HDH via your Circuit class.
-
-    Limitations:
-    - Single-bit conditions only (first mid-measure used).
-    - Gate params are not preserved unless you later enrich HDH edge metadata.
+    Wires kinda mess up multiqubit visuals - they still map the right hyperedges, just not in visually equivalent way to how other circuit CNOTs are constructed
     """
     qs = circ_like
     wire2idx = _wire_index_map(qs)
@@ -65,7 +60,7 @@ def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
 
     for op in qs.operations:
         # mid-circuit measure -> explicit "measure" instruction
-        if isinstance(op, MidMeasureMP):
+        if isinstance(op, (MidMeasureMP,ProbabilityMP, ExpectationMP, SampleMP)):
             w = op.wires[0]
             cbit = meas_mp_to_cbit.setdefault(op, next_cbit)
             if cbit == next_cbit:
@@ -101,5 +96,3 @@ def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
         circuit.add_instruction(name, qidxs, bits=[])
 
     return circuit.build_hdh()
-
-

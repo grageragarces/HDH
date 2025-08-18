@@ -9,6 +9,7 @@ from qiskit import QuantumCircuit
 import sys
 import os
 
+from hdh.converters import cirq
 from hdh.models import circuit
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import hdh
@@ -28,10 +29,13 @@ from typing import List, Tuple, Optional, Set, Dict
 from hdh.visualize import plot_hdh
 from qiskit.qasm3 import dumps
 
-# tests/test_pennylane_converter.py
 import pennylane as qml
 from pennylane.tape import OperationRecorder
 from hdh.converters.pennylane import from_pennylane
+import warnings
+
+import cirq
+from hdh.converters.cirq import from_cirq
 
 def circuit_test():
     qc = QuantumCircuit(2,2)
@@ -288,6 +292,35 @@ def test_penny():
 
     hdh = from_pennylane(rec) # your converter accepts OperationRecorder
     plot_hdh(hdh)
+    
+def test_pennylane_with_terminal_measurements():
+    dev2 = qml.device("default.qubit", wires=2)
 
+    @qml.qnode(dev2)
+    def circ_mid():
+        qml.Hadamard(0)
+        m = qml.measure(0)  # MidMeasureMP
+
+        def then_branch():
+            qml.X(1)
+
+        # Use function form when condition involves a measurement value
+        qml.cond(m == 1, then_branch)
+
+        return qml.probs(wires=[0, 1])  # terminal measurement
+
+    with OperationRecorder() as rec, warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        circ_mid.func()
+
+    hdh = from_pennylane(rec)
+    plot_hdh(hdh) 
+    
+def test_cirq():
+    q0, q1 = cirq.LineQubit.range(2)
+    qc = cirq.Circuit(cirq.H(q0), cirq.CX(q0, q1), cirq.measure(q0, q1, key='b'))
+    hdh = from_cirq(qc)
+    plot_hdh(hdh)
+    
 if __name__ == "__main__":
-    test_penny()
+    test_cirq()
