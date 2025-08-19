@@ -1,0 +1,12 @@
+site_name: HDH
+nav:
+  - Home: index.md
+  - HDH: hdh.md
+  - Computational models: computational_models.md
+  - Visualization: vis.md
+  - The Database: database.md
+  # - Passes: passes.md
+  - Contribution guide: contribution.md
+  - Literature: literature.md
+  - About: about.md
+theme: readthedocs
