@@ -5,39 +5,38 @@ The structures are in no way special, they simply often showcase many of the bui
 They have often also been used to study bugs thus why some comments may seem out of place sometimes & some functions may be from deprecated old versions.
 """
 
-from qiskit import QuantumCircuit
 import sys
 import os
-
-from hdh.converters import cirq
-from hdh.models import circuit
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# from typing import List, Tuple, Optional, Set, Dict
+import matplotlib.pyplot as plt
+
 import hdh
-# from hdh.models.circuit import Circuit
-from hdh.converters.qiskit import from_qiskit
+from hdh.hdh import HDH
+from hdh.models.circuit import Circuit
 from hdh.visualize import plot_hdh
+from hdh.converters.qiskit import from_qiskit
+from hdh.converters.pennylane import from_pennylane
+from hdh.converters import cirq
+
+
+import qiskit
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister
 from qiskit.visualization import circuit_drawer
 from qiskit.circuit.controlflow import IfElseOp
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import hdh
-from hdh.visualize import plot_hdh
-from hdh.hdh import HDH
-from typing import List, Tuple, Optional, Set, Dict
-from hdh.visualize import plot_hdh
 from qiskit.qasm3 import dumps
+from qiskit.circuit.library import ZGate
 
 import pennylane as qml
 from pennylane.tape import OperationRecorder
-from hdh.converters.pennylane import from_pennylane
 import warnings
 
 import cirq
-from hdh.converters.cirq import from_cirq
 
-import braket._sdk as braket
-from braket.circuits import Circuit 
-from hdh.converters.braket import from_braket
+# import braket._sdk as braket
+# from braket.circuits import Circuit 
+# from hdh.converters.braket import from_braket
 
 def circuit_test():
     qc = QuantumCircuit(2,2)
@@ -48,14 +47,23 @@ def circuit_test():
     qc.t(0)  # T gate is non-Clifford
     qc.cx(0, 1)
 
-    # Clifford subcircuit
-    qc.h(1)
-    qc.s(1)
-    qc.cx(0, 1)
+    # # Clifford subcircuit
+    # qc.h(1)
+    # qc.s(1)
+    # qc.cx(0, 1)
     qc.measure(0,0)
     qc.measure(1,1)
 
-    qc.draw('mpl')
+    # qc.draw('mpl')
+    hdh = from_qiskit(qc)
+    hdh.add_node("c0_t10", "c",10,"p")
+    hdh.add_node("c1_t10", "c",10,"p")
+    hdh.add_hyperedge(["c0_t9", "c0_t10"], "c",)    
+    hdh.add_hyperedge(["c1_t9", "c1_t10"], "c")    
+    hdh.add_hyperedge(["c0_t9", "c1_t10"], "c","p")  
+    hdh.add_hyperedge(["c1_t9", "c0_t10"], "c","p") 
+
+    fig = plot_hdh(hdh)
     
 def circuit_test_h():
 
@@ -332,5 +340,87 @@ def test_braket():
     hdh = from_braket(qc)
     plot_hdh(hdh)
     
+# Fixed figures draft ---
+    
+def circuit_test_alt():
+    qc = QuantumCircuit(6,3)
+
+    qc.ccx(0, 1, 2)  
+    qc.h(3)
+    qc.cx(2,1)
+    qc.cx(3,4)
+    qc.h(5)
+    qc.measure(5, 0)           
+    
+    # qc.measure(2,2)
+    
+    hdh = from_qiskit(qc)
+    
+    #ifelse
+    hdh.add_node("q4_t12","q",10, "p")
+    # hdh.add_node("c4_t13","c",10)
+    hdh.add_hyperedge(["c5_t11", "q4_t12"], "c", node_real = "p")
+    hdh.add_hyperedge(["q4_t9", "q4_t12"], "q", node_real = "p")
+    # hdh.add_hyperedge(["c4_t13", "q4_t12"], "c")
+    
+    hdh.add_node("q0_t10","q",10)
+    hdh.add_node("q0_t11","q",11)
+    hdh.add_node("q0_t12","q",12)
+    hdh.add_node("q3_t10","q",10)
+    hdh.add_node("q3_t11","q",11)
+    hdh.add_node("q3_t12","q",12)
+    hdh.add_hyperedge(["q0_t3","q0_t10", "q0_t11", "q0_t12"], "q")
+    hdh.add_hyperedge(["q3_t9","q3_t10", "q3_t11", "q3_t12"], "q")
+    hdh.add_hyperedge(["q3_t10", "q3_t11", "q0_t10", "q0_t11"], "q")
+    
+    # then = QuantumCircuit(6, 3, name="then")
+    # then.z(4)
+    # els = QuantumCircuit(6, 3, name="else")  # no-op
+
+    # # Newer Qiskit: simple signature
+    # try:
+    #     qc.if_else((qc.clbits[0], 1), then, els)
+    # # Older Qiskit: needs explicit wire lists
+    # except TypeError:
+    #     qc.if_else((qc.clbits[0], 1), then, els,
+    #                qubits=list(range(6)), clbits=list(range(3)))
+    
+    # qc.cx(0,3)
+    
+    # qc.measure(4,1)
+    # qc.measure(2,2)
+    
+    # qc.draw('mpl', filename="circuit.png")
+
+    # hdh = from_qiskit(qc)
+    fig = plot_hdh(hdh)
+
+def circuit_test_alt():
+
+    circuit = Circuit()
+    
+    circuit.add_instruction("ccx", [0, 1, 2]) # ccx(q0, q1, q2)
+    circuit.add_instruction("cx", [2, 1]) # cx(q2, q1)
+    circuit.add_instruction("h", [3]) # h(q3)
+    circuit.add_instruction("cx", [3, 4]) # cx(q3, q4)
+    circuit.add_instruction("h", [1]) 
+    circuit.add_instruction("measure", [2]) 
+    circuit.add_instruction("cx", [0, 3]) # cx(q0, q3)
+    circuit.add_instruction("measure", [5]) 
+    circuit.add_instruction("measure", [1]) 
+    
+    hdh = circuit.build_hdh()
+
+    hdh.add_node("q4_t11", "q", 11)
+    hdh.add_node("q4_t12", "q", 12)
+    hdh.add_hyperedge(["c1_t8", "q4_t11"], "c")
+    hdh.add_hyperedge(["q4_t10","q4_t12", "q4_t11"], "1")
+    
+    fig = plot_hdh(hdh)
+    
+    return hdh
+
+# End fixed figures draft ---
+
 if __name__ == "__main__":
-    test_braket()
+    circuit_test_alt()
