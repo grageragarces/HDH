@@ -352,16 +352,16 @@ def circuit_test_alt():
     qc.h(5)
     qc.measure(5, 0)           
     
-    # qc.measure(2,2)
+    qc.measure(2,2)
     
     hdh = from_qiskit(qc)
     
     #ifelse
     hdh.add_node("q4_t12","q",10, "p")
-    # hdh.add_node("c4_t13","c",10)
+    hdh.add_node("c4_t13","c",10)
     hdh.add_hyperedge(["c5_t11", "q4_t12"], "c", node_real = "p")
     hdh.add_hyperedge(["q4_t9", "q4_t12"], "q", node_real = "p")
-    # hdh.add_hyperedge(["c4_t13", "q4_t12"], "c")
+    hdh.add_hyperedge(["c4_t13", "q4_t12"], "c")
     
     hdh.add_node("q0_t10","q",10)
     hdh.add_node("q0_t11","q",11)
@@ -369,9 +369,11 @@ def circuit_test_alt():
     hdh.add_node("q3_t10","q",10)
     hdh.add_node("q3_t11","q",11)
     hdh.add_node("q3_t12","q",12)
+    hdh.add_node("q5_t8","q",8)
     hdh.add_hyperedge(["q0_t3","q0_t10", "q0_t11", "q0_t12"], "q")
     hdh.add_hyperedge(["q3_t9","q3_t10", "q3_t11", "q3_t12"], "q")
     hdh.add_hyperedge(["q3_t10", "q3_t11", "q0_t10", "q0_t11"], "q")
+    hdh.add_hyperedge(["q5_t8", "q5_t9"], "q")
     
     # then = QuantumCircuit(6, 3, name="then")
     # then.z(4)
@@ -395,7 +397,7 @@ def circuit_test_alt():
     # hdh = from_qiskit(qc)
     fig = plot_hdh(hdh)
 
-def circuit_test_alt():
+def circuit_test_alt_2():
 
     circuit = Circuit()
     

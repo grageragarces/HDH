@@ -1,12 +1,15 @@
 site_name: HDH
 nav:
   - Home: index.md
-  - HDH: hdh.md
-  - Computational models: computational_models.md
-  - Visualization: vis.md
-  - The Database: database.md
+  - An introduction to DQC: intro.md
+  - A brief introduction to HDHs: hdh.md
+  - Quantum Computational Model mappings to HDHs: models.md
+  - Visualizing HDHs: vis.md
+  - The HDH Database: database.md
   # - Passes: passes.md
-  - Contribution guide: contribution.md
-  - Literature: literature.md
-  - About: about.md
+  # - Contribution guide: contribution.md
+  - Related publications and information: literature.md
 theme: readthedocs
+
+markdown_extensions:
+  - attr_list
