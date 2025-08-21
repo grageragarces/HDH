@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Quantum Computational Model mappings to HDHs - HDH</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Quantum Computational Model mappings to HDHs";
+        var mkdocs_page_input_path = "models.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> HDH
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../intro/">An introduction to DQC</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hdh/">A brief introduction to HDHs</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Quantum Computational Model mappings to HDHs</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#circuits">Circuits</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#mbqc-patterns">MBQC patterns</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#quantum-walks">Quantum walks</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#quantum-cellular-automata">Quantum cellular automata</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../vis/">Visualizing HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../database/">The HDH Database</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../literature/">Related publications and information</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">HDH</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Quantum Computational Model mappings to HDHs</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="computational-models">Computational models</h1>
+<p>Quantum computation can be performed with various computational models that have different instruction sets, such as quantum circuits (which perform computation through gates) or measurement based patterns (which perform computation through corrections).
+The diversity between these models can be attributed to hardware constraints as well as to the age of the field.
+Although they are all equivalent and computations can theoretically be translated accross them, this process is inneficient and hard to due to a lack of clear set of cross-model translators.  </p>
+<p>HDHs were designed to abstract all the models into a unified framework.
+As such, they are model agnostic and can be constructed from any set of instructions.
+In order to facilitate this construction, the HDH library has a set of embedded model mappings which translate instruction sets from popular quantum computational models into reusable HDH motifs.</p>
+<h3 id="circuits">Circuits</h3>
+<p>The circuit model is perhaps the most popular quantum computational model, with the exception of photonic qubits, it can be implemented on all universal quantum devices, as is the base of popular quantum software packages such as Qiskit.
+Mapping a quantum circuit to an HDH comes down to following the mappings in this table:</p>
+<p><img alt="Circuitmappings" src="../img/circuitmappings.png" width="300" /></p>
+<p>The following code:</p>
+<pre><code class="language-python">import hdh
+from hdh.models.circuit import Circuit
+
+circuit = Circuit()
+
+# Set of instructions
+circuit.add_instruction(&quot;ccx&quot;, [0, 1, 2])
+circuit.add_instruction(&quot;h&quot;, [3])
+circuit.add_instruction(&quot;h&quot;, [5])
+circuit.add_instruction(&quot;cx&quot;, [3, 4])
+circuit.add_instruction(&quot;cx&quot;, [2, 1])
+circuit.add_conditional_gate(5, 4, &quot;z&quot;)
+circuit.add_instruction(&quot;cx&quot;, [0, 3])
+circuit.add_instruction(&quot;measure&quot;, [2])
+circuit.add_instruction(&quot;measure&quot;, [4])
+
+hdh = circuit.build_hdh() # Generate HDH
+fig = plot_hdh(hdh) # Visualize HDH
+</code></pre>
+<p>is equivalent to circuit:
+<img alt="Circuit" src="../img/circuit.png" width="300" /></p>
+<p>and the HDH:
+<img alt="CircuitHDH" src="../img/hdhfromcircuit.png" width="300" /></p>
+<h3 id="mbqc-patterns">MBQC patterns</h3>
+<h3 id="quantum-walks">Quantum walks</h3>
+<h3 id="quantum-cellular-automata">Quantum cellular automata</h3>
+<h1 id="built-in-converters">Built in Converters</h1>
+<h1 id="make-your-own-instruction-set">Make your own instruction set</h1>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../hdh/" class="btn btn-neutral float-left" title="A brief introduction to HDHs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../vis/" class="btn btn-neutral float-right" title="Visualizing HDHs">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../hdh/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../vis/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
