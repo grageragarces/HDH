@@ -6,15 +6,43 @@ Although they are all equivalent and computations can theoretically be translate
 
 HDHs were designed to abstract all the models into a unified framework.
 As such, they are model agnostic and can be constructed from any set of instructions.
-In order to facilitate this construction, the HDH library has a set of embedded model mappings which translate instruction sets from popular quantum computational models into reusable HDH motifs.
+Specific model classes can be found under the ```hdh/models``` folder.
+To facilitate the usage of HDHs, the library has a set of embedded model mappings which translate instruction sets from popular quantum computational models into reusable HDH motifs.
+You can find details and examples of how to use these model classes and SDK converters bellow.
 
 ### Circuits
-The circuit model is perhaps the most popular quantum computational model, with the exception of photonic qubits, it can be implemented on all universal quantum devices, as is the base of popular quantum software packages such as Qiskit.
-Mapping a quantum circuit to an HDH comes down to following the mappings in this table:
+The circuit model is among the most widely adopted paradigms of quantum computation, particularly in implementations on industrial quantum hardware (with the notable exception of photonic qubits).
+Quantum circuits are a universal model of computation.
+
+They form the foundation of many leading quantum software packages, including 
+[Qiskit](https://www.ibm.com/quantum/qiskit), 
+[OpenQASM](https://openqasm.com), 
+[Cirq](https://quantumai.google/cirq), 
+[Amazon Braket SDK](https://docs.aws.amazon.com/braket/), 
+and [PennyLane](https://pennylane.ai);
+which you can directly map to the librarys' ```Circuit``` class and then to HDHs (see examples of how to use these converters bellow).
+
+A quantum circuit is composed of a sequence of quantum gates applied to a set of qubits (commonly represented as horizontal wires). Gates, visualized as boxes placed on these wires, may act on one or multiple qubits.
+Single-qubit gates correspond to rotations of the qubit’s state vector on the Bloch sphere.
+For example, a Z-rotation by angle 
+π rotates the state vector by 
+π radians about the z-axis.
+
+Multi-qubit gates, such as controlled-X (CX), act conditionally on one qubit’s state and thereby create dependencies among qubits. For instance, a CX gate applies an X gate to the target qubit only if the control qubit is in the 
+∣1⟩ state.
+Such gates generate entanglement, as discussed in the [introduction to DQC](intro.md).
+
+Beyond static gates, circuits also support classically conditioned operations.
+For example, an IfElse construct applies one subcircuit if a specified classical register holds a given value and another subcircuit otherwise. This enables hybrid quantum–classical flow control within circuits.
+
+Finally, measurement operations project qubits into classical bits, irreversibly collapsing their quantum state.
+
+The goal of HDHs is to make explicit the transformations induced by all gates and measurements, enabling large circuits to be partitioned into smaller, distributable subcircuits.
+Mapping a quantum circuit into an HDH involves applying the correspondences summarized in the table below:
 
 ![Circuitmappings](img/circuitmappings.png){ width=300 }
 
-The following code:
+Bellow is an example of how to build a circuit using the library’s ```Circuit``` class and map it to an HDH:
 ```python
 import hdh
 from hdh.models.circuit import Circuit
@@ -36,11 +64,14 @@ hdh = circuit.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 ```
 
-is equivalent to circuit:
+This code is equivalent to the following circuit:
 ![Circuit](img/circuit.png){ width=300 }
 
-and the HDH:
-![CircuitHDH](img/hdhfromcircuit.png){ width=300 }
+Which is mapped to HDH:
+![CircuitHDH](img/hdhfromcircuit.png){ width=500 }
+
+The HDH is composed of the motifs shown in the mapping table, appearing in the temporal order of computation and indexed by the qubits they abstract.
+Note that a qubit is not initialized until the timestep immediately preceding its first operation.
 
 ### MBQC patterns
 
