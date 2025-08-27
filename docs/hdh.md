@@ -5,10 +5,10 @@ a special type of directed hypergraphs
 designed to encode temporal and spatial dependencies 
 of quantum computations with the purpose of distributing 
 originally monolothic quantum or hybrid workloads.
-Hypergraph abstractions are currently the standard approach for partitioning quantum computations in distributed quantum computing, see [1](https://arxiv.org/abs/2404.01265).  
+Hypergraph abstractions are currently the standard approach for partitioning quantum computations in distributed quantum computing, [[1](https://arxiv.org/abs/2404.01265)].  
 HDHs extend this practice by providing a consistent and complete representation framework, intended to support the systematic evaluation and comparison of partitioning strategies.
 
-A *hypergraph* consists of a set of nodes and a family of subsets of these nodes, called hyperedges, see [2](https://www.math.ucdavis.edu/~saito/data/tensor/bretto_hypergraph-theory.pdf).  
+A *hypergraph* consists of a set of nodes and a family of subsets of these nodes, called hyperedges[[2](https://www.math.ucdavis.edu/~saito/data/tensor/bretto_hypergraph-theory.pdf)].  
 In HDHs these hyperedges can be refered to as connections, as they represent the connectivity requirements between nodes. 
 Meaning that if a HDH is partitioned, the operations represented as inter-partition hyperedges would need to be replaced by equivalent communication primitives (such as a non-local gate or a teleportation protocol). 
 
