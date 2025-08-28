@@ -1,5 +1,5 @@
 
-![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/main/docs/img/logo.png)
+![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/miscellaneous/img/logo.png)
 
 # Hybrid Dependency Hypergraphs for Quantum Computation
 
@@ -17,6 +17,8 @@
 </p>
 
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://your-docs-url)
+
+Documentation can be found at: https://grageragarces.github.io/HDH/
 
 ---
 
