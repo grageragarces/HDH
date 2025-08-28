@@ -16,6 +16,8 @@
   <em>Work in Progress - Preparing for 1.0</em>
 </p>
 
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://your-docs-url)
+
 ---
 
 ## What is HDH?
@@ -55,9 +57,7 @@ Includes test examples for:
 ```bash
 pip install hdh
 ```
-
 ---
-
 ## Quickstart
 
 ### From Qiskit
