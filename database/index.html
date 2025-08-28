@@ -61,6 +61,24 @@
               </ul>
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">The HDH Database</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#file-formats">File formats</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#hdh-text-metadata">HDH text metadata</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#extending-the-dataset">Extending the dataset</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#how-to-add-to-this-database">How to add to this database</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#1-add-new-workloads-hdhs">1) Add new workloads + HDHs</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#2-add-partitioning-method-results">2) Add partitioning method results</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
                 </li>
               </ul>
               <ul>
@@ -90,7 +108,271 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                
+                <h1 id="the-hdh-database">The HDH Database</h1>
+<p>To support reproducible evaluation and training of partitioning strategies, this library includes a database of pre-generated HDHs.<br />
+We aim for this resource to facilitate benchmarking across diverse workloads and enables the development of learning-based distribution agents.</p>
+<p><strong><em>Our goal is to extend the database with performance metrics of partitioning techniques for each workload.
+This will allow the community to build a data-driven understanding of which hypergraph partitioning methods perform best under different conditions.
+We encourage users to contribute results from their own partitioning methods when working with this database.
+Instructions for how to upload results can be found below.</em></strong></p>
+<p>The database currently contains:</p>
+<ul>
+<li>HDHs derived from the <a href="https://www.cda.cit.tum.de/mqtbench/">Munich Quantum Benchmarking Dataset</a>.</li>
+</ul>
+<p>The database is organized into two mirrored top-level folders:</p>
+<ul>
+<li><strong>Workloads</strong>: contains the raw workload commands (currently QASM files).  </li>
+<li><strong>HDHs</strong>: contains the corresponding Hybrid Dependency Hypergraphs for each workload.</li>
+</ul>
+<p>Both folders share the same internal structure: <code>Model/Origin_of_Workload/</code>.</p>
+<p>where:</p>
+<ul>
+<li>Model = computational model (e.g., Circuit, MBQC, QW, QCA).  </li>
+<li>Origin_of_Workload = source of the workload (e.g., benchmark suite, custom circuit).  </li>
+</ul>
+<h2 id="file-formats">File formats</h2>
+<ul>
+<li>
+<p>Workloads/  </p>
+<ul>
+<li>QASM files representing the quantum workloads.</li>
+</ul>
+</li>
+<li>
+<p>HDHs/  </p>
+<ul>
+<li><code>.pkl</code>: Python*pickled <code>HDH</code> objects for programmatic use.  </li>
+<li><code>.txt</code>: human*readable text files with annotated metadata.</li>
+</ul>
+</li>
+</ul>
+<h2 id="hdh-text-metadata">HDH text metadata</h2>
+<p>Each <code>.txt</code> file includes metadata lines before the hypergraph specification:</p>
+<ul>
+<li><em>Model type</em>: which computational model the HDH was generated from.  </li>
+<li><em>Workload origin</em>; reference to the source workload.  </li>
+<li><em>Hybrid status</em>: whether the HDH contains both quantum and classical nodes.  </li>
+<li><em>Node count</em>: total number of nodes in the hypergraph.  </li>
+<li><em>Connectivity degree</em>: average connectivity of the hypergraph.  </li>
+<li><em>Disconnected subgraphs</em>: number of disconnected components.</li>
+</ul>
+<h2 id="extending-the-dataset">Extending the dataset</h2>
+<p>We encourage users to:</p>
+<ul>
+<li>Add new workloads (QASM or <a href="../models/">other supported formats</a>).  </li>
+<li>Generate corresponding HDHs.  </li>
+<li>Propose and document new metrics (e.g., depth, cut size, entanglement width).  </li>
+</ul>
+<p>Pull requests that expand the benchmark set or enrich metadata are very welcome!</p>
+<h3 id="how-to-add-to-this-database">How to add to this database</h3>
+<p>There are two ways to contribute:</p>
+<h4 id="1-add-new-workloads-hdhs">1) Add new workloads + HDHs</h4>
+<p>1) <strong>Place workloads</strong><br />
+Put your QASM files under:<br />
+<code>Workloads/&lt;Model&gt;/&lt;Origin&gt;/</code>
+Example:<br />
+<code>Workloads/Circuits/MQTBench/qft_8.qasm</code></p>
+<p>2) <strong>Run the converter</strong><br />
+The script in the section below converts QASM → HDH and writes (can be adapted for other models):  </p>
+<pre><code>HDHs/&lt;Model&gt;/&lt;Origin&gt;/pkl/.pkl
+HDHs/&lt;Model&gt;/&lt;Origin&gt;/text/__nodes.csv
+HDHs/&lt;Model&gt;/&lt;Origin&gt;/text/__edges.csv
+HDHs/&lt;Model&gt;/&lt;Origin&gt;/text/__edge_members.csv
+</code></pre>
+<p>3) <strong>Verify &amp; inspect</strong><br />
+Open the <code>text/*.csv</code> files (human-readable) and load the <code>pkl/*.pkl</code> objects in Python for programmatic checks.</p>
+<p>4) <strong>(Optional) Add metrics</strong><br />
+Compute any extra metrics (e.g., partition cut size, modularity, width).<br />
+Save them next to the HDH text files as <code>*__metrics.json</code>.</p>
+<p>5) <strong>Submit a PR</strong><br />
+Contribute your workloads, HDHs, and metrics back to the repository.  </p>
+<h4 id="2-add-partitioning-method-results">2) Add partitioning method results</h4>
+<p>If you are not adding new workloads but want to share <strong>partitioning method results</strong>, you can do so by uploading a CSV file with suffix:<br />
+HDHs/<Model>/<Origin>/text/<workload_stem>__cut.csv</p>
+<p>Each row corresponds to one partitioning run. The file should contain the following columns:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code></td>
+<td>Name of the partitioning method (e.g., <code>metis_kway</code>, <code>greedy_binfill</code>).</td>
+</tr>
+<tr>
+<td><code>qcost</code></td>
+<td>Number of <strong>quantum hyperedges cut</strong>.</td>
+</tr>
+<tr>
+<td><code>ccost</code></td>
+<td>Number of <strong>classical hyperedges cut</strong>.</td>
+</tr>
+<tr>
+<td><code>k</code></td>
+<td>Number of partitions.</td>
+</tr>
+<tr>
+<td><code>partitions</code></td>
+<td>Serialized representation of partition sets (e.g., JSON list of node-sets or indices).</td>
+</tr>
+<tr>
+<td><code>parallelism</code></td>
+<td>Parallelism value, evaluated as in the HDH paper.</td>
+</tr>
+<tr>
+<td><code>sizes</code></td>
+<td>Sizes of partitions (list or JSON array).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example <code>__cut.csv</code>:</strong></p>
+<pre><code class="language-csv">method,qcost,ccost,k,partitions,parallelism,sizes
+metis_kway,12,3,4,&quot;[{q0_t0,q1_t0},{q2_t0},{q3_t0,q4_t0},{q5_t0}]&quot;,0.67,&quot;[2,1,2,1]&quot;
+greedy_binfill,15,4,4,&quot;[{q0_t0,q2_t0},{q1_t0,q3_t0},{q4_t0},{q5_t0}]&quot;,0.61,&quot;[2,2,1,1]&quot;
+Converter script (QASM → HDH → {pkl,csv})
+Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters.qasm.from_qasm).
+</code></pre>
+<h5 id="converter-script-qasm-hdh-pklcsv">Converter script (QASM → HDH → {pkl,csv})</h5>
+<p>Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters.qasm.from_qasm).</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+import sys
+import os
+import csv
+import json
+import pickle
+from pathlib import Path
+from tqdm import tqdm
+import argparse
+
+# Repo import path (one level up)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from hdh.converters.qasm import from_qasm
+
+BASE_DIR = Path(__file__).resolve().parent
+
+def ensure_dir(p: Path):
+    p.mkdir(parents=True, exist_ok=True)
+
+def save_pkl(hdh_graph, out_base: Path):
+    p = out_base.with_suffix(&quot;.pkl&quot;)
+    with open(p, &quot;wb&quot;) as f:
+        pickle.dump(hdh_graph, f)
+    return p
+
+def save_nodes_csv(hdh_graph, out_path: Path):
+    with open(out_path, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+        w = csv.writer(f)
+        w.writerow([&quot;node_id&quot;, &quot;type&quot;, &quot;time&quot;, &quot;realisation&quot;])  # a|p
+        for nid in sorted(hdh_graph.S):
+            w.writerow([
+                nid,
+                hdh_graph.sigma.get(nid, &quot;&quot;),
+                getattr(hdh_graph, &quot;time_map&quot;, {}).get(nid, &quot;&quot;),
+                hdh_graph.upsilon.get(nid, &quot;&quot;)
+            ])
+
+def save_edges_csvs(hdh_graph, edges_path: Path, members_path: Path):
+    # Stable ordering to assign edge_index deterministically
+    edges_sorted = sorted(hdh_graph.C, key=lambda e: tuple(sorted(e)))
+    # edges table (one row per edge)
+    with open(edges_path, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+        w = csv.writer(f)
+        w.writerow([
+            &quot;edge_index&quot;,
+            &quot;type&quot;,          # q|c
+            &quot;realisation&quot;,   # a|p
+            &quot;gate_name&quot;,
+            &quot;role&quot;,          # teledata|telegate|''
+            &quot;edge_args&quot;,     # JSON
+            &quot;edge_metadata&quot;  # JSON
+        ])
+        for idx, e in enumerate(edges_sorted):
+            w.writerow([
+                idx,
+                hdh_graph.tau.get(e, &quot;&quot;),
+                hdh_graph.phi.get(e, &quot;&quot;),
+                getattr(hdh_graph, &quot;gate_name&quot;, {}).get(e, &quot;&quot;),
+                getattr(hdh_graph, &quot;edge_role&quot;, {}).get(e, &quot;&quot;),
+                json.dumps(getattr(hdh_graph, &quot;edge_args&quot;, {}).get(e, None), ensure_ascii=False) if e in getattr(hdh_graph, &quot;edge_args&quot;, {}) else &quot;&quot;,
+                json.dumps(getattr(hdh_graph, &quot;edge_metadata&quot;, {}).get(e, None), ensure_ascii=False) if e in getattr(hdh_graph, &quot;edge_metadata&quot;, {}) else &quot;&quot;
+            ])
+    # edge_members table (one row per (edge,node))
+    with open(members_path, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+        w = csv.writer(f)
+        w.writerow([&quot;edge_index&quot;, &quot;node_id&quot;])
+        for idx, e in enumerate(edges_sorted):
+            for nid in sorted(e):
+                w.writerow([idx, nid])
+
+def main():
+    ap = argparse.ArgumentParser(description=&quot;Convert QASM workloads to HDH artifacts&quot;)
+    ap.add_argument(&quot;--model&quot;, default=&quot;Circuits&quot;, help=&quot;Model folder under Workloads/ and HDHs/&quot;)
+    ap.add_argument(&quot;--origin&quot;, default=&quot;MQTBench&quot;, help=&quot;Origin folder under Workloads/&lt;Model&gt;/ and HDHs/&lt;Model&gt;/&quot;)
+    ap.add_argument(&quot;--limit&quot;, type=int, default=None, help=&quot;Max number of files to convert (useful for large datasets)&quot;)
+    ap.add_argument(&quot;--src-root&quot;, default=None, help=&quot;Override source root. Default: Workloads/&lt;Model&gt;/&lt;Origin&gt;&quot;)
+    args = ap.parse_args()
+
+    SRC_DIR = Path(args.src_root) if args.src_root else BASE_DIR / &quot;Workloads&quot; / args.model / args.origin
+    DST_ROOT = BASE_DIR / &quot;HDHs&quot; / args.model / args.origin
+    PKL_ROOT = DST_ROOT / &quot;pkl&quot;
+    TXT_ROOT = DST_ROOT / &quot;text&quot;
+    IMG_ROOT = DST_ROOT / &quot;images&quot;  # reserved for future visual exports
+
+    if not SRC_DIR.exists():
+        print(f&quot;[error] Source directory not found: {SRC_DIR}&quot;)
+        sys.exit(1)
+
+    for d in (PKL_ROOT, TXT_ROOT, IMG_ROOT):
+        ensure_dir(d)
+
+    qasm_files = sorted(SRC_DIR.rglob(&quot;*.qasm&quot;))
+    if not qasm_files:
+        print(f&quot;[info] No .qasm files found under {SRC_DIR}&quot;)
+        return
+
+    if args.limit is not None:
+        qasm_files = qasm_files[: args.limit]
+
+    ok = fail = 0
+    with tqdm(total=len(qasm_files),
+              desc=&quot;Converting QASM → HDH&quot;,
+              unit=&quot;file&quot;,
+              dynamic_ncols=True,
+              mininterval=0.2) as pbar:
+        for qf in qasm_files:
+            rel = qf.relative_to(SRC_DIR)
+            stem = rel.stem
+            pkl_dir = PKL_ROOT / rel.parent
+            txt_dir = TXT_ROOT / rel.parent
+            for d in (pkl_dir, txt_dir):
+                ensure_dir(d)
+            pbar.set_postfix_str(str(rel))
+            pbar.refresh()
+            try:
+                hdh_graph = from_qasm(&quot;file&quot;, str(qf))
+                # pkl
+                save_pkl(hdh_graph, pkl_dir / stem)
+                # text (CSV)
+                save_nodes_csv(hdh_graph, (txt_dir / f&quot;{stem}__nodes.csv&quot;))
+                save_edges_csvs(
+                    hdh_graph,
+                    edges_path=(txt_dir / f&quot;{stem}__edges.csv&quot;),
+                    members_path=(txt_dir / f&quot;{stem}__edge_members.csv&quot;),
+                )
+                ok += 1
+            except Exception as e:
+                tqdm.write(f&quot;[fail] {qf}: {e}&quot;)
+                fail += 1
+            finally:
+                pbar.update(1)
+    print(f&quot;[done] Converted: {ok} | Failed: {fail} | Total processed: {len(qasm_files)}&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
               
             </div>
           </div><footer>
