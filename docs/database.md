@@ -61,14 +61,17 @@ There are two ways to contribute:
 
 #### 1) Add new workloads + HDHs
 
-1) **Place workloads**  
-Put your QASM files under:  
+##### 1) **Place workloads**  
+Put your workload origin files under:  
 ```Workloads/<Model>/<Origin>/```
+This could be anything from a qasm file to circuit generation code.
+If the HDH is not generated from functions within the library, we request you add a ```README.md``` to your origin folder explaining how the HDHs were generated.
+
 Example:  
 ```Workloads/Circuits/MQTBench/qft_8.qasm```
 
-2) **Run the converter**  
-The script in the section below converts QASM → HDH and writes (can be adapted for other models):  
+##### 2) **Run the converter**  
+Convert the files (qasm strings, qiskit circuits, ...) to HDHs.
 ```
 HDHs/<Model>/<Origin>/pkl/.pkl
 HDHs/<Model>/<Origin>/text/__nodes.csv
@@ -76,45 +79,10 @@ HDHs/<Model>/<Origin>/text/__edges.csv
 HDHs/<Model>/<Origin>/text/__edge_members.csv
 ```
 
-3) **Verify & inspect**  
-Open the `text/*.csv` files (human-readable) and load the `pkl/*.pkl` objects in Python for programmatic checks.
-
-4) **(Optional) Add metrics**  
-Compute any extra metrics (e.g., partition cut size, modularity, width).  
-Save them next to the HDH text files as `*__metrics.json`.
-
-5) **Submit a PR**  
-Contribute your workloads, HDHs, and metrics back to the repository.  
+The example script below converts QASM → HDH and writes them as expected (it can be adapted for other models):  
 
 
-#### 2) Add partitioning method results
-
-If you are not adding new workloads but want to share **partitioning method results**, you can do so by uploading a CSV file with suffix:  
-HDHs/<Model>/<Origin>/text/<workload_stem>__cut.csv
-
-Each row corresponds to one partitioning run. The file should contain the following columns:
-
-| Field           | Description |
-|-----------------|-------------|
-| `method`        | Name of the partitioning method (e.g., `metis_kway`, `greedy_binfill`). |
-| `qcost`         | Number of **quantum hyperedges cut**. |
-| `ccost`         | Number of **classical hyperedges cut**. |
-| `k`             | Number of partitions. |
-| `partitions`    | Serialized representation of partition sets (e.g., JSON list of node-sets or indices). |
-| `parallelism`   | Parallelism value, evaluated as in the HDH paper. |
-| `sizes`         | Sizes of partitions (list or JSON array). |
-
-**Example `__cut.csv`:**
-
-```csv
-method,qcost,ccost,k,partitions,parallelism,sizes
-metis_kway,12,3,4,"[{q0_t0,q1_t0},{q2_t0},{q3_t0,q4_t0},{q5_t0}]",0.67,"[2,1,2,1]"
-greedy_binfill,15,4,4,"[{q0_t0,q2_t0},{q1_t0,q3_t0},{q4_t0},{q5_t0}]",0.61,"[2,2,1,1]"
-Converter script (QASM → HDH → {pkl,csv})
-Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters.qasm.from_qasm).
-```
-
-##### Converter script (QASM → HDH → {pkl,csv})
+###### Converter script (QASM → HDH → {pkl,csv})
 
 Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters.qasm.from_qasm).
 ```python
@@ -254,3 +222,104 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+##### 3) **Verify & inspect**  
+Please open at least one of the `text/*.csv` files (human-readable) and load at least one of the `pkl/*.pkl` objects in Python, to check everything works!
+
+##### 4) **Submit a PR**  
+If all went smoothly and you're happy to, submit a PR with your workloads, HDHs, and metrics back to the repository so we can keep growing our testing database.  
+If you are going to also submit partitioning method results we recommend to wait and do it all in one!
+
+Note that the datafiles might be a bit too big to directly upload.
+In that is the case try doing so with [LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/configuring-git-large-file-storage):
+
+macOS:
+```
+brew install git-lfs
+git lfs install
+```
+Debian/Ubuntu:
+```
+sudo apt-get update
+sudo apt-get install git-lfs
+git lfs install
+```
+Windows:
+```
+winget install Git.GitLFS
+git lfs install
+```
+
+From repo root (make sure to change ```<Origin>``` for your Origin name):
+```
+git lfs track "*.csv"
+git add .gitattributes
+git commit -m "Adding <Origin> HDHs to database"
+git push -u origin main
+```
+
+You may need to add your origin
+```
+git remote add origin https://github.com/<you>/<repo>.git
+```
+
+Once you've got it commited to your fork you can push it through a pull request as per usual.
+
+#### 2) Add partitioning method results
+
+If you want to share **partitioning method results**, you can do so by adding adding the partitioning method metadata to the ```HDHs/<Model>/<Origin>/Partitions/partitions_all.csv``` file.
+
+These files may look like: 
+
+```csv
+file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_bins_cost,best
+ae_indep_qiskit_10.qasm,10,2,"[[""q0"",""q1"",""q2"",""q3"",""q8""],[""q4"",""q5"",""q6"",""q7"",""q9""]]",30,"[[""q1"",""q3"",""q5"",""q6"",""q7""],[""q0"",""q2"",""q4"",""q8"",""q9""]]",25,False,kl,"[[""q0"",""q1"",""q2"",""q3"",""q9""],[""q4"",""q5"",""q6"",""q7"",""q8""]]",30,metis_tl
+ae_indep_qiskit_10.qasm,10,3,"[[""q0"",""q1"",""q2"",""q8""],[""q3"",""q4"",""q6"",""q7""],[""q5"",""q9""]]",40,"[[""q3"",""q5"",""q6"",""q7""],[""q0"",""q2""],[""q1"",""q4"",""q8"",""q9""]]",32,False,kl,"[[""q0"",""q1"",""q2"",""q9""],[""q3"",""q4"",""q5"",""q6""],[""q7"",""q8""]]",38,metis_tl
+ae_indep_qiskit_10.qasm,10,4,"[[""q0"",""q1"",""q8""],[""q2"",""q3"",""q7""],[""q4"",""q5"",""q6""],[""q9""]]",45,"[[""q5"",""q7"",""q9""],[""q2"",""q8""],[""q0"",""q4""],[""q1"",""q3"",""q6""]]",37,False,kl,"[[""q0"",""q1"",""q9""],[""q2"",""q3"",""q4""],[""q5"",""q6"",""q7""],[""q8""]]",43,metis_tl
+```
+
+First the metadata:
+
+* ```file```: name of the origin file
+* ```n_qubits```: number of qubits in workload
+* ```k_partitions```: number of partitions made by the method. For instance if you cut your workload once you only create 2 partitions
+
+Then partitioners results can be added. 
+In this example we can see 3 partitioning strategies: greedy, metis and greedytg.
+They correspond to:
+
+* **Greedy (HDH)** :
+Partitions directly on the HDH hypergraph where each hyperedge captures one operation’s dependency set.
+We fill bins sequentially: order qubits by a heuristic (e.g., incident cut weight, then degree), and place each into the earliest bin that (i) respects the logical-qubit capacity and (ii) gives the smallest marginal cut increase.
+If nothing fits, open the next bin up to k.
+Cost = sum of weights of hyperedges spanning >1 bin (default weight 1 per op; domain weights optional).
+
+* **METIS (Telegate graph)**:
+Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a “telegate” communication if cut).
+Uses the [METIS library](https://pypi.org/project/metis/) to compute a k-way partition with balance constraints and minimal cut on this graph.
+Partitions are then re-evaluated on the HDH cost for apples-to-apples comparison.
+We typically set edge weights from interaction counts; you can also up-weight edges representing expensive non-local primitives to steer METIS away from cutting them.
+
+* **Greedy-TG (Telegate graph)**:
+Same fill-first policy as Greedy (HDH), but decisions are made on the telegate graph.
+Nodes are qubits; edge weights reflect how costly it is to separate two qubits (i.e., expected telegate load).
+Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph, ensuring a fair, representation-matched comparison with the HDH greedy approach.
+
+All this information regarding the method used and its origin must be saved in 
+```HDHs/<Model>/<Origin>/Partitions/README.md``` 
+, otherwise the data will not be merged.
+
+As you can see in the example depending on the strategy you can have more or less saved data. Mandatory columns include:
+
+* quantum communication cost achieved (```cost```) = number of quantum partitioned hyperedges
+* the sets of qubits per partitions (```bins```)
+
+Additionally, ```best``` must be re-calculated.
+Best corresponds to the name of the method with the lowest cost.
+
+In this example, additional metadata includes the sub-method used within the METIS partitioner (it can default to various sub-methods if the original fails), as well as a failure state for METIS.
+The failure state is very important for methods that do not assure the ability to respect a given capacity.
+Capacity (i.e., the maximum number of qubits allowed in one partition) should be set to the total number of qubits divided by the number of partitions (rounded up to the next integer).
+If the partitioner cannot respect this capacity, the potential failure status should be logged, and if true the method should not be considered in the best evaluation.
+An explanation on whether these types of additional logs are necessary must be added to any commit adding new data to the database.
+If they are needed, an explanation of what is added is also required.
