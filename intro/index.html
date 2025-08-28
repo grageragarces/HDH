@@ -93,14 +93,41 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="an-introduction-to-distributed-quantum-computing">An introduction to Distributed Quantum Computing</h1>
-<!-- why dqc
-state of the art
-how do we distribute
-hypergraph abstractions
-what hdhs are trying to fix
- - model agnostic
- - unifying abstraction that actually considers all the options unlike teledata and telegate
- - an easy to use mapping that can serve as a base for further testing (comparing accross technique results atm is almost impossible) -->
+<p>The main problem behind distributed quantum computing is how to map quantum workloads to a network of quantum devices.
+Unlike its classical counterpart, the so-called <em>mapping problem</em> must account for both classical and quantum data and operations within the workload, as well as quantum and classical devices and connections within the network.</p>
+<p>Two main strategies have arisem in this context:</p>
+<ul>
+<li>
+<p>Bespoke algorithm design: splitting the workload into smaller sub-workloads defined by algorithmic tasks (as in distributed versions of <a href="https://arxiv.org/abs/2207.05976">Shor’s</a> and <a href="https://arxiv.org/abs/2204.10487">Grover’s</a> algorithms) or by subproblems (something more along the lines of partitioning a large Hamiltonian into sub-Hamiltonians and communication terms [<a href="https://arxiv.org/html/2411.02881v1">1</a>]).</p>
+</li>
+<li>
+<p>Hypergraph abstractions: abstracting a quantum circuit into a hypergraph to then partition it with max-cut heuristics [<a href="https://arxiv.org/abs/1811.10972">2</a>], replacing every cut hyperedge with an equivalent communication primitive (a non-local gate when partitioning through a gate, or a teleportation protocol when partitioning through a wire).</p>
+</li>
+</ul>
+<p>This library contributes to the second strategy, which unlike bespoke algorithmic designs, 
+does not require knowledge of the problem structure or algorithmic logic, and can be applied to any compiled quantum program.</p>
+<p>In this context the mapping problem can be defined as:
+<img alt="TGD" src="../img/problem.png" width="400" /></p>
+<p>Even in a simplified setting where only communication minimization is considered, the network mapping problem is computationally intractable.
+In particular, the decision version of the problem is NP-hard, even for a fixed network topology of only two nodes with equal capacity, where the objective reduces 
+to partitioning V_C into two equal-sized sets while minimizing the number of hyperedges crossing between them.
+This case is equivalent to the sparsest cut problem with unit capacities, which is NP-hard via a reduction from the max-cut problem [<a href="https://dl.acm.org/doi/10.5555/1987042.1987056">3</a>].</p>
+<p>Our best strategy, therefore, is to design fast and efficient heuristic partitioners.
+State-of-the-art partitioning strategies include <a href="https://en.wikipedia.org/wiki/Fiduccia–Mattheyses_algorithm">Fiduccia–Mattheyses</a> and <a href="https://arxiv.org/abs/2503.19082">multilevel</a> partitioners (such as <a href="https://kahypar.org">KaHyPar</a>).
+We recommend <a href="https://www.semanticscholar.org/paper/Review-of-Distributed-Quantum-Computing.-From-QPU-Barral-Cardama/639518d8cd950c0ccce4721eb18a470a44f63410">this review</a> if you want to learn more about how these strategies have been applied to circuit partitioning.
+Nonetheless, a few bottlenecks remain, making cross-partitioning method comparison difficult.</p>
+<p>For a start, hypergraphs built for abstracting quantum workloads can be constructed using different conventions, for example, mapping qubits to nodes and multi-qubit gates to hyperedges, or vice versa.
+These are known as telegate and teledata.
+<img alt="TGD" src="../img/tgd.png" width="400" /></p>
+<p>This variety of representations has led to inconsistencies that complicate direct comparisons between partitioning methods for distributed quantum circuits.
+To address this, strategies that can utilize both abstractions have been proposed [<a href="https://arxiv.org/abs/2505.01184">4</a>,<a href="https://arxiv.org/abs/2408.01424">5</a>], but not an easy-to-use unifying abstraction.</p>
+<p>Beyond telegate and teledata, restricting to the circuit model also imposes a significant limitation.
+Photons, the most practical medium for long-range quantum communication—are used in photonic quantum computers that do not operate under the circuit model.
+As a result, current compiler distribution frameworks are incompatible with key hardware platforms needed for near-term distributed quantum computing testbeds.
+They exclude alternative computational models required by some quantum devices and cannot accommodate hybrid quantum–classical workloads.</p>
+<p><em><strong>HDHs</strong> address both challenges and provide a unifying abstraction for representing partitioning across all models.
+This library is designed to make HDHs easy to construct and to offer a <a href="../database/">database</a> where state-of-the-art and future techniques can be benchmarked against each other in one common framework.
+For a concise overview of how HDHs are built, see our <a href="../hdh/">brief introduction to HDHs</a>.</em></p>
               
             </div>
           </div><footer>
