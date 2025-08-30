@@ -80,3 +80,43 @@ def implement_comm_primitives(partitioned_hdhs, model="circuit", sdk="qiskit", p
         circuits.append(qc)
 
     return circuits
+  
+# =====================================================================
+#                        PRIMITIVES
+# =====================================================================
+# The following block contains “primitives / rewrite” scaffolding and helpers.
+
+# class AncillaAllocator:
+#     def __init__(self):
+#         self.counter = 0
+#     def new(self, base: str, time: int):
+#         name = f"{base}_anc{self.counter}_t{time}"
+#         self.counter += 1
+#         return name
+
+# def extract_qidx(n):
+#     m = re.search(r'q(?:[A-Za-z_]*?)(\d+)', n)
+#     if m:
+#         return int(m.group(1))
+#     raise ValueError(f"[ERROR] extract_qidx failed on: {n}")
+
+# def extract_cidx(n):
+#     m = re.search(r'c(?:[A-Za-z_]*?)(\d+)', n)
+#     if m:
+#         return int(m.group(1))
+#     raise ValueError(f"[ERROR] extract_cidx failed on: {n}")
+
+# def get_logical_qubit(node_id: str) -> str:
+#     return node_id.split('_')[0]
+
+# def select_comm_primitive(role, node_type, allowed):
+#     if role == "teledata":
+#         return "tp" if "tp" in allowed["quantum"] else "cat"
+#     elif role == "telegate":
+#         return "cat"
+#     elif role == "classical":
+#         return "ccom" if "ccom" in allowed["classical"] else "crep"
+#     raise ValueError(f"Unknown role: {role}")
+
+# def cut_and_rewrite_hdh(...):
+#     ...
