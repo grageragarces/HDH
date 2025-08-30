@@ -1,330 +1,504 @@
 """
 This code is currently under development and is subject to change.
-Current cut functions do not take into account qubit capacities and thus generally default to teledata cuts.
 Full integration with primitives is still pending.
+
+Partitioning utilities:
+- HDH-based (node-level, hypergraph-aware) greedy partititioning
+- Telegate-based (qubit graph) METIS partitioning
 """
 
-import networkx as nx
-import networkx.algorithms.community as nx_comm
-import metis
-print(metis.__version__)
-from typing import List, Set, Union, DefaultDict, Optional, Dict
-from hdh.hdh import HDH
-from qiskit import QuantumCircuit
+from __future__ import annotations
+
+# ------------------------------ Imports ------------------------------
+import math
 import re
+import itertools
+import random
+from typing import List, Set, Tuple, Dict, Optional, Iterable
+from collections import defaultdict, Counter
+import networkx as nx
+from networkx.algorithms.community import kernighan_lin_bisection
 
-class AncillaAllocator:
-    def __init__(self):
-        self.counter = 0
-    def new(self, base: str, time: int):
-        name = f"{base}_anc{self.counter}_t{time}"
-        self.counter += 1
-        return name
+# ------------------------------ Regexes ------------------------------
+# useful for recognising qubit and bit IDs
+_Q_RE   = re.compile(r"^q(\d+)_t\d+$")
+_C_RE   = re.compile(r"^c(\d+)_t\d+$")
 
-def extract_qidx(n):
-    # Match strings like 'q0', 'q3_t12', 'qA_anc0_t18', etc.
-    m = re.search(r'q(?:[A-Za-z_]*?)(\d+)', n)
-    if m:
-        return int(m.group(1))
-    raise ValueError(f"[ERROR] extract_qidx failed on: {n}")
+# ------------------------------- Greedy partitioning on HDH -------------------------------
 
-def extract_cidx(n):
-    # Match strings like 'c1', 'c9_t0', 'c_anc3_t12', etc.
-    m = re.search(r'c(?:[A-Za-z_]*?)(\d+)', n)
-    if m:
-        return int(m.group(1))
-    raise ValueError(f"[ERROR] extract_cidx failed on: {n}")
+def _qubit_of(nid: str) -> Optional[int]:
+    m = _Q_RE.match(nid)
+    return int(m.group(1)) if m else None
 
-def get_logical_qubit(node_id: str) -> str:
-    return node_id.split('_')[0]
-
-# def compute_cut(hdh: HDH, num_parts: int) -> List[Set[str]]:
-#     """
-#     Use METIS to partition HDH nodes into disjoint blocks.
-    
-#     Returns a list of disjoint sets of node IDs.
-#     """
-#     # 1. Build undirected graph from HDH
-#     G = nx.Graph()
-#     G.add_nodes_from(hdh.S)
-    
-#     for edge in hdh.C:
-#         edge_nodes = list(edge)
-#         for i in range(len(edge_nodes)):
-#             for j in range(i + 1, len(edge_nodes)):
-#                 G.add_edge(edge_nodes[i], edge_nodes[j])
-
-#     # 2. Convert to METIS-compatible graph (requires contiguous integer node IDs)
-#     node_list = list(G.nodes)
-#     node_idx_map = {node: idx for idx, node in enumerate(node_list)}
-#     idx_node_map = {idx: node for node, idx in node_idx_map.items()}
-
-#     metis_graph = nx.relabel_nodes(G, node_idx_map, copy=True)
-    
-#     # 3. Call METIS
-#     _, parts = metis.part_graph(metis_graph, nparts=num_parts)
-    
-#     # 4. Build partition sets
-#     partition = [set() for _ in range(num_parts)]
-#     for idx, part in enumerate(parts):
-#         node_id = idx_node_map[idx]
-#         partition[part].add(node_id)
-    
-#     return partition
-
-def select_comm_primitive(role, node_type, allowed):
-    if role == "teledata":
-        return "tp" if "tp" in allowed["quantum"] else "cat"
-    elif role == "telegate":
-        return "cat"
-    elif role == "classical":
-        return "ccom" if "ccom" in allowed["classical"] else "crep"
-    raise ValueError(f"Unknown role: {role}")
-
-def extract_cidx(n):
-    m = re.search(r'c(?:[A-Za-z_]+)?(\d+)', n)
-    if m:
-        return int(m.group(1))
-    raise ValueError(f"Cannot extract classical bit index from: {n}")
-
-# def cut_and_rewrite_hdh(
-#     hdh,
-#     num_parts: int,
-#     allowed_primitives: Dict[str, Set[str]],
-#     insert_qiskit_circuits: bool = False,
-#     qiskit_primitives: Optional[Dict[str, QuantumCircuit]] = None
-# ) -> List:
-
-#     partitions = compute_cut(hdh, num_parts)
-#     node_to_part = {node: i for i, part in enumerate(partitions) for node in part}
-#     cut_edges = [e for e in hdh.C if len({node_to_part[n] for n in e}) > 1]
-#     print(f"[DEBUG] Number of cut edges: {len(cut_edges)}")
-
-#     partitioned_hdhs = [hdh.__class__() for _ in range(num_parts)]
-#     anc = AncillaAllocator()
-
-#     # Copy nodes
-#     for i, part in enumerate(partitions):
-#         for node in part:
-#             partitioned_hdhs[i].add_node(node, hdh.sigma[node], hdh.time_map[node])
-
-#     # Copy non-cut edges
-#     for edge in hdh.C - set(cut_edges):
-#         parts = {node_to_part[n] for n in edge}
-#         p = parts.pop()
-#         new_edge = partitioned_hdhs[p].add_hyperedge(
-#             edge,
-#             hdh.tau[edge],
-#             name=hdh.gate_name.get(edge),
-#             role=hdh.edge_role.get(edge)
-#         )
-#         if edge in hdh.edge_args:
-#             partitioned_hdhs[p].edge_args[new_edge] = hdh.edge_args[edge]
-#         if hasattr(hdh, "edge_metadata") and edge in hdh.edge_metadata:
-#             partitioned_hdhs[p].edge_metadata[new_edge] = hdh.edge_metadata[edge]
-
-#     # Handle cut edges
-#     for edge in cut_edges:
-#         parts = list({node_to_part[n] for n in edge})
-#         if len(parts) != 2:
-#             continue  # Only handle bipartition edges
-
-#         print(f"[DEBUG] Cutting edge: {edge} with name: {hdh.gate_name.get(edge)}")
-
-#         nodes = list(edge)
-#         for i in range(len(nodes)):
-#             for j in range(i + 1, len(nodes)):
-#                 n1, n2 = nodes[i], nodes[j]
-#                 if node_to_part[n1] != node_to_part[n2]:
-#                     src, dst = (n1, n2) if hdh.time_map[n1] <= hdh.time_map[n2] else (n2, n1)
-#                     t_src, t_dst = hdh.time_map[src], hdh.time_map[dst]
-#                     qtype = hdh.sigma[src]
-#                     role = hdh.edge_role.get(edge)
-
-#                     if role is None:
-#                         label = hdh.gate_name.get(edge, "")
-#                         if label in {"cx", "cz"}:
-#                             role = "telegate"
-#                         else:
-#                             role = "teledata"
-
-#                     primitive, qiskit_circuit = select_comm_primitive(
-#                         role, qtype, allowed_primitives, qiskit_primitives if insert_qiskit_circuits else None
-#                     )
-
-#                     print(f"[DEBUG] Assigning primitive '{primitive}' for edge {edge}, role: {role}")
-
-#                     if insert_qiskit_circuits and qiskit_circuit is None:
-#                         qiskit_circuit = default_primitive(primitive)
-
-#                     src_part = node_to_part[src]
-#                     dst_part = node_to_part[dst]
-#                     if src_part == dst_part:
-#                         continue
-
-#                     src_stub = f"{src}_send"
-#                     dst_stub = f"{dst}_recv"
-
-#                     partitioned_hdhs[src_part].add_node(src_stub, qtype, t_src)
-#                     partitioned_hdhs[dst_part].add_node(dst_stub, qtype, t_dst)
-
-#                     partitioned_hdhs[src_part].add_hyperedge({src, src_stub}, qtype)
-#                     partitioned_hdhs[dst_part].add_hyperedge({dst_stub, dst}, qtype)
-
-#                     comm_nodes = {src_stub, dst_stub}
-
-#                     anc_qs = []
-#                     anc_cs = []
-
-#                     if insert_qiskit_circuits and qiskit_circuit:
-#                         print(f"[DEBUG] Inserting circuit for edge {edge}: {qiskit_circuit.name}")
-#                         for _ in range(qiskit_circuit.num_qubits):
-#                             anc_q = anc.new("qA", t_src)
-#                             partitioned_hdhs[src_part].add_node(anc_q, 'q', t_src)
-#                             comm_nodes.add(anc_q)
-#                             anc_qs.append(anc_q)
-#                         for _ in range(qiskit_circuit.num_clbits):
-#                             anc_c = anc.new("c", t_src)
-#                             partitioned_hdhs[src_part].add_node(anc_c, 'c', t_src)
-#                             anc_cs.append(anc_c)
-
-#                     comm_edge = partitioned_hdhs[src_part].add_hyperedge(
-#                         comm_nodes,
-#                         primitive,
-#                         name=primitive,
-#                         role=role
-#                     )
-
-#                     if insert_qiskit_circuits and qiskit_circuit:
-#                         partitioned_hdhs[src_part].edge_args[comm_edge] = qiskit_circuit
-
-#                         q_order = [src_stub, dst_stub] + anc_qs
-#                         qubit_candidates = [n for n in q_order if n.startswith('q')]
-#                         if len(qubit_candidates) < qiskit_circuit.num_qubits:
-#                             raise ValueError(
-#                                 f"Edge {edge} ({primitive}) expects {qiskit_circuit.num_qubits} qubits, "
-#                                 f"but got only {len(qubit_candidates)}: {qubit_candidates}"
-#                             )
-
-#                         qubit_idxs = [extract_qidx(n) for n in qubit_candidates[:qiskit_circuit.num_qubits]]
-#                         cbit_idxs = [extract_cidx(n) for n in anc_cs[:qiskit_circuit.num_clbits]]
-
-#                         partitioned_hdhs[src_part].edge_metadata[comm_edge] = {
-#                             "qubits": qubit_idxs,
-#                             "cbits": cbit_idxs,
-#                             "timestep": t_src,
-#                             "gate": qiskit_circuit.to_instruction()
-#                         }
-
-#                     partitioned_hdhs[src_part].motifs[comm_edge] = {
-#                         "type": primitive,
-#                         "role": role,
-#                         "source": src,
-#                         "target": dst,
-#                         "qtype": qtype,
-#                         "time_src": t_src,
-#                         "time_dst": t_dst,
-#                         "ancilla_qubits": anc_qs,
-#                         "ancilla_bits": anc_cs
-#                     }
-
-#     return partitioned_hdhs
-
-def cost(hdh: HDH, partition: List[Set[str]]) -> int:
-    """Return number of hyperedges in HDH that span multiple partitions."""
-    # Map node -> part index
-    node_to_part = {}
-    for part_idx, part in enumerate(partition):
-        for node in part:
-            node_to_part[node] = part_idx
-
-    cut_edges = 0
-    for edge in hdh.C:
-        parts_in_edge = {node_to_part[n] for n in edge if n in node_to_part}
-        if len(parts_in_edge) > 1:
-            cut_edges += 1
-
-    return cut_edges
-
-def partition_sizes(partition: List[Set[str]]) -> List[int]:
-    return [len(part) for part in partition]
-
-def compute_parallelism_by_time(
-    hdh: HDH,
-    partition: List[Set[str]],
-    mode: str = "global",
-    time_step: Union[int, None] = None) -> Union[List[int], int]:
+def _build_hdh_incidence(hdh) -> Tuple[Dict[str, Set[frozenset]], Dict[frozenset, Set[str]], Dict[frozenset, int]]:
     """
-    Compute parallelism over time:
-    
-    - If mode == "global": return list of partition counts per time step.
-    - If mode == "local": return partition count at `time_step`.
-
-    Args:
-        hdh: The HDH object
-        partition: List of sets of node IDs
-        mode: "global" or "local"
-        time_step: required if mode == "local"
-    
     Returns:
-        List[int] for global mode, int for local mode
+      inc[v]  -> set of incident hyperedges for node v
+      pins[e] -> set of node-ids in e
+      w[e]    -> weight (default 1)
     """
-    node_to_part = {node: i for i, part in enumerate(partition) for node in part}
+    pins: Dict[frozenset, Set[str]] = {e: set(e) for e in hdh.C}
+    inc:  Dict[str, Set[frozenset]] = defaultdict(set)
+    for e, mems in pins.items():
+        for v in mems:
+            inc[v].add(e)
+    w = {e: int(getattr(hdh, "edge_weight", {}).get(e, 1)) for e in hdh.C}
+    return inc, pins, w
 
-    if mode == "global":
-        time_to_active_parts = DefaultDict(set)
-        for node in hdh.S:
-            if node in node_to_part:
-                t = node[1]  # assumes node = (id, timestamp)
-                time_to_active_parts[t].add(node_to_part[node])
-        return [len(time_to_active_parts[t]) for t in sorted(hdh.T)]
+def _group_qnodes(hdh) -> Tuple[Dict[int, List[str]], Dict[str, int]]:
+    """q -> [node_ids], and node_id -> q"""
+    qnodes_by_qubit: Dict[int, List[str]] = defaultdict(list)
+    qubit_of: Dict[str, int] = {}
+    for nid in hdh.S:
+        m = _Q_RE.match(nid)
+        if m:
+            q = int(m.group(1))
+            qnodes_by_qubit[q].append(nid)
+            qubit_of[nid] = q
+    return qnodes_by_qubit, qubit_of
 
-    elif mode == "local":
-        if time_step is None:
-            raise ValueError("`time_step` must be specified for local mode.")
-        active_parts = {
-            node_to_part[node]
-            for node in hdh.S
-            if node in node_to_part and node[1] == time_step
-        }
-        return len(active_parts)
+class _HDHState:
+    """
+    Assign at node-level, but capacity applies to UNIQUE QUBITS/bin.
+    When a qubit enters a bin, all its remaining nodes are auto-assigned to that bin.
+    """
+    __slots__ = ("assign","bin_nodes","bin_qubits","qubit_bin",
+                 "pin_in_bin","unassigned_pins","k","cap","reserve_frac")
+    def __init__(self, k:int, cap:int, edges:Iterable[frozenset], reserve_frac:float):
+        self.assign: Dict[str,int] = {}                 # node -> bin
+        self.bin_nodes = [0]*k                          # for stats only
+        self.bin_qubits: List[Set[int]] = [set() for _ in range(k)]  # unique qubits/bin
+        self.qubit_bin: Dict[int,int] = {}             # qubit -> bin
+        self.pin_in_bin: Dict[frozenset, Counter] = {e: Counter() for e in edges}
+        self.unassigned_pins: Dict[frozenset,int] = {e: len(e) for e in edges}
+        self.k, self.cap, self.reserve_frac = k, cap, reserve_frac
 
+    def qubit_load(self, b:int) -> int:
+        return len(self.bin_qubits[b])
+
+    def bin_capacity(self, b:int) -> int:
+        used_q = self.qubit_load(b)
+        hard = self.cap
+        shadow = max(0, int(self.cap*(1.0 - self.reserve_frac)))
+        return hard if used_q >= int(0.8*self.cap) else shadow
+
+    def can_place_qubit(self, q: Optional[int], b:int) -> bool:
+        if q is None:
+            return True
+        if q in self.qubit_bin:
+            return self.qubit_bin[q] == b  # already anchored elsewhere? only ok if same bin
+        return self.qubit_load(b) < self.bin_capacity(b)
+
+def _delta_cost_hdh(v:str, b:int, st:_HDHState, inc, pins, w) -> int:
+    d = 0
+    for e in inc.get(v, ()):
+        was = st.pin_in_bin[e][b]
+        full_after = (st.pin_in_bin[e][b] + 1 == len(pins[e])) and (st.unassigned_pins[e] == 1)
+        if was == 0 and not full_after:
+            d += w[e]
+        if full_after:
+            d -= w[e]
+    return d
+
+def _place_hdh(v:str, b:int, st:_HDHState, inc, w, qnodes_by_qubit: Dict[int, List[str]]):
+    """Place v, and if it's the first node of its qubit, auto-place all siblings to the same bin."""
+    q = _qubit_of(v)
+    # Respect existing qubit anchor
+    if q is not None and q in st.qubit_bin and st.qubit_bin[q] != b:
+        b = st.qubit_bin[q]
+
+    def _place_one(nid:str):
+        if nid in st.assign:
+            return
+        st.assign[nid] = b
+        st.bin_nodes[b] += 1
+        for e in inc.get(nid, ()):
+            st.pin_in_bin[e][b] += 1
+            st.unassigned_pins[e] -= 1
+
+    _place_one(v)
+
+    # First time we see this qubit? anchor + auto-place its other nodes
+    if q is not None and q not in st.qubit_bin:
+        st.qubit_bin[q] = b
+        st.bin_qubits[b].add(q)
+        for sib in qnodes_by_qubit.get(q, []):
+            if sib != v:
+                _place_one(sib)
+
+def _total_cost_hdh(st:_HDHState, pins, w) -> int:
+    cost = 0
+    for e, cnt in st.pin_in_bin.items():
+        nonzero = sum(1 for c in cnt.values() if c>0)
+        if nonzero >= 2:
+            cost += w[e]
+    return cost
+
+
+def _best_candidates_for_bin(items: Iterable[str],
+                             b:int,
+                             delta_fn,
+                             state,
+                             frontier_score_fn,
+                             beam_k:int) -> List[Tuple[int,int,str]]: 
+    # candidate picker (no capacity gating)
+    """Top-K by (Δ, -frontier_score, id)."""
+    cand = []
+    for v in items:
+        if v in state.assign:
+            continue
+        d = delta_fn(v, b)
+        fr = frontier_score_fn(v, b)
+        cand.append((d, -fr, v))
+    cand.sort(key=lambda t: (t[0], t[1], t[2]))
+    return cand[:beam_k]
+
+def _first_unassigned_rep_that_fits(order, st, b):
+    """Pick the first representative v (of an unanchored qubit) that fits bin b."""
+    for v in order:
+        if v in st.assign:
+            continue
+        q = _qubit_of(v)
+        if st.can_place_qubit(q, b):
+            return v
+    return None
+
+def compute_cut(hdh_graph, k:int, cap:int, *,
+                beam_k:int=3,
+                backtrack_window:int=0,
+                polish_1swap_budget:int=0,   # disabled for HDH (moving whole qubits is heavier)
+                restarts:int=1,
+                reserve_frac:float=0.08,
+                predictive_reject:bool=True,
+                seed:int=0) -> Tuple[List[Set[str]], int]:
+    """
+    Greedy HDH partitioner (bin-fill). Capacity is on UNIQUE QUBITS/bin.
+    When a qubit enters a bin, all its remaining nodes are auto-assigned to that bin.
+    """
+    inc, pins, w = _build_hdh_incidence(hdh_graph)
+    qnodes_by_qubit, _ = _group_qnodes(hdh_graph)
+
+    # choose one representative node per qubit for ordering
+    deg_w = {}
+    for v in hdh_graph.S:
+        if _qubit_of(v) is not None:
+            deg_w[v] = sum(w[e] for e in inc.get(v, ()))
+    reps = []
+    for q, lst in qnodes_by_qubit.items():
+        pick = max(lst, key=lambda v: deg_w.get(v, 0))
+        reps.append(pick)
+    if not reps:
+        return [set() for _ in range(k)], 0
+    order = sorted(reps, key=lambda v: (-deg_w.get(v, 0), v))
+
+    def run_once(rng) -> Tuple[List[Set[str]], int]:
+        st = _HDHState(k, cap, edges=hdh_graph.C, reserve_frac=reserve_frac)
+
+        def frontier_score(v:str, b:int)->int:
+            sc = 0
+            for e in inc.get(v, ()):
+                if st.pin_in_bin[e][b] > 0:
+                    sc += w[e]
+            return sc
+
+        delta = lambda v, b: _delta_cost_hdh(v, b, st, inc, pins, w)
+
+        for b in range(k):
+            # fill by unique qubits
+            while st.qubit_load(b) < st.bin_capacity(b):
+                # build beam
+                cands = _best_candidates_for_bin(
+                    items=order, b=b,
+                    delta_fn=lambda v, bb=b: delta(v, bb),
+                    state=st,
+                    frontier_score_fn=lambda v, bb=b: frontier_score(v, bb),
+                    beam_k=beam_k
+                )
+                # enforce qubit-capacity
+                cands = [(d, fr, v) for (d, fr, v) in cands if st.can_place_qubit(_qubit_of(v), b)]
+
+                if not cands:
+                    # Fallback: seed the bin with the first unassigned rep that fits.
+                    v0 = _first_unassigned_rep_that_fits(order, st, b)
+                    if v0 is None:
+                        break  # truly nothing fits this bin → move to next bin
+                    _place_hdh(v0, b, st, inc, w, qnodes_by_qubit)
+                    continue
+
+                placed = False
+                for d, _, v in cands:
+                    if predictive_reject and st.qubit_load(b) >= st.bin_capacity(b) - 1:
+                        touching = sum(1 for e in inc.get(v, ()) if st.pin_in_bin[e][b] > 0)
+                        if touching == 0:
+                            continue
+                    _place_hdh(v, b, st, inc, w, qnodes_by_qubit)
+                    placed = True
+                    break
+
+                if not placed:
+                    # Even the beam couldn’t place (likely due to predictive reject on a near‑full bin).
+                    # Try a single seed anyway to avoid empty bins.
+                    v0 = _first_unassigned_rep_that_fits(order, st, b)
+                    if v0 is None:
+                        break
+                    _place_hdh(v0, b, st, inc, w, qnodes_by_qubit)
+
+        # ---- Final mop-up: distribute any remaining unassigned reps round‑robin
+        remaining = [v for v in order if v not in st.assign]
+        if remaining:
+            bi = 0
+            for v in remaining:
+                tries = 0
+                placed = False
+                while tries < k and not placed:
+                    if st.can_place_qubit(_qubit_of(v), bi) and st.qubit_load(bi) < st.cap:
+                        _place_hdh(v, bi, st, inc, w, qnodes_by_qubit)
+                        placed = True
+                        break
+                    bi = (bi + 1) % k
+                    tries += 1
+                # if not placed, all bins are truly at capacity — safe to skip
+
+        # materialize bins
+        bins_nodes: List[Set[str]] = [set() for _ in range(k)]
+        for nid, bb in st.assign.items():
+            bins_nodes[bb].add(nid)
+        cost = _total_cost_hdh(st, pins, w)
+        return bins_nodes, cost
+
+    best_bins, best_cost = None, float("inf")
+    for r in range(max(1, restarts)):
+        rng = random.Random(seed + r)
+        bins_nodes, cost = run_once(rng)
+        if cost < best_cost:
+            best_bins, best_cost = bins_nodes, cost
+    return best_bins, best_cost
+
+# ------------------------------- METIS telegate -------------------------------
+
+def telegate_hdh(hdh: "HDH") -> nx.Graph:
+    """
+    Build the telegate graph of an HDH.
+    Nodes = qubits (as 'q{idx}').
+    Undirected edges = quantum operations between qubits (co-appearance in a quantum hyperedge).
+    Edge attribute 'weight' counts multiplicity.
+    """
+    G = nx.Graph()
+
+    qubits_seen = set()
+    for n in hdh.S:
+        m = _Q_RE.match(n)
+        if m:
+            qubits_seen.add(int(m.group(1)))
+    for q in qubits_seen:
+        G.add_node(f"q{q}")
+
+    for e in hdh.C:
+        if hasattr(hdh, "tau") and hdh.tau.get(e, None) != "q":
+            continue
+        qs = []
+        for node in e:
+            m = _Q_RE.match(node)
+            if m:
+                qs.append(int(m.group(1)))
+        for a, b in itertools.combinations(sorted(set(qs)), 2):
+            u, v = f"q{a}", f"q{b}"
+            if G.has_edge(u, v):
+                G[u][v]["weight"] += 1
+            else:
+                G.add_edge(u, v, weight=1)
+    return G
+
+def _bins_from_parts(parts) -> List[Set[str]]:
+    return [set(map(str, p)) for p in parts]
+
+def _sizes(bins: List[Set[str]]) -> List[int]:
+    return [len(b) for b in bins]
+
+def _over_under(bins: List[Set[str]], cap: int):
+    sizes = _sizes(bins)
+    over = [i for i, s in enumerate(sizes) if s > cap]
+    under = [i for i, s in enumerate(sizes) if s < cap]
+    return over, under
+
+def _best_move_for_node(G: nx.Graph, node: str, src_idx: int, tgt_idx: int,
+                        bins: List[Set[str]]) -> float:
+    """Heuristic gain if moving `node` src->tgt. Higher is better."""
+    to_src = 0
+    to_tgt = 0
+    for nbr, data in G[node].items():
+        w = data.get("weight", 1)
+        if nbr in bins[src_idx]:
+            to_src += w
+        if nbr in bins[tgt_idx]:
+            to_tgt += w
+    return to_tgt - to_src
+
+def _repair_overflow(G: nx.Graph, bins: List[Set[str]], cap: int) -> List[Set[str]]:
+    """Greedy rebalancer to enforce bin capacity."""
+    while True:
+        over, under = _over_under(bins, cap)
+        if not over or not under:
+            break
+        moved_any = False
+        over.sort(key=lambda i: len(bins[i]), reverse=True)
+        for src in over:
+            under.sort(key=lambda i: len(bins[i]))
+            best_gain = None
+            best_choice = None
+            for node in list(bins[src]):
+                for tgt in under:
+                    if len(bins[tgt]) >= cap:
+                        continue
+                    gain = _best_move_for_node(G, node, src, tgt, bins)
+                    if (best_gain is None) or (gain > best_gain):
+                        best_gain = gain
+                        best_choice = (node, tgt)
+            if best_choice:
+                node, tgt = best_choice
+                bins[src].remove(node)
+                bins[tgt].add(node)
+                moved_any = True
+                break
+        if not moved_any:
+            for src in over:
+                for tgt in under:
+                    if len(bins[tgt]) >= cap:
+                        continue
+                    node = next(iter(bins[src]))
+                    bins[src].remove(node)
+                    bins[tgt].add(node)
+                    moved_any = True
+                    break
+                if moved_any:
+                    break
+            if not moved_any:
+                break
+    return bins
+
+def _cut_edges_unweighted(G: nx.Graph, bins: List[Set[str]]) -> int:
+    """Count edges crossing between different bins (unweighted)."""
+    where = {}
+    for i, b in enumerate(bins):
+        for n in b:
+            where[n] = i
+    cut = 0
+    for u, v in G.edges():
+        if where.get(u) != where.get(v):
+            cut += 1
+    return cut
+
+def _kl_fallback_partition(G: nx.Graph, k: int) -> List[Set[str]]:
+    """Recursive bisection using Kernighan–Lin; returns list of node sets."""
+    parts: List[Set[str]] = [set(G.nodes())]
+    while len(parts) < k:
+        parts.sort(key=len, reverse=True)
+        big = parts.pop(0)
+        if len(big) <= 1:
+            parts.append(big)
+            break
+        H = G.subgraph(big).copy()
+        try:
+            A, B = kernighan_lin_bisection(H, weight="weight")
+        except Exception:
+            nodes = list(big)
+            mid = len(nodes) // 2
+            A, B = set(nodes[:mid]), set(nodes[mid:])
+        parts.extend([set(A), set(B)])
+    while len(parts) > k:
+        parts.sort(key=len)
+        a = parts.pop(0); b = parts.pop(0)
+        parts.append(a | b)
+    return parts
+
+def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[Set[str]], int, bool, str]:
+    """
+    Partition the telegate (qubit) graph via METIS (or KL fallback), with capacity on #qubits/bin.
+    Returns: (bins_qubits, cut_cost, respects_capacity, method['metis'|'kl'])
+    """
+    G: nx.Graph = telegate_hdh(hdh)
+
+    used_metis = False
+    try:
+        import nxmetis  # type: ignore
+        used_metis = True
+    except Exception:
+        used_metis = False
+
+    n = G.number_of_nodes()
+    if partitions <= 0 or capacities <= 0:
+        empty = [set() for _ in range(max(0, partitions))]
+        return empty, 0, False, "error"
+    if n == 0:
+        empty = [set() for _ in range(partitions)]
+        return empty, 0, True, "metis" if used_metis else "kl"
+    if partitions * capacities < n:
+        return [], 0, False, "metis" if used_metis else "kl"
+
+    nx.set_node_attributes(G, {n: 1 for n in G.nodes}, name="weight")
+
+    if used_metis:
+        target = capacities / float(n)
+        tpwgts = [target] * partitions
+        ubvec = [1.001]
+        try:
+            import nxmetis
+            _, parts = nxmetis.partition(
+                G, partitions,
+                node_weight="weight", edge_weight="weight",
+                tpwgts=tpwgts, ubvec=ubvec
+            )
+        except TypeError:
+            _, parts = nxmetis.partition(G, partitions, node_weight="weight", edge_weight="weight")
+        bins = _bins_from_parts(parts)
+        method = "metis"
     else:
-        raise ValueError("mode must be 'global' or 'local'")
+        parts = _kl_fallback_partition(G, partitions)
+        bins = _bins_from_parts(parts)
+        method = "kl"
 
-def compute_cut_by_time_percent(hdh: HDH, percent: float) -> List[Set[str]]:
-    """
-    Cut the HDH horizontally across time at a given percentage (e.g. 0.3 = 30%).
-    Returns two partitions: before and after the cut.
-    """
-    assert 0 <= percent <= 1, "Percent must be between 0 and 1"
-    max_time = max(hdh.time_map.values())
-    threshold = int(percent * max_time)
+    bins = _repair_overflow(G, bins, capacities)
+    cost = _cut_edges_unweighted(G, bins)
+    respects = all(len(b) <= capacities for b in bins)
+    return bins, cost, respects, method
 
-    part0 = {n for n in hdh.S if hdh.time_map[n] <= threshold}
-    part1 = hdh.S - part0
-    return [part0, part1]
 
-def gates_by_partition(hdh, partitions):
-    """
-    Classify HDH edges as intra- or inter-partition based on provided partitions.
-    Returns (intra_edges, inter_edges)
-    """
-    node_to_part = {}
-    for i, part in enumerate(partitions):
-        for node in part:
-            node_to_part[node] = i
+# =====================================================================
+#                        PRIMITIVES
+# =====================================================================
+# The following block contains “primitives / rewrite” scaffolding and helpers.
 
-    intra = [[] for _ in partitions]
-    inter = []
+# class AncillaAllocator:
+#     def __init__(self):
+#         self.counter = 0
+#     def new(self, base: str, time: int):
+#         name = f"{base}_anc{self.counter}_t{time}"
+#         self.counter += 1
+#         return name
 
-    for edge in hdh.C:
-        parts = {node_to_part.get(n) for n in edge if n in node_to_part}
-        parts.discard(None)
+# def extract_qidx(n):
+#     m = re.search(r'q(?:[A-Za-z_]*?)(\d+)', n)
+#     if m:
+#         return int(m.group(1))
+#     raise ValueError(f"[ERROR] extract_qidx failed on: {n}")
 
-        if len(parts) == 1:
-            intra[list(parts)[0]].append(edge)
-        elif len(parts) > 1:
-            inter.append(edge)
+# def extract_cidx(n):
+#     m = re.search(r'c(?:[A-Za-z_]*?)(\d+)', n)
+#     if m:
+#         return int(m.group(1))
+#     raise ValueError(f"[ERROR] extract_cidx failed on: {n}")
 
-    return intra, inter
+# def get_logical_qubit(node_id: str) -> str:
+#     return node_id.split('_')[0]
+
+# def select_comm_primitive(role, node_type, allowed):
+#     if role == "teledata":
+#         return "tp" if "tp" in allowed["quantum"] else "cat"
+#     elif role == "telegate":
+#         return "cat"
+#     elif role == "classical":
+#         return "ccom" if "ccom" in allowed["classical"] else "crep"
+#     raise ValueError(f"Unknown role: {role}")
+
+# def cut_and_rewrite_hdh(...):
+#     ...
