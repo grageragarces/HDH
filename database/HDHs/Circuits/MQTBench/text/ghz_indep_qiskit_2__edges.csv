@@ -1,7 +1,0 @@
-edge_index,type,realisation,gate_name,role,edge_args,edge_metadata
-0,q,a,cx_stage1,,"[[[1, 4], [0, 4]], [], [true, true]]",
-1,q,a,cx_stage2,,"[[[1, 4], [0, 4]], [], [true, true]]",
-2,q,a,cx_stage3,,"[[[1, 4], [0, 4]], [], [true, true]]",
-3,q,a,h,,"[[[1, 1]], [], [true]]",
-4,q,a,cx_stage1,,"[[[1, 4], [0, 4]], [], [true, true]]",
-5,q,a,cx_stage3,,"[[[1, 4], [0, 4]], [], [true, true]]",

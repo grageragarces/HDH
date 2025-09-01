@@ -1,5 +1,15 @@
-  <!-- ## Passes
-### Cut evaluations
-### Primitive injections
+# Partitioning HDHs for distribution
+introduce the passes files
 
-## Partitioning function -->
+# Partitioner
+
+# METIS partitioners
+
+# Cut evaluations
+
+# Primitive injections
+
+# The partitioner leadeboard
+point people to the database
+
+# Notes on evaluating partitioners on random circuits

@@ -6,7 +6,7 @@ nav:
   - Quantum Computational Model mappings to HDHs: models.md
   - Visualizing HDHs: vis.md
   - The HDH Database: database.md
-  # - Passes: passes.md
+  - Partitioning HDHs for distribution: passes.md
   # - Contribution guide: contribution.md
   - Related publications and information: literature.md
 theme: readthedocs
