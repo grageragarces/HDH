@@ -1,5 +1,5 @@
 
-![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/miscellaneous/img/logo.png)
+![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/main/miscellaneous/img/logo.png)
 
 # Hybrid Dependency Hypergraphs for Quantum Computation
 
