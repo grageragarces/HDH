@@ -1,5 +1,5 @@
 
-![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/miscellaneous/img/logo.png)
+![HDH Logo](https://raw.githubusercontent.com/grageragarces/hdh/main/miscellaneous/img/logo.png)
 
 # Hybrid Dependency Hypergraphs for Quantum Computation
 
@@ -29,7 +29,7 @@ It provides a unified structure that makes it easier to:
 
 - Translate quantum programs (e.g., a circuit or a mbqc pattern) into a unified hypergraph format
 - Analyze and visualize the logical and temporal dependencies within a computation
-<!-- - Partition workloads across devices using tools like METIS or KaHyPar, taking into account hardware and network constraints -->
+- Partition workloads across devices, taking into account hardware and network constraints
 
 ---
 
@@ -42,6 +42,7 @@ It provides a unified structure that makes it easier to:
   - Measurement-Based Quantum Computing (MBQC)
   - Quantum Walks
   - Quantum Cellular Automata (QCA)
+- Capability to partition HDHs and evaluate partitions
 
 Includes test examples for:
 
@@ -91,7 +92,9 @@ plot_hdh(hdh)
 ```
 ---
 
-<!-- ## Tests and Demos
+## Tests and Demos
+
+<!-- TODO: this should be updated when we update tests -->
 
 All tests are under `tests/` and can be run with:
 
@@ -106,7 +109,7 @@ If you're interested in the HDH of a specific model, see in manual_tests:
 - `qw_test.py` for Quantum Walks  
 - `teleportation_protocol_logo.py` for a protocol-specific demo  
 
---- -->
+---
 
 ## Contributing
 
