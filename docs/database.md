@@ -8,6 +8,8 @@ This will allow the community to build a data-driven understanding of which hype
 We encourage users to contribute results from their own partitioning methods when working with this database.
 Instructions for how to upload results can be found below.***
 
+The database is available in the ```database-branch``` [of the repository](https://github.com/grageragarces/HDH/tree/database-branch). This separation ensures that users of the main library don’t need to download unnecessary files.
+
 The database currently contains:
 
 * HDHs derived from the [Munich Quantum Benchmarking Dataset](https://www.cda.cit.tum.de/mqtbench/).
