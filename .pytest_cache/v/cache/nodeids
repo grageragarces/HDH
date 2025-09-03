@@ -1,0 +1,7 @@
+[
+  "tests/mbqc_test.py::test_mbqc_builds_hdh",
+  "tests/test_hdh_metrics.py::test_mbqc",
+  "tests/test_hdh_metrics.py::test_qca",
+  "tests/test_hdh_metrics.py::test_qiskit_converter",
+  "tests/test_hdh_metrics.py::test_qw"
+]

@@ -1,0 +1,3 @@
+{
+  "tests/mbqc_test.py::test_mbqc_builds_hdh": true
+}

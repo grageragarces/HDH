@@ -17,8 +17,8 @@ from hdh.hdh import HDH
 from hdh.models.circuit import Circuit
 from hdh.visualize import plot_hdh
 from hdh.converters.qiskit import from_qiskit
-from hdh.converters.pennylane import from_pennylane
-from hdh.converters import cirq
+from hdh.converters.pennylane_converter import from_pennylane
+from hdh.converters import cirq_converter
 
 
 import qiskit
@@ -327,8 +327,8 @@ def test_pennylane_with_terminal_measurements():
     plot_hdh(hdh) 
     
 def test_cirq():
-    q0, q1 = cirq.LineQubit.range(2)
-    qc = cirq.Circuit(cirq.H(q0), cirq.CX(q0, q1), cirq.measure(q0, q1, key='b'))
+    q0, q1 = cirq_converter.LineQubit.range(2)
+    qc = cirq_converter.Circuit(cirq_converter.H(q0), cirq_converter.CX(q0, q1), cirq_converter.measure(q0, q1, key='b'))
     hdh = from_cirq(qc)
     plot_hdh(hdh)
     
