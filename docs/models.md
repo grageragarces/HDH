@@ -133,6 +133,10 @@ This is because a node in an MBQC pattern doesn't necessarily directly correspon
 For simplicity we have made it so in the example above, but feel free to name them something else.
 Note that if you do the visualize function may play some tricks on you depending on the version of the library you are working with.
 
+This is the corresponding motif to operation mapping table for the MBQC model:
+![mbqc](img/mbqctable.png){ width=600 }
+
+
 ### Quantum walks 
 Quantum walks are another universal model of quantum computation [[9](https://arxiv.org/abs/0806.1972)].
 Like quantum circuits, quantum walks can be expressed using different sets of unitary operations and are universal for quantum computation. 
@@ -175,6 +179,9 @@ fig = plot_hdh(hdh) # Visualize HDH
 ```
 This code generates HDH:
 ![qwhdh](img/qwhd.png){ width=600 }
+
+This is the corresponding motif to operation mapping table for the QW model:
+![qw](img/qwtable.png){ width=600 }
 
 Bellow you can find a short explanation explaining the differences between DTQW and CTQW implementations.
 If you're interested in QW, we recommend [this book](http://ndl.ethernet.edu.et/bitstream/123456789/73178/1/277.pdf).
@@ -245,6 +252,9 @@ fig = plot_hdh(hdh) # Visualize HDH
 ```
 This code generates HDH:
 ![qca](img/qca.png){ width=600 }
+
+This is the corresponding motif to operation mapping table for the QCA model:
+![qca](img/qcatable.png){ width=600 }
 
 # Built in Converters
 The library currently has converters from 
