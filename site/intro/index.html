@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>An introduction to DQC - HDH</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "An introduction to DQC";
+        var mkdocs_page_input_path = "intro.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> HDH
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">An introduction to DQC</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hdh/">A brief introduction to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../models/">Quantum Computational Model mappings to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../vis/">Visualizing HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../database/">The HDH Database</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../passes/">Partitioning HDHs for distribution</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../literature/">Related publications and information</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">HDH</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">An introduction to DQC</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="an-introduction-to-distributed-quantum-computing">An introduction to Distributed Quantum Computing</h1>
+<p>The main problem behind distributed quantum computing is how to map quantum workloads to a network of quantum devices.
+Unlike its classical counterpart, the so-called <em>mapping problem</em> must account for both classical and quantum data and operations within the workload, as well as quantum and classical devices and connections within the network.</p>
+<p>Two main strategies have arisem in this context:</p>
+<ul>
+<li>
+<p>Bespoke algorithm design: splitting the workload into smaller sub-workloads defined by algorithmic tasks (as in distributed versions of <a href="https://arxiv.org/abs/2207.05976">Shor’s</a> and <a href="https://arxiv.org/abs/2204.10487">Grover’s</a> algorithms) or by subproblems (something more along the lines of partitioning a large Hamiltonian into sub-Hamiltonians and communication terms [<a href="https://arxiv.org/html/2411.02881v1">1</a>]).</p>
+</li>
+<li>
+<p>Hypergraph abstractions: abstracting a quantum circuit into a hypergraph to then partition it with max-cut heuristics [<a href="https://arxiv.org/abs/1811.10972">2</a>], replacing every cut hyperedge with an equivalent communication primitive (a non-local gate when partitioning through a gate, or a teleportation protocol when partitioning through a wire).</p>
+</li>
+</ul>
+<p>This library contributes to the second strategy, which unlike bespoke algorithmic designs, 
+does not require knowledge of the problem structure or algorithmic logic, and can be applied to any compiled quantum program.</p>
+<p>In this context the mapping problem can be defined as:
+<img alt="TGD" src="../img/problem.png" width="400" /></p>
+<p>Even in a simplified setting where only communication minimization is considered, the network mapping problem is computationally intractable.
+In particular, the decision version of the problem is NP-hard, even for a fixed network topology of only two nodes with equal capacity, where the objective reduces 
+to partitioning V_C into two equal-sized sets while minimizing the number of hyperedges crossing between them.
+This case is equivalent to the sparsest cut problem with unit capacities, which is NP-hard via a reduction from the max-cut problem [<a href="https://dl.acm.org/doi/10.5555/1987042.1987056">3</a>].</p>
+<p>Our best strategy, therefore, is to design fast and efficient heuristic partitioners.
+State-of-the-art partitioning strategies include <a href="https://en.wikipedia.org/wiki/Fiduccia–Mattheyses_algorithm">Fiduccia–Mattheyses</a> and <a href="https://arxiv.org/abs/2503.19082">multilevel</a> partitioners (such as <a href="https://kahypar.org">KaHyPar</a>).
+We recommend <a href="https://www.semanticscholar.org/paper/Review-of-Distributed-Quantum-Computing.-From-QPU-Barral-Cardama/639518d8cd950c0ccce4721eb18a470a44f63410">this review</a> if you want to learn more about how these strategies have been applied to circuit partitioning.
+Nonetheless, a few bottlenecks remain, making cross-partitioning method comparison difficult.</p>
+<p>For a start, hypergraphs built for abstracting quantum workloads can be constructed using different conventions, for example, mapping qubits to nodes and multi-qubit gates to hyperedges, or vice versa.
+These are known as telegate and teledata.
+<img alt="TGD" src="../img/tgd.png" width="400" /></p>
+<p>This variety of representations has led to inconsistencies that complicate direct comparisons between partitioning methods for distributed quantum circuits.
+To address this, strategies that can utilize both abstractions have been proposed [<a href="https://arxiv.org/abs/2505.01184">4</a>,<a href="https://arxiv.org/abs/2408.01424">5</a>], but not an easy-to-use unifying abstraction.</p>
+<p>Beyond telegate and teledata, restricting to the circuit model also imposes a significant limitation.
+Photons, the most practical medium for long-range quantum communication—are used in photonic quantum computers that do not operate under the circuit model.
+As a result, current compiler distribution frameworks are incompatible with key hardware platforms needed for near-term distributed quantum computing testbeds.
+They exclude alternative computational models required by some quantum devices and cannot accommodate hybrid quantum–classical workloads.</p>
+<p><em><strong>HDHs</strong> address both challenges and provide a unifying abstraction for representing partitioning across all models.
+This library is designed to make HDHs easy to construct and to offer a <a href="../database/">database</a> where state-of-the-art and future techniques can be benchmarked against each other in one common framework.
+For a concise overview of how HDHs are built, see our <a href="../hdh/">brief introduction to HDHs</a>.</em></p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../hdh/" class="btn btn-neutral float-right" title="A brief introduction to HDHs">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../hdh/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

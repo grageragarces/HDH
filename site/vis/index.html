@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Visualizing HDHs - HDH</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Visualizing HDHs";
+        var mkdocs_page_input_path = "vis.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> HDH
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../intro/">An introduction to DQC</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hdh/">A brief introduction to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../models/">Quantum Computational Model mappings to HDHs</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Visualizing HDHs</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../database/">The HDH Database</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../passes/">Partitioning HDHs for distribution</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../literature/">Related publications and information</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">HDH</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Visualizing HDHs</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="visualising-hdhs">Visualising HDHs</h1>
+<p><code>plot_hdh</code> renders an HDH as a time-vs-index diagram, showing how <code>q</code>uantum and <code>c</code>lassical states evolve across timesteps and how hyperedges connect them.</p>
+<pre><code class="language-python">plot_hdh(hdh: HDH, save_path: str | None = None) -&gt; None
+</code></pre>
+<p>The function returns nothing, and shows the HDH in a python window unless a <code>save_path = hdh.png</code> is set.
+In this case the image will be directly saved to the input path.</p>
+<p>It can be used on any HDH, after it is generated from model instructions:</p>
+<pre><code class="language-python">import hdh
+from hdh.models.qca import QCA
+from hdh.visualize import plot_hdh
+
+# Topology of lattice over which QCA will evolve
+topology = {
+    &quot;q0&quot;: [&quot;q1&quot;, &quot;q2&quot;],
+    &quot;q1&quot;: [&quot;q0&quot;],
+    &quot;q2&quot;: [&quot;q0&quot;]
+}
+
+measurements = {&quot;q1&quot;, &quot;q2&quot;}
+
+qca = QCA(topology=topology, measurements=measurements, steps=3)
+hdh = qca.build_hdh() # Generate HDH
+fig = plot_hdh(hdh) # Visualize HDH
+</code></pre>
+<p><img alt="qca" src="../img/qca.png" width="600" /></p>
+<p>or directly from "manually" defining all nodes and hyperedges of a HDH:</p>
+<pre><code class="language-python">import hdh
+from hdh.hdh import HDH
+from hdh.visualize import plot_hdh
+
+hdh = HDH()
+
+# swap
+hdh.add_node(&quot;q1_t0&quot;,&quot;q&quot;,0)
+hdh.add_node(&quot;q3_t0&quot;,&quot;q&quot;,0)
+hdh.add_node(&quot;q1_t1&quot;,&quot;q&quot;,1)
+hdh.add_node(&quot;q3_t1&quot;,&quot;q&quot;,1)
+hdh.add_node(&quot;q1_t2&quot;,&quot;q&quot;,2)
+hdh.add_node(&quot;q3_t2&quot;,&quot;q&quot;,2)
+hdh.add_node(&quot;q1_t3&quot;,&quot;q&quot;,3)
+hdh.add_node(&quot;q3_t3&quot;,&quot;q&quot;,3)
+hdh.add_hyperedge([&quot;q1_t0&quot;, &quot;q1_t1&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q3_t0&quot;, &quot;q3_t1&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q1_t1&quot;, &quot;q3_t1&quot;, &quot;q1_t2&quot;, &quot;q3_t2&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q1_t2&quot;, &quot;q1_t3&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q3_t2&quot;, &quot;q3_t3&quot;], &quot;q&quot;)
+
+# # cnot
+hdh.add_node(&quot;q0_t4&quot;,&quot;q&quot;,4)
+hdh.add_node(&quot;q0_t3&quot;,&quot;q&quot;,3)
+hdh.add_node(&quot;q0_t2&quot;,&quot;q&quot;,2)
+hdh.add_node(&quot;q1_t4&quot;,&quot;q&quot;,4)
+hdh.add_node(&quot;q0_t5&quot;,&quot;q&quot;,5)
+hdh.add_node(&quot;q1_t5&quot;,&quot;q&quot;,5)
+hdh.add_hyperedge([&quot;q0_t2&quot;, &quot;q0_t3&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q1_t3&quot;, &quot;q1_t4&quot;, &quot;q0_t3&quot;, &quot;q0_t4&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q0_t4&quot;, &quot;q0_t5&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q1_t4&quot;, &quot;q1_t5&quot;], &quot;q&quot;)
+
+# meas
+hdh.add_node(&quot;c1_t6&quot;,&quot;c&quot;,6)   
+hdh.add_node(&quot;q3_t7&quot;,&quot;q&quot;,7)   
+hdh.add_node(&quot;q2_t7&quot;,&quot;q&quot;,7)
+hdh.add_hyperedge([&quot;c1_t6&quot;, &quot;q1_t5&quot;], &quot;c&quot;)
+hdh.add_hyperedge([&quot;c1_t6&quot;, &quot;q3_t7&quot;], &quot;c&quot;)
+hdh.add_hyperedge([&quot;c1_t6&quot;, &quot;q2_t7&quot;], &quot;c&quot;)
+
+# target cnot
+hdh.add_node(&quot;q3_t8&quot;,&quot;q&quot;,8)
+hdh.add_node(&quot;q4_t8&quot;,&quot;q&quot;,8)
+hdh.add_node(&quot;q3_t9&quot;,&quot;q&quot;,9)
+hdh.add_node(&quot;q4_t9&quot;,&quot;q&quot;,9)
+hdh.add_node(&quot;q4_t7&quot;,&quot;q&quot;,7)
+hdh.add_node(&quot;q4_t10&quot;,&quot;q&quot;,10)
+hdh.add_node(&quot;q3_t10&quot;,&quot;q&quot;,10)
+hdh.add_hyperedge([&quot;q3_t8&quot;, &quot;q4_t8&quot;,&quot;q3_t9&quot;, &quot;q4_t9&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q3_t8&quot;, &quot;q3_t7&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q4_t8&quot;, &quot;q4_t7&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q4_t9&quot;, &quot;q4_t10&quot;], &quot;q&quot;)
+hdh.add_hyperedge([&quot;q3_t9&quot;, &quot;q3_t10&quot;], &quot;q&quot;)
+
+# h gate
+hdh.add_node(&quot;q3_t11&quot;,&quot;q&quot;,11)
+hdh.add_hyperedge([&quot;q3_t10&quot;,&quot;q3_t11&quot;], &quot;q&quot;)
+
+# meas
+hdh.add_node(&quot;q0_t13&quot;,&quot;q&quot;,13)
+hdh.add_node(&quot;c3_t12&quot;,&quot;c&quot;,12)
+hdh.add_hyperedge([&quot;c3_t12&quot;, &quot;q3_t11&quot;], &quot;c&quot;)
+hdh.add_hyperedge([&quot;c3_t12&quot;, &quot;q0_t13&quot;], &quot;c&quot;)
+hdh.add_hyperedge([&quot;q0_t5&quot;, &quot;q0_t13&quot;], &quot;q&quot;)
+
+fig = plot_hdh(hdh,save_path=&quot;test2.png&quot;) # Visualize HDH
+</code></pre>
+<p><img alt="test2" src="../img/test2.png" width="600" /></p>
+<p>A few things to note about the HDH visualizations:</p>
+<ul>
+<li>
+<p><strong>Index ordering</strong>: y-positions are “flipped” so that the largest index appears at the bottom of the axis, while tick labels still increase upward. This matches typical circuit diagrams where q0 is drawn at the top. This is consistent with popular quantum packages, and allows for users to "read" from top to bottom.</p>
+</li>
+<li>
+<p><strong>Participation filter</strong>: nodes not present in any edge are omitted from the plot to reduce clutter.</p>
+</li>
+<li>
+<p><strong>Style inference</strong>: if the hyperedge type is not defined for an edge, it is inferred from its output nodes (if one of the nodes is classical it assumes classical, otherwise it defaults to quantum).</p>
+</li>
+<li>
+<p><strong>Same-timestep edges</strong>: are not drawn (to avoid the misconception that cuts can occur "instantaneously" -&gt; they require communication primitives and thus operations spanning different partitions must have experienced a cut previous to their execution).</p>
+</li>
+<li>
+<p><strong>Lazy qubit appearance</strong>: qubits appear in the diagram only when first used in an operation.<br />
+  Their initialization motifs (e.g. in the Circuit model) are delayed until <em>one timestep before</em> the first gate on that qubit.<br />
+  This reduces clutter from unused wires.<br />
+  Example: in the HDH above, qubit 4 only begins appearing from timestep 7.</p>
+</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../models/" class="btn btn-neutral float-left" title="Quantum Computational Model mappings to HDHs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../database/" class="btn btn-neutral float-right" title="The HDH Database">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../models/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../database/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
