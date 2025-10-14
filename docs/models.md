@@ -134,7 +134,7 @@ For simplicity we have made it so in the example above, but feel free to name th
 Note that if you do the visualize function may play some tricks on you depending on the version of the library you are working with.
 
 This is the corresponding motif to operation mapping table for the MBQC model:
-![mbqc](img/mbqctable.png){ width=600 }
+![mbqc](img/mbqctable.png){ width=250 }
 
 
 ### Quantum walks 
@@ -181,7 +181,7 @@ This code generates HDH:
 ![qwhdh](img/qwhd.png){ width=600 }
 
 This is the corresponding motif to operation mapping table for the QW model:
-![qw](img/qwtable.png){ width=600 }
+![qw](img/qwtable.png){ width=400 }
 
 Bellow you can find a short explanation explaining the differences between DTQW and CTQW implementations.
 If you're interested in QW, we recommend [this book](http://ndl.ethernet.edu.et/bitstream/123456789/73178/1/277.pdf).
@@ -254,7 +254,7 @@ This code generates HDH:
 ![qca](img/qca.png){ width=600 }
 
 This is the corresponding motif to operation mapping table for the QCA model:
-![qca](img/qcatable.png){ width=600 }
+![qca](img/qcatable.png){ width=350 }
 
 # Built in Converters
 The library currently has converters from 
