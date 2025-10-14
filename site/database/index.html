@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>The HDH Database - HDH</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "The HDH Database";
+        var mkdocs_page_input_path = "database.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> HDH
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../intro/">An introduction to DQC</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../hdh/">A brief introduction to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../models/">Quantum Computational Model mappings to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../vis/">Visualizing HDHs</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">The HDH Database</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#file-formats">File formats</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#hdh-text-metadata">HDH text metadata</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#extending-the-dataset">Extending the dataset</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#how-to-add-to-this-database">How to add to this database</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#1-add-new-workloads-hdhs">1) Add new workloads + HDHs</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#2-add-partitioning-method-results">2) Add partitioning method results</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../passes/">Partitioning HDHs for distribution</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../literature/">Related publications and information</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">HDH</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">The HDH Database</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="the-hdh-database">The HDH Database</h1>
+<p>To support reproducible evaluation and training of partitioning strategies, this library includes a database of pre-generated HDHs.<br />
+We aim for this resource to facilitate benchmarking across diverse workloads and enables the development of learning-based distribution agents.</p>
+<p><strong><em>Our goal is to extend the database with performance metrics of partitioning techniques for each workload.
+This will allow the community to build a data-driven understanding of which hypergraph partitioning methods perform best under different conditions.
+We encourage users to contribute results from their own partitioning methods when working with this database.
+Instructions for how to upload results can be found below.</em></strong></p>
+<p>The database is available in the <code>database-branch</code> <a href="https://github.com/grageragarces/HDH/tree/database-branch">of the repository</a>. This separation ensures that users of the main library don’t need to download unnecessary files.</p>
+<p>The database currently contains:</p>
+<ul>
+<li>HDHs derived from the <a href="https://www.cda.cit.tum.de/mqtbench/">Munich Quantum Benchmarking Dataset</a>.</li>
+</ul>
+<p>The database is organized into two mirrored top-level folders:</p>
+<ul>
+<li><strong>Workloads</strong>: contains the raw workload commands (currently QASM files).  </li>
+<li><strong>HDHs</strong>: contains the corresponding Hybrid Dependency Hypergraphs for each workload.</li>
+</ul>
+<p>Both folders share the same internal structure: <code>Model/Origin_of_Workload/</code>.</p>
+<p>where:</p>
+<ul>
+<li>Model = computational model (e.g., Circuit, MBQC, QW, QCA).  </li>
+<li>Origin_of_Workload = source of the workload (e.g., benchmark suite, custom circuit).  </li>
+</ul>
+<h2 id="file-formats">File formats</h2>
+<ul>
+<li>
+<p>Workloads/  </p>
+<ul>
+<li>QASM files representing the quantum workloads.</li>
+</ul>
+</li>
+<li>
+<p>HDHs/  </p>
+<ul>
+<li><code>.pkl</code>: Python*pickled <code>HDH</code> objects for programmatic use.  </li>
+<li><code>.txt</code>: human*readable text files with annotated metadata.</li>
+</ul>
+</li>
+</ul>
+<h2 id="hdh-text-metadata">HDH text metadata</h2>
+<p>Each <code>.txt</code> file includes metadata lines before the hypergraph specification:</p>
+<ul>
+<li><em>Model type</em>: which computational model the HDH was generated from.  </li>
+<li><em>Workload origin</em>; reference to the source workload.  </li>
+<li><em>Hybrid status</em>: whether the HDH contains both quantum and classical nodes.  </li>
+<li><em>Node count</em>: total number of nodes in the hypergraph.  </li>
+<li><em>Connectivity degree</em>: average connectivity of the hypergraph.  </li>
+<li><em>Disconnected subgraphs</em>: number of disconnected components.</li>
+</ul>
+<h2 id="extending-the-dataset">Extending the dataset</h2>
+<p>We encourage users to:</p>
+<ul>
+<li>Add new workloads (QASM or <a href="../models/">other supported formats</a>).  </li>
+<li>Generate corresponding HDHs.  </li>
+<li>Propose and document new metrics (e.g., depth, cut size, entanglement width).  </li>
+</ul>
+<p>Pull requests that expand the benchmark set or enrich metadata are very welcome!</p>
+<h3 id="how-to-add-to-this-database">How to add to this database</h3>
+<p>There are two ways to contribute:</p>
+<h4 id="1-add-new-workloads-hdhs">1) Add new workloads + HDHs</h4>
+<h5 id="1-place-workloads">1) <strong>Place workloads</strong></h5>
+<p>Put your workload origin files under:<br />
+<code>Workloads/&lt;Model&gt;/&lt;Origin&gt;/</code>
+This could be anything from a qasm file to circuit generation code.
+If the HDH is not generated from functions within the library, we request you add a <code>README.md</code> to your origin folder explaining how the HDHs were generated.</p>
+<p>Example:<br />
+<code>Workloads/Circuits/MQTBench/qft_8.qasm</code></p>
+<h5 id="2-run-the-converter">2) <strong>Run the converter</strong></h5>
+<p>Convert the files (qasm strings, qiskit circuits, ...) to HDHs.</p>
+<pre><code>HDHs/&lt;Model&gt;/&lt;Origin&gt;/pkl/.pkl
+HDHs/&lt;Model&gt;/&lt;Origin&gt;/text/__nodes.csv
+HDHs/&lt;Model&gt;/&lt;Origin&gt;/text/__edges.csv
+HDHs/&lt;Model&gt;/&lt;Origin&gt;/text/__edge_members.csv
+</code></pre>
+<p>The example script below converts QASM → HDH and writes them as expected (it can be adapted for other models):  </p>
+<h6 id="converter-script-qasm-hdh-pklcsv">Converter script (QASM → HDH → {pkl,csv})</h6>
+<p>Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters.qasm.from_qasm).</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+import sys
+import os
+import csv
+import json
+import pickle
+from pathlib import Path
+from tqdm import tqdm
+import argparse
+
+# Repo import path (one level up)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from hdh.converters.qasm import from_qasm
+
+BASE_DIR = Path(__file__).resolve().parent
+
+def ensure_dir(p: Path):
+    p.mkdir(parents=True, exist_ok=True)
+
+def save_pkl(hdh_graph, out_base: Path):
+    p = out_base.with_suffix(&quot;.pkl&quot;)
+    with open(p, &quot;wb&quot;) as f:
+        pickle.dump(hdh_graph, f)
+    return p
+
+def save_nodes_csv(hdh_graph, out_path: Path):
+    with open(out_path, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+        w = csv.writer(f)
+        w.writerow([&quot;node_id&quot;, &quot;type&quot;, &quot;time&quot;, &quot;realisation&quot;])  # a|p
+        for nid in sorted(hdh_graph.S):
+            w.writerow([
+                nid,
+                hdh_graph.sigma.get(nid, &quot;&quot;),
+                getattr(hdh_graph, &quot;time_map&quot;, {}).get(nid, &quot;&quot;),
+                hdh_graph.upsilon.get(nid, &quot;&quot;)
+            ])
+
+def save_edges_csvs(hdh_graph, edges_path: Path, members_path: Path):
+    # Stable ordering to assign edge_index deterministically
+    edges_sorted = sorted(hdh_graph.C, key=lambda e: tuple(sorted(e)))
+    # edges table (one row per edge)
+    with open(edges_path, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+        w = csv.writer(f)
+        w.writerow([
+            &quot;edge_index&quot;,
+            &quot;type&quot;,          # q|c
+            &quot;realisation&quot;,   # a|p
+            &quot;gate_name&quot;,
+            &quot;role&quot;,          # teledata|telegate|''
+            &quot;edge_args&quot;,     # JSON
+            &quot;edge_metadata&quot;  # JSON
+        ])
+        for idx, e in enumerate(edges_sorted):
+            w.writerow([
+                idx,
+                hdh_graph.tau.get(e, &quot;&quot;),
+                hdh_graph.phi.get(e, &quot;&quot;),
+                getattr(hdh_graph, &quot;gate_name&quot;, {}).get(e, &quot;&quot;),
+                getattr(hdh_graph, &quot;edge_role&quot;, {}).get(e, &quot;&quot;),
+                json.dumps(getattr(hdh_graph, &quot;edge_args&quot;, {}).get(e, None), ensure_ascii=False) if e in getattr(hdh_graph, &quot;edge_args&quot;, {}) else &quot;&quot;,
+                json.dumps(getattr(hdh_graph, &quot;edge_metadata&quot;, {}).get(e, None), ensure_ascii=False) if e in getattr(hdh_graph, &quot;edge_metadata&quot;, {}) else &quot;&quot;
+            ])
+    # edge_members table (one row per (edge,node))
+    with open(members_path, &quot;w&quot;, newline=&quot;&quot;, encoding=&quot;utf-8&quot;) as f:
+        w = csv.writer(f)
+        w.writerow([&quot;edge_index&quot;, &quot;node_id&quot;])
+        for idx, e in enumerate(edges_sorted):
+            for nid in sorted(e):
+                w.writerow([idx, nid])
+
+def main():
+    ap = argparse.ArgumentParser(description=&quot;Convert QASM workloads to HDH artifacts&quot;)
+    ap.add_argument(&quot;--model&quot;, default=&quot;Circuits&quot;, help=&quot;Model folder under Workloads/ and HDHs/&quot;)
+    ap.add_argument(&quot;--origin&quot;, default=&quot;MQTBench&quot;, help=&quot;Origin folder under Workloads/&lt;Model&gt;/ and HDHs/&lt;Model&gt;/&quot;)
+    ap.add_argument(&quot;--limit&quot;, type=int, default=None, help=&quot;Max number of files to convert (useful for large datasets)&quot;)
+    ap.add_argument(&quot;--src-root&quot;, default=None, help=&quot;Override source root. Default: Workloads/&lt;Model&gt;/&lt;Origin&gt;&quot;)
+    args = ap.parse_args()
+
+    SRC_DIR = Path(args.src_root) if args.src_root else BASE_DIR / &quot;Workloads&quot; / args.model / args.origin
+    DST_ROOT = BASE_DIR / &quot;HDHs&quot; / args.model / args.origin
+    PKL_ROOT = DST_ROOT / &quot;pkl&quot;
+    TXT_ROOT = DST_ROOT / &quot;text&quot;
+    IMG_ROOT = DST_ROOT / &quot;images&quot;  # reserved for future visual exports
+
+    if not SRC_DIR.exists():
+        print(f&quot;[error] Source directory not found: {SRC_DIR}&quot;)
+        sys.exit(1)
+
+    for d in (PKL_ROOT, TXT_ROOT, IMG_ROOT):
+        ensure_dir(d)
+
+    qasm_files = sorted(SRC_DIR.rglob(&quot;*.qasm&quot;))
+    if not qasm_files:
+        print(f&quot;[info] No .qasm files found under {SRC_DIR}&quot;)
+        return
+
+    if args.limit is not None:
+        qasm_files = qasm_files[: args.limit]
+
+    ok = fail = 0
+    with tqdm(total=len(qasm_files),
+              desc=&quot;Converting QASM → HDH&quot;,
+              unit=&quot;file&quot;,
+              dynamic_ncols=True,
+              mininterval=0.2) as pbar:
+        for qf in qasm_files:
+            rel = qf.relative_to(SRC_DIR)
+            stem = rel.stem
+            pkl_dir = PKL_ROOT / rel.parent
+            txt_dir = TXT_ROOT / rel.parent
+            for d in (pkl_dir, txt_dir):
+                ensure_dir(d)
+            pbar.set_postfix_str(str(rel))
+            pbar.refresh()
+            try:
+                hdh_graph = from_qasm(&quot;file&quot;, str(qf))
+                # pkl
+                save_pkl(hdh_graph, pkl_dir / stem)
+                # text (CSV)
+                save_nodes_csv(hdh_graph, (txt_dir / f&quot;{stem}__nodes.csv&quot;))
+                save_edges_csvs(
+                    hdh_graph,
+                    edges_path=(txt_dir / f&quot;{stem}__edges.csv&quot;),
+                    members_path=(txt_dir / f&quot;{stem}__edge_members.csv&quot;),
+                )
+                ok += 1
+            except Exception as e:
+                tqdm.write(f&quot;[fail] {qf}: {e}&quot;)
+                fail += 1
+            finally:
+                pbar.update(1)
+    print(f&quot;[done] Converted: {ok} | Failed: {fail} | Total processed: {len(qasm_files)}&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<h5 id="3-verify-inspect">3) <strong>Verify &amp; inspect</strong></h5>
+<p>Please open at least one of the <code>text/*.csv</code> files (human-readable) and load at least one of the <code>pkl/*.pkl</code> objects in Python, to check everything works!</p>
+<h5 id="4-submit-a-pr">4) <strong>Submit a PR</strong></h5>
+<p>If all went smoothly and you're happy to, submit a PR with your workloads, HDHs, and metrics back to the repository so we can keep growing our testing database.<br />
+If you are going to also submit partitioning method results we recommend to wait and do it all in one!</p>
+<p>Note that the datafiles might be a bit too big to directly upload.
+In that is the case try doing so with <a href="https://docs.github.com/en/repositories/working-with-files/managing-large-files/configuring-git-large-file-storage">LFS</a>:</p>
+<p>macOS:</p>
+<pre><code>brew install git-lfs
+git lfs install
+</code></pre>
+<p>Debian/Ubuntu:</p>
+<pre><code>sudo apt-get update
+sudo apt-get install git-lfs
+git lfs install
+</code></pre>
+<p>Windows:</p>
+<pre><code>winget install Git.GitLFS
+git lfs install
+</code></pre>
+<p>From repo root (make sure to change <code>&lt;Origin&gt;</code> for your Origin name):</p>
+<pre><code>git lfs track &quot;*.csv&quot;
+git add .gitattributes
+git commit -m &quot;Adding &lt;Origin&gt; HDHs to database&quot;
+git push -u origin main
+</code></pre>
+<p>You may need to add your origin</p>
+<pre><code>git remote add origin https://github.com/&lt;you&gt;/&lt;repo&gt;.git
+</code></pre>
+<p>Once you've got it commited to your fork you can push it through a pull request as per usual.</p>
+<h4 id="2-add-partitioning-method-results">2) Add partitioning method results</h4>
+<p>If you want to share <strong>partitioning method results</strong>, you can do so by adding adding the partitioning method metadata to the <code>HDHs/&lt;Model&gt;/&lt;Origin&gt;/Partitions/partitions_all.csv</code> file.</p>
+<p>These files may look like: </p>
+<pre><code class="language-csv">file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_bins_cost,best
+ae_indep_qiskit_10.qasm,10,2,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q8&quot;&quot;],[&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,30,&quot;[[&quot;&quot;q1&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q0&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q8&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,25,False,kl,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q9&quot;&quot;],[&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;,&quot;&quot;q8&quot;&quot;]]&quot;,30,metis_tl
+ae_indep_qiskit_10.qasm,10,3,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q8&quot;&quot;],[&quot;&quot;q3&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q5&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,40,&quot;[[&quot;&quot;q3&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q0&quot;&quot;,&quot;&quot;q2&quot;&quot;],[&quot;&quot;q1&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q8&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,32,False,kl,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q9&quot;&quot;],[&quot;&quot;q3&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;],[&quot;&quot;q7&quot;&quot;,&quot;&quot;q8&quot;&quot;]]&quot;,38,metis_tl
+ae_indep_qiskit_10.qasm,10,4,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q8&quot;&quot;],[&quot;&quot;q2&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;],[&quot;&quot;q9&quot;&quot;]]&quot;,45,&quot;[[&quot;&quot;q5&quot;&quot;,&quot;&quot;q7&quot;&quot;,&quot;&quot;q9&quot;&quot;],[&quot;&quot;q2&quot;&quot;,&quot;&quot;q8&quot;&quot;],[&quot;&quot;q0&quot;&quot;,&quot;&quot;q4&quot;&quot;],[&quot;&quot;q1&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q6&quot;&quot;]]&quot;,37,False,kl,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q9&quot;&quot;],[&quot;&quot;q2&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q4&quot;&quot;],[&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q8&quot;&quot;]]&quot;,43,metis_tl
+</code></pre>
+<p>First the metadata:</p>
+<ul>
+<li><code>file</code>: name of the origin file</li>
+<li><code>n_qubits</code>: number of qubits in workload</li>
+<li><code>k_partitions</code>: number of partitions made by the method. For instance if you cut your workload once you only create 2 partitions</li>
+</ul>
+<p>Then partitioners results can be added. 
+In this example we can see 3 partitioning strategies: greedy, metis and greedytg.
+They correspond to:</p>
+<ul>
+<li>
+<p><strong>Greedy (HDH)</strong> :
+Partitions directly on the HDH hypergraph where each hyperedge captures one operation’s dependency set.
+We fill bins sequentially: order qubits by a heuristic (e.g., incident cut weight, then degree), and place each into the earliest bin that (i) respects the logical-qubit capacity and (ii) gives the smallest marginal cut increase.
+If nothing fits, open the next bin up to k.
+Cost = sum of weights of hyperedges spanning &gt;1 bin (default weight 1 per op; domain weights optional).</p>
+</li>
+<li>
+<p><strong>METIS (Telegate graph)</strong>:
+Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a “telegate” communication if cut).
+Uses the <a href="https://pypi.org/project/metis/">METIS library</a> to compute a k-way partition with balance constraints and minimal cut on this graph.
+Partitions are then re-evaluated on the HDH cost for apples-to-apples comparison.
+We typically set edge weights from interaction counts; you can also up-weight edges representing expensive non-local primitives to steer METIS away from cutting them.</p>
+</li>
+<li>
+<p><strong>Greedy-TG (Telegate graph)</strong>:
+Same fill-first policy as Greedy (HDH), but decisions are made on the telegate graph.
+Nodes are qubits; edge weights reflect how costly it is to separate two qubits (i.e., expected telegate load).
+Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph, ensuring a fair, representation-matched comparison with the HDH greedy approach.</p>
+</li>
+</ul>
+<p>All this information regarding the method used and its origin must be saved in 
+<code>HDHs/&lt;Model&gt;/&lt;Origin&gt;/Partitions/README.md</code> 
+, otherwise the data will not be merged.</p>
+<p>As you can see in the example depending on the strategy you can have more or less saved data. Mandatory columns include:</p>
+<ul>
+<li>quantum communication cost achieved (<code>cost</code>) = number of quantum partitioned hyperedges</li>
+<li>the sets of qubits per partitions (<code>bins</code>)</li>
+</ul>
+<p>Additionally, <code>best</code> must be re-calculated.
+Best corresponds to the name of the method with the lowest cost.</p>
+<p>In this example, additional metadata includes the sub-method used within the METIS partitioner (it can default to various sub-methods if the original fails), as well as a failure state for METIS.
+The failure state is very important for methods that do not assure the ability to respect a given capacity.
+Capacity (i.e., the maximum number of qubits allowed in one partition) should be set to the total number of qubits divided by the number of partitions (rounded up to the next integer).
+If the partitioner cannot respect this capacity, the potential failure status should be logged, and if true the method should not be considered in the best evaluation.
+An explanation on whether these types of additional logs are necessary must be added to any commit adding new data to the database.
+If they are needed, an explanation of what is added is also required.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../vis/" class="btn btn-neutral float-left" title="Visualizing HDHs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../passes/" class="btn btn-neutral float-right" title="Partitioning HDHs for distribution">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../vis/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../passes/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

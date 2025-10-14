@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>A brief introduction to HDHs - HDH</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "A brief introduction to HDHs";
+        var mkdocs_page_input_path = "hdh.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> HDH
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../intro/">An introduction to DQC</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">A brief introduction to HDHs</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../models/">Quantum Computational Model mappings to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../vis/">Visualizing HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../database/">The HDH Database</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../passes/">Partitioning HDHs for distribution</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../literature/">Related publications and information</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">HDH</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">A brief introduction to HDHs</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="hybrid-dependency-hypergraphs">Hybrid Dependency Hypergraphs</h1>
+<p>HDHs are 
+a special type of directed hypergraphs 
+designed to encode temporal and spatial dependencies 
+of quantum computations with the purpose of distributing 
+originally monolothic quantum or hybrid workloads.
+Hypergraph abstractions are currently the standard approach for partitioning quantum computations in distributed quantum computing, [<a href="https://arxiv.org/abs/2404.01265">1</a>].<br />
+HDHs extend this practice by providing a consistent and complete representation framework, intended to support the systematic evaluation and comparison of partitioning strategies.</p>
+<p>A <em>hypergraph</em> consists of a set of nodes and a family of subsets of these nodes, called hyperedges[<a href="https://www.math.ucdavis.edu/~saito/data/tensor/bretto_hypergraph-theory.pdf">2</a>].<br />
+In HDHs these hyperedges can be refered to as connections, as they represent the connectivity requirements between nodes. 
+Meaning that if a HDH is partitioned, the operations represented as inter-partition hyperedges would need to be replaced by equivalent communication primitives (such as a non-local gate or a teleportation protocol). </p>
+<p>Hypergraphs are made up of nodes and hyperedges that can either be <em>quantum</em> or <em>classical</em> (representing qubits or bits/cbits) and <em>realised</em> or <em>potential</em>.
+These types <code>q/c</code> and <code>r/a</code> enable the representation of any quantum of hybrid computation.
+When <a href="../vis/">visualized</a> they will be reprented by these symbols:</p>
+<p><img alt="HDH objects" class="center" src="../img/HDHobjects.png" width="300" /></p>
+<p>Quantum operations may give rise to single-type operations, 
+for instance a single qubit gate in the circuit model would give rise a quantum node and hyperedge, 
+or two multi-type operations: the initialization of a qubit based on a previous measurement reading would lead to a classical node and a quantum node.
+The <code>r/a</code> types are useful for representing instructions that may "potentially" happen given previous results,
+such as <a href="https://quantum.cloud.ibm.com/docs/en/api/qiskit/qiskit.circuit.IfElseOp">IfElse operations</a> found in dynamic circuits.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../intro/" class="btn btn-neutral float-left" title="An introduction to DQC"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../models/" class="btn btn-neutral float-right" title="Quantum Computational Model mappings to HDHs">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../intro/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../models/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
