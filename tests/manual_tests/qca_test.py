@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from models.qca import QCA
 from hdh.visualize import plot_hdh
-from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
+from hdh.passes.cut import compute_cut, cost, partition_size, compute_parallelism_by_time
 
 topology = {
     "q0": ["q1", "q2"],

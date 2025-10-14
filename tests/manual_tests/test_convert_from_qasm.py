@@ -3,7 +3,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from hdh.converters.qasm import from_qasm
 from hdh.visualize import plot_hdh
-from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
+from hdh.passes.cut import compute_cut, cost, partition_size, compute_parallelism_by_time
 
 qasm_path = os.path.join(os.path.dirname(__file__), 'test_qasm_file.qasm')
 hdh_graph = from_qasm('file', qasm_path)
