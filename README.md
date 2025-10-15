@@ -67,7 +67,7 @@ pip install hdh
 
 ```python
 from qiskit import QuantumCircuit
-from hdh.converters.convert_from_qiskit import from_qiskit
+from hdh.converters import from_qiskit
 from hdh.visualize import plot_hdh
 
 qc = QuantumCircuit(2)
@@ -82,7 +82,7 @@ plot_hdh(hdh)
 ### From QASM file
 
 ```python
-from hdh.converters.convert_from_qasm import from_qasm
+from hdh.converters import from_qasm
 from hdh.visualize import plot_hdh
 
 qasm_path = os.path.join(os.path.dirname(__file__), 'test_qasm_file.qasm')
