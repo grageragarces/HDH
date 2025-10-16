@@ -5,6 +5,16 @@ Full integration with primitives is still pending.
 Partitioning utilities:
 - HDH-based (node-level, hypergraph-aware) greedy partititioning
 - Telegate-based (qubit graph) METIS partitioning
+
+Parallelism and Participation Metrics:
+- participation(): Counts how many partitions have any activity at each timestep
+  (useful for temporal participation overview, not true concurrency)
+  
+- parallelism(): Measures true concurrent work by counting τ-edges (operations)
+  executing at each timestep (actual computational parallelism)
+  
+- fair_parallelism(): Capacity-normalized concurrency following Jean's fairness principle
+  (detects imbalances in how partitions utilize their available capacity)
 """
 
 from __future__ import annotations
@@ -462,4 +472,353 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
     respects = all(len(b) <= capacities for b in bins)
     return bins, cost, respects, method
 
+
+# ------------------------------- Public API Functions -------------------------------
+
+def cost(hdh_graph, partitions) -> Tuple[float, float]:
+    """
+    Calculate the cost of a given partitioning of the HDH graph.
+    
+    Args:
+        hdh_graph: HDH graph object
+        partitions: List of sets, where each set contains node IDs in that partition
+    
+    Returns:
+        Tuple[float, float]: (cost_q, cost_c) - quantum and classical cut costs
+            cost_q: number of quantum hyperedges that span multiple partitions
+            cost_c: number of classical hyperedges that span multiple partitions
+    """
+    if not partitions or not hasattr(hdh_graph, 'C'):
+        return 0.0, 0.0
+    
+    # Create mapping from node to partition index
+    node_to_partition = {}
+    for i, partition in enumerate(partitions):
+        for node in partition:
+            node_to_partition[node] = i
+    
+    # Count hyperedges that cross partitions (separated by type)
+    cost_q = 0  # Quantum cost
+    cost_c = 0  # Classical cost
+    
+    for edge in hdh_graph.C:
+        # Get partitions of all nodes in this hyperedge
+        edge_partitions = set()
+        for node in edge:
+            if node in node_to_partition:
+                edge_partitions.add(node_to_partition[node])
+        
+        # If hyperedge spans multiple partitions, it contributes to cost
+        if len(edge_partitions) > 1:
+            # Get edge weight if available
+            edge_weight = 1
+            if hasattr(hdh_graph, 'edge_weight'):
+                edge_weight = hdh_graph.edge_weight.get(edge, 1)
+            
+            # Determine if edge is quantum or classical
+            edge_type = 'q'  # Default to quantum
+            if hasattr(hdh_graph, 'tau'):
+                edge_type = hdh_graph.tau.get(edge, 'q')
+            
+            if edge_type == 'q':
+                cost_q += edge_weight
+            else:
+                cost_c += edge_weight
+    
+    return float(cost_q), float(cost_c)
+
+
+def partition_size(partitions) -> List[int]:
+    """
+    Calculate the sizes (number of nodes) of each partition.
+    
+    Args:
+        partitions: List of sets, where each set contains node IDs in that partition
+    
+    Returns:
+        List[int]: Size of each partition
+    """
+    if not partitions:
+        return []
+    
+    return [len(partition) for partition in partitions]
+
+
+def participation(hdh_graph, partitions) -> Dict[str, float]:
+    """
+    Compute partition participation metrics based on temporal analysis.
+    
+    This measures how many partitions have any activity (nodes or edges) at each timestep,
+    providing an overview of temporal participation but not true concurrent work.
+    
+    Args:
+        hdh_graph: HDH graph object with temporal structure
+        partitions: List of sets, where each set contains node IDs in that partition
+    
+    Returns:
+        Dict[str, float]: Dictionary containing participation metrics
+    """
+    if not partitions or not hasattr(hdh_graph, 'T') or not hasattr(hdh_graph, 'time_map'):
+        return {
+            'max_participation': 0.0,
+            'average_participation': 0.0,
+            'temporal_efficiency': 0.0,
+            'partition_utilization': 0.0,
+            'timesteps': 0,
+            'num_partitions': len(partitions) if partitions else 0
+        }
+    
+    # Create mapping from node to partition
+    node_to_partition = {}
+    for i, partition in enumerate(partitions):
+        for node in partition:
+            node_to_partition[node] = i
+    
+    # Analyze participation at each time step
+    timestep_participation = []
+    total_active_partitions = 0
+    
+    for t in sorted(hdh_graph.T):
+        # Find which partitions have any nodes at time t
+        active_partitions = set()
+        
+        for node in hdh_graph.S:
+            if hdh_graph.time_map.get(node) == t and node in node_to_partition:
+                active_partitions.add(node_to_partition[node])
+        
+        participation = len(active_partitions)
+        timestep_participation.append(participation)
+        total_active_partitions += participation
+    
+    # Calculate metrics
+    num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
+    max_participation = max(timestep_participation) if timestep_participation else 0
+    avg_participation = sum(timestep_participation) / num_timesteps if num_timesteps > 0 else 0
+    
+    # Temporal efficiency: how well we utilize available time steps
+    total_possible_work = len(partitions) * num_timesteps
+    actual_work = total_active_partitions
+    temporal_efficiency = actual_work / total_possible_work if total_possible_work > 0 else 0
+    
+    # Partition utilization: average fraction of partitions active per timestep
+    partition_utilization = avg_participation / len(partitions) if partitions else 0
+    
+    return {
+        'max_participation': float(max_participation),
+        'average_participation': float(avg_participation),
+        'temporal_efficiency': float(temporal_efficiency),
+        'partition_utilization': float(partition_utilization),
+        'timesteps': num_timesteps,
+        'num_partitions': len(partitions)
+    }
+
+
+def parallelism(hdh_graph, partitions) -> Dict[str, float]:
+    """
+    Compute true parallelism metrics by counting concurrent τ-edges (operations) per timestep.
+    
+    Parallelism is defined as the number of τ-edges that can execute simultaneously at a given
+    timestep, representing actual concurrent computational work, not just partition activity.
+    
+    Args:
+        hdh_graph: HDH graph object with temporal structure
+        partitions: List of sets, where each set contains node IDs in that partition
+    
+    Returns:
+        Dict[str, float]: Dictionary containing parallelism metrics
+    """
+    if not partitions or not hasattr(hdh_graph, 'T') or not hasattr(hdh_graph, 'time_map'):
+        return {
+            'max_parallelism': 0.0,
+            'average_parallelism': 0.0,
+            'total_operations': 0,
+            'timesteps': 0,
+            'num_partitions': len(partitions) if partitions else 0
+        }
+    
+    # Create mapping from node to partition
+    node_to_partition = {}
+    for i, partition in enumerate(partitions):
+        for node in partition:
+            node_to_partition[node] = i
+    
+    # Map each edge to its timestep based on its constituent nodes
+    edge_to_time = {}
+    for edge in hdh_graph.C:
+        # Get the timestep(s) of nodes in this edge
+        edge_times = set()
+        for node in edge:
+            if node in hdh_graph.time_map:
+                edge_times.add(hdh_graph.time_map[node])
+        
+        # Assign edge to the maximum timestep of its nodes (operational time)
+        if edge_times:
+            edge_to_time[edge] = max(edge_times)
+    
+    # Count operations (τ-edges) per timestep
+    timestep_operations = []
+    total_operations = 0
+    
+    for t in sorted(hdh_graph.T):
+        # Count τ-edges executing at this timestep
+        operations_at_t = 0
+        
+        for edge, edge_time in edge_to_time.items():
+            if edge_time == t:
+                # Only count edges with a type defined (operations)
+                if hasattr(hdh_graph, 'tau') and edge in hdh_graph.tau:
+                    operations_at_t += 1
+        
+        timestep_operations.append(operations_at_t)
+        total_operations += operations_at_t
+    
+    # Calculate metrics
+    num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
+    max_parallelism = max(timestep_operations) if timestep_operations else 0
+    avg_parallelism = sum(timestep_operations) / num_timesteps if num_timesteps > 0 else 0
+    
+    return {
+        'max_parallelism': float(max_parallelism),
+        'average_parallelism': float(avg_parallelism),
+        'total_operations': int(total_operations),
+        'timesteps': num_timesteps,
+        'num_partitions': len(partitions)
+    }
+
+
+def fair_parallelism(hdh_graph, partitions, capacities: Optional[List[int]] = None) -> Dict[str, float]:
+    """
+    Compute fair parallelism following Jean's fairness principle.
+    
+    Fair parallelism normalizes concurrency by partition capacity, measuring how evenly
+    computational work is distributed across partitions relative to their capacity.
+    If partitions have equal capacity and each runs the same number of operations,
+    fair_parallelism equals parallelism. Imbalances reduce fair_parallelism below raw parallelism.
+    
+    Args:
+        hdh_graph: HDH graph object with temporal structure
+        partitions: List of sets, where each set contains node IDs in that partition
+        capacities: Optional list of capacity values per partition (default: equal capacities)
+    
+    Returns:
+        Dict[str, float]: Dictionary containing fair parallelism metrics
+    """
+    if not partitions or not hasattr(hdh_graph, 'T') or not hasattr(hdh_graph, 'time_map'):
+        return {
+            'max_fair_parallelism': 0.0,
+            'average_fair_parallelism': 0.0,
+            'fairness_ratio': 0.0,
+            'total_operations': 0,
+            'timesteps': 0,
+            'num_partitions': len(partitions) if partitions else 0
+        }
+    
+    # Use equal capacities if not provided
+    if capacities is None:
+        capacities = [1.0] * len(partitions)
+    elif len(capacities) != len(partitions):
+        raise ValueError(f"Number of capacities ({len(capacities)}) must match number of partitions ({len(partitions)})")
+    
+    # Normalize capacities to sum to 1 for fair distribution
+    total_capacity = sum(capacities)
+    if total_capacity == 0:
+        return {
+            'max_fair_parallelism': 0.0,
+            'average_fair_parallelism': 0.0,
+            'fairness_ratio': 0.0,
+            'total_operations': 0,
+            'timesteps': 0,
+            'num_partitions': len(partitions)
+        }
+    
+    normalized_capacities = [c / total_capacity for c in capacities]
+    
+    # Create mapping from node to partition
+    node_to_partition = {}
+    for i, partition in enumerate(partitions):
+        for node in partition:
+            node_to_partition[node] = i
+    
+    # Map each edge to its timestep and partition
+    edge_to_time = {}
+    edge_to_partition = {}
+    for edge in hdh_graph.C:
+        # Get the timestep(s) and partition(s) of nodes in this edge
+        edge_times = set()
+        edge_partitions = set()
+        for node in edge:
+            if node in hdh_graph.time_map:
+                edge_times.add(hdh_graph.time_map[node])
+            if node in node_to_partition:
+                edge_partitions.add(node_to_partition[node])
+        
+        # Assign edge to the maximum timestep and primary partition (first one)
+        if edge_times:
+            edge_to_time[edge] = max(edge_times)
+        if edge_partitions:
+            edge_to_partition[edge] = min(edge_partitions)  # Use consistent partition assignment
+    
+    # Count operations per partition per timestep
+    timestep_fair_parallelism = []
+    total_operations = 0
+    total_raw_parallelism = 0
+    
+    for t in sorted(hdh_graph.T):
+        # Count operations per partition at this timestep
+        partition_ops = [0] * len(partitions)
+        
+        for edge, edge_time in edge_to_time.items():
+            if edge_time == t:
+                # Only count edges with a type defined (operations)
+                if hasattr(hdh_graph, 'tau') and edge in hdh_graph.tau:
+                    if edge in edge_to_partition:
+                        p = edge_to_partition[edge]
+                        partition_ops[p] += 1
+                        total_operations += 1
+        
+        # Calculate fair parallelism for this timestep
+        # Fair parallelism = sum of (ops_i / capacity_i) normalized
+        raw_ops = sum(partition_ops)
+        total_raw_parallelism += raw_ops
+        
+        if raw_ops > 0:
+            # Weighted by capacity: fair contribution from each partition
+            fair_contribution = sum(
+                (partition_ops[i] / normalized_capacities[i]) if normalized_capacities[i] > 0 else 0
+                for i in range(len(partitions))
+            )
+            # Normalize to get fair parallelism metric
+            fair_p = fair_contribution / len(partitions)
+        else:
+            fair_p = 0.0
+        
+        timestep_fair_parallelism.append(fair_p)
+    
+    # Calculate metrics
+    num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
+    max_fair_parallelism = max(timestep_fair_parallelism) if timestep_fair_parallelism else 0
+    avg_fair_parallelism = sum(timestep_fair_parallelism) / num_timesteps if num_timesteps > 0 else 0
+    avg_raw_parallelism = total_raw_parallelism / num_timesteps if num_timesteps > 0 else 0
+    
+    # Fairness ratio: how fair is the distribution (1.0 = perfectly fair)
+    fairness_ratio = avg_fair_parallelism / avg_raw_parallelism if avg_raw_parallelism > 0 else 1.0
+    
+    return {
+        'max_fair_parallelism': float(max_fair_parallelism),
+        'average_fair_parallelism': float(avg_fair_parallelism),
+        'fairness_ratio': float(fairness_ratio),
+        'total_operations': int(total_operations),
+        'timesteps': num_timesteps,
+        'num_partitions': len(partitions)
+    }
+
+
+# Keep old name as alias for backward compatibility (deprecated)
+def compute_parallelism_by_time(hdh_graph, partitions) -> Dict[str, float]:
+    """
+    Deprecated: Use `parallelism()` instead.
+    
+    This function now calls `parallelism()` for backward compatibility.
+    """
+    return parallelism(hdh_graph, partitions)
 
