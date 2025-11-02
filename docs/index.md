@@ -8,7 +8,8 @@ They aim to serve as a unifying abstraction capable of encoding any quantum work
 that enables all valid partitions of a computation (superseding telegate and teledata abstractions).
 Furthermore HDHs, as their name implies, also encode classical information enabling the outline of natural classical partitioning points, such as mid-circuit measurements.
 
-You can find an in depth description of HDHs as an abstraction here: [An introduction to HDHs](hdh.md).  
+You can find an in depth description of HDHs as an abstraction here: [An introduction to HDHs](hdh.md). 
+A more in-depth explanation of why HDHs make sense can be found here: [Why HDHs?](why.md)
 Further explanations of how HDHs are generated from quantum computational models can be found here: [Generation of HDHs from model instructions](models.md).  
 You can also find a Database with over 2000 HDHs here: [HDH Database](database.md).  
 
