@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hdh"
-version = "0.1.6"
+version = "0.1.7"
 description = "Hybrid Dependency Hypergraphs for quantum computation: translation, visualization, and partitioning."
 authors = ["Maria Gragera Garces <m.gragera.gaces@gmail.com>"]
 license = "MIT"
