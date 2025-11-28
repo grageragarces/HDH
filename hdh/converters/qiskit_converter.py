@@ -144,7 +144,7 @@ def to_qiskit(hdh) -> QuantumCircuit:
                     continue
                 qc.measure(qr[raw_q_idxs[0]], cr[c_idxs[0]])
             else:
-            continue
+                continue
 
         try:
             if isinstance(sub, InstructionSet):
