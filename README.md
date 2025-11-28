@@ -44,15 +44,6 @@ It provides a unified structure that makes it easier to:
   - Quantum Cellular Automata (QCA)
 - Capability to partition HDHs and evaluate partitions
 
-Includes test examples for:
-
-- Circuit translation (`test_convert_from_qiskit.py`)
-- QASM import (`test_convert_from_qasm.py`)
-- MBQC (`mbqc_test.py`)
-- Quantum Walks (`qw_test.py`)
-- Quantum Cellular Automata (`qca_test.py`)
-- Protocol demos (`teleportation_protocol_logo.py`)
-
 ---
 
 ## Installation
@@ -94,20 +85,11 @@ plot_hdh(hdh)
 
 ## Tests and Demos
 
-<!-- TODO: this should be updated when we update tests -->
-
 All tests are under `tests/` and can be run with:
 
 ```bash
 pytest
 ```
-
-If you're interested in the HDH of a specific model, see in manual_tests:
-
-- `mbqc_test.py` for MBQC circuits  
-- `qca_test.py` for Cellular Automata  
-- `qw_test.py` for Quantum Walks  
-- `teleportation_protocol_logo.py` for a protocol-specific demo  
 
 ---
 
