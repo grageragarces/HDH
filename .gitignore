@@ -21,3 +21,6 @@ coverage.xml
 # MkDocs
 site/
 .envrc
+
+# Other test docs
+.tests/private_test.py
