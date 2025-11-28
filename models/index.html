@@ -157,7 +157,7 @@ circuit.add_instruction(&quot;h&quot;, [5])
 circuit.add_instruction(&quot;cx&quot;, [3, 4])
 circuit.add_instruction(&quot;cx&quot;, [2, 1])
 
-# NOTE: The example with the line bellow uncommented with be added soon
+# NOTE: The example with the line bellow uncommented will be added soon
 # circuit.add_conditional_gate(5, 4, &quot;z&quot;) 
 
 circuit.add_instruction(&quot;cx&quot;, [0, 3])
@@ -627,7 +627,7 @@ class Circuit:
                 for i, qubit in enumerate(qargs):
 
                     if modifies_flags[i] and name != &quot;measure&quot;:
-                        t_in = last_gate_input_time[qubit]
+                        t_in = last_gate_input_time[qubit] 
                         t_out = t_in + 1
                         qname = f&quot;q{qubit}&quot;
                         in_id = f&quot;{qname}_t{t_in}&quot;
