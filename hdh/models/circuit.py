@@ -238,7 +238,7 @@ class Circuit:
                 for i, qubit in enumerate(qargs):
                     
                     if modifies_flags[i] and name != "measure":
-                        t_in = last_gate_input_time[qubit]
+                        t_in = qubit_time[qubit]
                         t_out = t_in + 1
                         qname = f"q{qubit}"
                         in_id = f"{qname}_t{t_in}"
