@@ -104,10 +104,6 @@ def to_qiskit(hdh) -> QuantumCircuit:
                 if hdh.sigma.get(n) == 'c' and n not in node_to_cidx:
                     node_to_cidx[n] = len(node_to_cidx)
 
-    print(f"[INFO] Allocating QuantumRegister({len(node_to_qidx)}), ClassicalRegister({len(node_to_cidx)})")
-    print("[DEBUG] node_to_qidx:", node_to_qidx)
-    print("[DEBUG] node_to_cidx:", node_to_cidx)
-
     qr = QuantumRegister(len(node_to_qidx), 'q')
     cr = ClassicalRegister(len(node_to_cidx), 'c')
     qc = QuantumCircuit(qr, cr)
@@ -138,23 +134,17 @@ def to_qiskit(hdh) -> QuantumCircuit:
             gate = meta.get("gate")
             params = meta.get("params", [])
             if gate == "h":
-                print(f"[DEBUG] Appending h on edge {edge}")
                 qc.h(qr[raw_q_idxs[0]])
             elif gate == "rx":
-                print(f"[DEBUG] Appending rx on edge {edge}")
                 qc.rx(params[0] if params else 0.5, qr[raw_q_idxs[0]])
             elif gate == "cx":
-                print(f"[DEBUG] Appending cx on edge {edge}")
                 qc.cx(qr[raw_q_idxs[0]], qr[raw_q_idxs[1]])
             elif gate == "measure":
                 if not raw_q_idxs or not c_idxs:
-                    print(f"[ERROR] Cannot apply measure on edge {edge}: missing qubit or cbit idxs")
                     continue
-                print(f"[DEBUG] Appending measure on edge {edge}")
                 qc.measure(qr[raw_q_idxs[0]], cr[c_idxs[0]])
             else:
-                print(f"[DEBUG] Appending unknown on edge {edge}")
-            continue
+                continue
 
         try:
             if isinstance(sub, InstructionSet):
@@ -186,10 +176,8 @@ def to_qiskit(hdh) -> QuantumCircuit:
             if not qubits or not clbits:
                 print(f"[ERROR] Cannot apply measure on edge {edge}: missing qubit or cbit idxs")
                 continue
-            print(f"[DEBUG] Appending measure on edge {edge}")
             qc.measure(qubits[0], clbits[0])
         elif isinstance(sub, QuantumCircuit):
-            print(f"[DEBUG] Appending {name} on edge {edge} (circuit with {len(sub.data)} ops)")
             if name == 'telegate':
                 found_telegate = True
             if name == 'teledata':
@@ -200,7 +188,6 @@ def to_qiskit(hdh) -> QuantumCircuit:
                 cidxs = [cr[c._index] for c in cargs] if cargs else []
                 qc.append(gate, qidxs, cidxs)
         else:
-            print(f"[DEBUG] Appending {name} on edge {edge} (inst)")
             if name == 'telegate':
                 found_telegate = True
             if name == 'teledata':
@@ -212,6 +199,4 @@ def to_qiskit(hdh) -> QuantumCircuit:
 
     num_teledata = sum(1 for name in hdh.gate_name.values() if name == 'teledata')
     num_telegate = sum(1 for name in hdh.gate_name.values() if name == 'telegate')
-    print(f"[DEBUG] teledata count: {num_teledata}, telegate count: {num_telegate}")
-    print(f"[DEBUG] Final circuit has {qc.num_qubits} qubits and {qc.count_ops()} total ops")
     return qc
