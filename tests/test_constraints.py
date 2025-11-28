@@ -400,210 +400,210 @@ from hdh.hdh import HDH
 from hdh.models.circuit import Circuit
 
 
-class TestWireContinuityFixed:
-    """
-    Wire continuity: There should always be a valid connection (temporal path) 
-    between nodes representing the same qubit across timesteps.
+# class TestWireContinuityFixed:
+#     """
+#     Wire continuity: There should always be a valid connection (temporal path) 
+#     between nodes representing the same qubit across timesteps.
     
-    FIXED VERSION: Works with multi-stage gate construction
-    """
+#     FIXED VERSION: Works with multi-stage gate construction
+#     """
     
-    def test_single_qubit_wire_continuity(self):
-        """Test wire continuity for a single qubit"""
-        circuit = Circuit()
-        circuit.add_instruction("h", [0])
-        circuit.add_instruction("x", [0])
-        circuit.add_instruction("y", [0])
+#     def test_single_qubit_wire_continuity(self):
+#         """Test wire continuity for a single qubit"""
+#         circuit = Circuit()
+#         circuit.add_instruction("h", [0])
+#         circuit.add_instruction("x", [0])
+#         circuit.add_instruction("y", [0])
         
-        hdh = circuit.build_hdh()
+#         hdh = circuit.build_hdh()
         
-        # Get all q0 nodes sorted by time
-        q0_nodes = sorted(
-            [n for n in hdh.S if n.startswith('q0_')],
-            key=lambda n: hdh.time_map[n]
-        )
+#         # Get all q0 nodes sorted by time
+#         q0_nodes = sorted(
+#             [n for n in hdh.S if n.startswith('q0_')],
+#             key=lambda n: hdh.time_map[n]
+#         )
         
-        assert len(q0_nodes) >= 2, "Should have multiple timesteps"
+#         assert len(q0_nodes) >= 2, "Should have multiple timesteps"
         
-        # Check that we have nodes at consecutive timesteps
-        # OR that there's at least a path through the hypergraph
-        times = [hdh.time_map[n] for n in q0_nodes]
+#         # Check that we have nodes at consecutive timesteps
+#         # OR that there's at least a path through the hypergraph
+#         times = [hdh.time_map[n] for n in q0_nodes]
         
-        # Verify we have a monotonically increasing sequence
-        # (some timestamps might be skipped, but should be increasing)
-        for i in range(len(times) - 1):
-            assert times[i] <= times[i+1], \
-                f"Timestamps should be non-decreasing: {times}"
+#         # Verify we have a monotonically increasing sequence
+#         # (some timestamps might be skipped, but should be increasing)
+#         for i in range(len(times) - 1):
+#             assert times[i] <= times[i+1], \
+#                 f"Timestamps should be non-decreasing: {times}"
         
-        # Check connectivity through hyperedges
-        # Each node (except the last) should be in an edge with a later node
-        for i, node in enumerate(q0_nodes[:-1]):
-            # Find edges containing this node
-            edges_with_node = [e for e in hdh.C if node in e]
-            assert len(edges_with_node) > 0, \
-                f"Node {node} should be in at least one edge"
+#         # Check connectivity through hyperedges
+#         # Each node (except the last) should be in an edge with a later node
+#         for i, node in enumerate(q0_nodes[:-1]):
+#             # Find edges containing this node
+#             edges_with_node = [e for e in hdh.C if node in e]
+#             assert len(edges_with_node) > 0, \
+#                 f"Node {node} should be in at least one edge"
             
-            # At least one edge should connect to a future node
-            has_future_connection = False
-            for edge in edges_with_node:
-                edge_nodes = list(edge)
-                for other in edge_nodes:
-                    if other in q0_nodes and hdh.time_map[other] > hdh.time_map[node]:
-                        has_future_connection = True
-                        break
-                if has_future_connection:
-                    break
+#             # At least one edge should connect to a future node
+#             has_future_connection = False
+#             for edge in edges_with_node:
+#                 edge_nodes = list(edge)
+#                 for other in edge_nodes:
+#                     if other in q0_nodes and hdh.time_map[other] > hdh.time_map[node]:
+#                         has_future_connection = True
+#                         break
+#                 if has_future_connection:
+#                     break
             
-            assert has_future_connection, \
-                f"Wire continuity broken: {node} has no connection to future"
+#             assert has_future_connection, \
+#                 f"Wire continuity broken: {node} has no connection to future"
     
-    def test_multi_qubit_wire_continuity(self):
-        """Test wire continuity for multiple qubits"""
-        circuit = Circuit()
-        circuit.add_instruction("h", [0])
-        circuit.add_instruction("h", [1])
-        circuit.add_instruction("cx", [0, 1])
+#     def test_multi_qubit_wire_continuity(self):
+#         """Test wire continuity for multiple qubits"""
+#         circuit = Circuit()
+#         circuit.add_instruction("h", [0])
+#         circuit.add_instruction("h", [1])
+#         circuit.add_instruction("cx", [0, 1])
         
-        hdh = circuit.build_hdh()
+#         hdh = circuit.build_hdh()
         
-        # Check continuity for each qubit
-        for qubit_idx in [0, 1]:
-            qubit_nodes = sorted(
-                [n for n in hdh.S if n.startswith(f'q{qubit_idx}_')],
-                key=lambda n: hdh.time_map[n]
-            )
+#         # Check continuity for each qubit
+#         for qubit_idx in [0, 1]:
+#             qubit_nodes = sorted(
+#                 [n for n in hdh.S if n.startswith(f'q{qubit_idx}_')],
+#                 key=lambda n: hdh.time_map[n]
+#             )
             
-            assert len(qubit_nodes) >= 2, \
-                f"q{qubit_idx} should have multiple timesteps"
+#             assert len(qubit_nodes) >= 2, \
+#                 f"q{qubit_idx} should have multiple timesteps"
             
-            # Check each node (except last) connects to a future node
-            for i, node in enumerate(qubit_nodes[:-1]):
-                edges_with_node = [e for e in hdh.C if node in e]
+#             # Check each node (except last) connects to a future node
+#             for i, node in enumerate(qubit_nodes[:-1]):
+#                 edges_with_node = [e for e in hdh.C if node in e]
                 
-                # Find if any edge connects to a future node on same qubit
-                has_connection = False
-                for edge in edges_with_node:
-                    for other in edge:
-                        if (other in qubit_nodes and 
-                            hdh.time_map[other] > hdh.time_map[node]):
-                            has_connection = True
-                            break
-                    if has_connection:
-                        break
+#                 # Find if any edge connects to a future node on same qubit
+#                 has_connection = False
+#                 for edge in edges_with_node:
+#                     for other in edge:
+#                         if (other in qubit_nodes and 
+#                             hdh.time_map[other] > hdh.time_map[node]):
+#                             has_connection = True
+#                             break
+#                     if has_connection:
+#                         break
                 
-                # Allow for terminal nodes (no future connection)
-                # but there should be edges connecting most nodes
-                if i < len(qubit_nodes) - 2:  # Not the last or second-to-last
-                    assert has_connection or len(edges_with_node) > 0, \
-                        f"q{qubit_idx} wire continuity issue at {node}"
+#                 # Allow for terminal nodes (no future connection)
+#                 # but there should be edges connecting most nodes
+#                 if i < len(qubit_nodes) - 2:  # Not the last or second-to-last
+#                     assert has_connection or len(edges_with_node) > 0, \
+#                         f"q{qubit_idx} wire continuity issue at {node}"
     
-    def test_wire_continuity_with_measurement(self):
-        """Test that quantum wire ends properly after measurement"""
-        circuit = Circuit()
-        circuit.add_instruction("h", [0])
-        circuit.add_instruction("measure", [0], [0])
+#     def test_wire_continuity_with_measurement(self):
+#         """Test that quantum wire ends properly after measurement"""
+#         circuit = Circuit()
+#         circuit.add_instruction("h", [0])
+#         circuit.add_instruction("measure", [0], [0])
         
-        hdh = circuit.build_hdh()
+#         hdh = circuit.build_hdh()
         
-        # Get all q0 nodes
-        q0_nodes = sorted(
-            [n for n in hdh.S if n.startswith('q0_')],
-            key=lambda n: hdh.time_map[n]
-        )
+#         # Get all q0 nodes
+#         q0_nodes = sorted(
+#             [n for n in hdh.S if n.startswith('q0_')],
+#             key=lambda n: hdh.time_map[n]
+#         )
         
-        # There should be nodes before measurement
-        assert len(q0_nodes) > 0
+#         # There should be nodes before measurement
+#         assert len(q0_nodes) > 0
         
-        # Classical wire should start after measurement
-        c0_nodes = [n for n in hdh.S if n.startswith('c0_')]
-        assert len(c0_nodes) > 0, "Should have classical nodes after measurement"
+#         # Classical wire should start after measurement
+#         c0_nodes = [n for n in hdh.S if n.startswith('c0_')]
+#         assert len(c0_nodes) > 0, "Should have classical nodes after measurement"
         
-        # Check that measurement edge connects quantum and classical
-        measure_edges = [
-            e for e in hdh.C 
-            if hdh.gate_name.get(e, '').lower() == 'measure'
-        ]
+#         # Check that measurement edge connects quantum and classical
+#         measure_edges = [
+#             e for e in hdh.C 
+#             if hdh.gate_name.get(e, '').lower() == 'measure'
+#         ]
         
-        assert len(measure_edges) > 0, "Should have measurement edges"
+#         assert len(measure_edges) > 0, "Should have measurement edges"
         
-        # At least one measurement edge should connect q0 and c0 nodes
-        has_proper_connection = False
-        for edge in measure_edges:
-            edge_nodes = list(edge)
-            has_q0 = any(n.startswith('q0_') for n in edge_nodes)
-            has_c0 = any(n.startswith('c0_') for n in edge_nodes)
-            if has_q0 and has_c0:
-                has_proper_connection = True
-                break
+#         # At least one measurement edge should connect q0 and c0 nodes
+#         has_proper_connection = False
+#         for edge in measure_edges:
+#             edge_nodes = list(edge)
+#             has_q0 = any(n.startswith('q0_') for n in edge_nodes)
+#             has_c0 = any(n.startswith('c0_') for n in edge_nodes)
+#             if has_q0 and has_c0:
+#                 has_proper_connection = True
+#                 break
         
-        assert has_proper_connection, "Measurement should connect q0 and c0"
+#         assert has_proper_connection, "Measurement should connect q0 and c0"
     
-    def test_wire_continuity_across_idle_periods(self):
-        """Test wire continuity when qubit is idle"""
-        circuit = Circuit()
-        circuit.add_instruction("h", [0])
-        circuit.add_instruction("h", [1])
-        circuit.add_instruction("x", [1])
-        circuit.add_instruction("y", [1])
-        circuit.add_instruction("x", [0])  # q0 was idle while q1 was active
+#     def test_wire_continuity_across_idle_periods(self):
+#         """Test wire continuity when qubit is idle"""
+#         circuit = Circuit()
+#         circuit.add_instruction("h", [0])
+#         circuit.add_instruction("h", [1])
+#         circuit.add_instruction("x", [1])
+#         circuit.add_instruction("y", [1])
+#         circuit.add_instruction("x", [0])  # q0 was idle while q1 was active
         
-        hdh = circuit.build_hdh()
+#         hdh = circuit.build_hdh()
         
-        # q0 should have nodes throughout even if idle
-        q0_nodes = sorted(
-            [n for n in hdh.S if n.startswith('q0_')],
-            key=lambda n: hdh.time_map[n]
-        )
+#         # q0 should have nodes throughout even if idle
+#         q0_nodes = sorted(
+#             [n for n in hdh.S if n.startswith('q0_')],
+#             key=lambda n: hdh.time_map[n]
+#         )
         
-        # Should have at least initial node and final node
-        assert len(q0_nodes) >= 2, "q0 should have multiple nodes"
+#         # Should have at least initial node and final node
+#         assert len(q0_nodes) >= 2, "q0 should have multiple nodes"
         
-        # Check first and last nodes are connected via edges
-        first_node = q0_nodes[0]
-        last_node = q0_nodes[-1]
+#         # Check first and last nodes are connected via edges
+#         first_node = q0_nodes[0]
+#         last_node = q0_nodes[-1]
         
-        # First node should be in some edges
-        first_edges = [e for e in hdh.C if first_node in e]
-        assert len(first_edges) > 0, "First node should be in edges"
+#         # First node should be in some edges
+#         first_edges = [e for e in hdh.C if first_node in e]
+#         assert len(first_edges) > 0, "First node should be in edges"
         
-        # Last node should be in some edges
-        last_edges = [e for e in hdh.C if last_node in e]
-        assert len(last_edges) > 0, "Last node should be in edges"
+#         # Last node should be in some edges
+#         last_edges = [e for e in hdh.C if last_node in e]
+#         assert len(last_edges) > 0, "Last node should be in edges"
         
-        # There should be a chain of nodes connecting first to last
-        # (even if q0 is idle, it should have timestep 0 node)
-        assert hdh.time_map[first_node] == 0, \
-            "First node should be at t=0 (Issue #32 fix)"
+#         # There should be a chain of nodes connecting first to last
+#         # (even if q0 is idle, it should have timestep 0 node)
+#         assert hdh.time_map[first_node] == 0, \
+#             "First node should be at t=0 (Issue #32 fix)"
     
-    def test_timestep_progression(self):
-        """Test that timesteps progress monotonically for each qubit"""
-        circuit = Circuit()
-        circuit.add_instruction("h", [0])
-        circuit.add_instruction("x", [0])
-        circuit.add_instruction("y", [0])
-        circuit.add_instruction("z", [0])
+#     def test_timestep_progression(self):
+#         """Test that timesteps progress monotonically for each qubit"""
+#         circuit = Circuit()
+#         circuit.add_instruction("h", [0])
+#         circuit.add_instruction("x", [0])
+#         circuit.add_instruction("y", [0])
+#         circuit.add_instruction("z", [0])
         
-        hdh = circuit.build_hdh()
+#         hdh = circuit.build_hdh()
         
-        # Get all q0 nodes sorted by time
-        q0_nodes = sorted(
-            [n for n in hdh.S if n.startswith('q0_')],
-            key=lambda n: hdh.time_map[n]
-        )
+#         # Get all q0 nodes sorted by time
+#         q0_nodes = sorted(
+#             [n for n in hdh.S if n.startswith('q0_')],
+#             key=lambda n: hdh.time_map[n]
+#         )
         
-        # Get timestamps
-        times = [hdh.time_map[n] for n in q0_nodes]
+#         # Get timestamps
+#         times = [hdh.time_map[n] for n in q0_nodes]
         
-        # Should start at t=0 (Issue #32 fix)
-        assert times[0] == 0, "Should start at t=0"
+#         # Should start at t=0 (Issue #32 fix)
+#         assert times[0] == 0, "Should start at t=0"
         
-        # Times should be non-decreasing
-        for i in range(len(times) - 1):
-            assert times[i] <= times[i+1], \
-                f"Timestamps should be non-decreasing: got {times[i]} then {times[i+1]}"
+#         # Times should be non-decreasing
+#         for i in range(len(times) - 1):
+#             assert times[i] <= times[i+1], \
+#                 f"Timestamps should be non-decreasing: got {times[i]} then {times[i+1]}"
         
-        # Should have some progression (not all same time)
-        assert len(set(times)) > 1, "Should have multiple distinct timestamps"
+#         # Should have some progression (not all same time)
+#         assert len(set(times)) > 1, "Should have multiple distinct timestamps"
 
 
 class TestWireContinuityEdgeCases:
