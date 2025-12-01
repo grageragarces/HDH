@@ -55,7 +55,7 @@ While the `cut.py` file focuses on partitioning, the `hdh/passes/primitives.py` 
 
 ## The partitioner leaderboard
 
-For a detailed comparison of the performance of different partitioning strategies on various quantum circuits, please refer to the partitioner leaderboard in the repository's [database]{https://github.com/grageragarces/HDH/tree/database-branch/database}. This can provide valuable insights into which partitioning method is best suited for your specific needs. See the [database file in the documentation](database.md) for more details.
+For a detailed comparison of the performance of different partitioning strategies on various quantum circuits, please refer to the partitioner leaderboard in the repository's [database](https://github.com/grageragarces/HDH/tree/database-branch/database). This can provide valuable insights into which partitioning method is best suited for your specific needs. See the [database file in the documentation](database.md) for more details.
 
 ---
 
