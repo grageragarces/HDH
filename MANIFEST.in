@@ -1,0 +1,6 @@
+# MANIFEST.in
+# Include everything by default
+global-include *
+
+# Excluding database
+prune database/
