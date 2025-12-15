@@ -50,21 +50,3 @@ class TestTimestepInitialization:
         times = [hdh.time_map[n] for n in q0_nodes]
         assert times == sorted(times), "Timesteps should be in order"
         assert times[0] == 0, "Should start at t=0"
-
-    # def test_conditional_gate_with_measurement(self):
-    #     """Test classical control still works correctly"""
-    #     circuit = Circuit()
-    #     circuit.add_instruction("h", [0])
-    #     circuit.add_instruction("measure", [0], [0])
-    #     circuit.add_instruction("x", [1], bits=[0], cond_flag="p")
-        
-    #     hdh = circuit.build_hdh()
-        
-    #     # Check q1 still initializes at t=0
-    #     q1_nodes = [n for n in hdh.S if n.startswith("q1_")]
-    #     assert any(n == "q1_t0" for n in q1_nodes), \
-    #         "q1 should initialize at t=0 even with conditional gate"
-        
-    #     # Check classical control edge exists
-    #     c_edges = [e for e in hdh.C if hdh.tau[e] == "c"]
-    #     assert len(c_edges) > 0, "Should have classical control edges"
