@@ -104,23 +104,17 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#extending-the-dataset">Extending the Dataset</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#how-to-add-to-this-database">How to Add to This Database</a>
+    <li class="toctree-l3"><a class="reference internal" href="#1-add-new-workloads-hdhs">1) Add New Workloads + HDHs</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#step-1-place-workloads">Step 1: Place Workloads</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#step-2-run-the-converter">Step 2: Run the Converter</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#step-3-verify-inspect">Step 3: Verify &amp; Inspect</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#step-4-submit-a-pr">Step 4: Submit a PR</a>
     </li>
         </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#1-add-new-workloads-hdhs">1) Add New Workloads + HDHs</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#step-1-place-workloads">Step 1: Place Workloads</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#step-2-run-the-converter">Step 2: Run the Converter</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#converter-script-qasm-hdh-pklcsv">Converter Script (QASM → HDH → {pkl,csv})</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#step-3-verify-inspect">Step 3: Verify &amp; Inspect</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#step-4-submit-a-pr">Step 4: Submit a PR</a>
     </li>
         </ul>
     </li>
@@ -351,10 +345,9 @@ print(f&quot;Fairness ratio: {fair_metrics['fairness_ratio']}&quot;)
 <li>Propose and document new metrics</li>
 </ul>
 <p>Pull requests that expand the benchmark set or enrich metadata are very welcome!</p>
-<h3 id="how-to-add-to-this-database">How to Add to This Database</h3>
 <p>There are two ways to contribute:</p>
 <hr />
-<h2 id="1-add-new-workloads-hdhs">1) Add New Workloads + HDHs</h2>
+<h3 id="1-add-new-workloads-hdhs">1) Add New Workloads + HDHs</h3>
 <h4 id="step-1-place-workloads">Step 1: Place Workloads</h4>
 <p>Put your workload origin files under:  </p>
 <pre><code>Database/Workloads/&lt;Model&gt;/&lt;Origin&gt;/
