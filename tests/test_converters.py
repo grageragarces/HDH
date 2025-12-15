@@ -44,7 +44,7 @@ Uncomment when to_qiskit functional
 #     QASM_AVAILABLE = True
 # except ImportError:
 #     try:
-#         from hdh.converters.qasm_converter import from_qasm
+#         from hdh.converters import from_qasm
 #         QASM_AVAILABLE = True
 #     except ImportError:
 #         QASM_AVAILABLE = False

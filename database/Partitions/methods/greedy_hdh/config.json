@@ -1,0 +1,30 @@
+{
+  "method_name": "greedy_hdh",
+  "display_name": "Greedy HDH Partitioner",
+  "description": "Greedy bin-filling algorithm operating directly on HDH hypergraph. Uses beam search to select candidates and automatically places all nodes of a qubit together.",
+  "library_function": "hdh.passes.cut.compute_cut",
+  "version": "1.0.0",
+  "author": "HDH Team",
+  "date_added": "2025-12-15",
+  "default_params": {
+    "beam_k": 3,
+    "reserve_frac": 0.08,
+    "restarts": 1,
+    "seed": 0
+  },
+  "param_descriptions": {
+    "beam_k": "Beam width for candidate selection (higher = more thorough but slower)",
+    "reserve_frac": "Fraction of capacity to reserve until bins reach 80% (helps load balancing)",
+    "restarts": "Number of random restarts to try (best result is kept)",
+    "seed": "Random seed for reproducibility"
+  },
+  "guarantees": {
+    "respects_capacity": true,
+    "deterministic": true,
+    "complete_assignment": true
+  },
+  "references": [
+    "https://grageragarces.github.io/HDH/passes/"
+  ],
+  "known_issues": []
+}

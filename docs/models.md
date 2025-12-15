@@ -275,7 +275,7 @@ They can be used as follows:
 import hdh
 import qiskit
 from qiskit import QuantumCircuit
-from hdh.converters.qiskit import from_qiskit
+from hdh.converters import from_qiskit
 from hdh.visualize import plot_hdh
 from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
 

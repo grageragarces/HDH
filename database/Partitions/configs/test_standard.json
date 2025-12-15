@@ -1,0 +1,17 @@
+{
+  "description": "Standard test configuration for partitioning methods",
+  "k_values": [
+    2,
+    3,
+    4
+  ],
+  "capacity_strategy": "ceiling_division",
+  "capacity_formula": "(n_qubits + k - 1) // k",
+  "random_seeds": [
+    0,
+    42,
+    123
+  ],
+  "timeout_seconds": 300,
+  "memory_limit_mb": 4096
+}

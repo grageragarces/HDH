@@ -86,7 +86,7 @@ The example script below converts QASM → HDH and writes them as expected (it c
 
 ###### Converter script (QASM → HDH → {pkl,csv})
 
-Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters.qasm.from_qasm).
+Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters from_qasm).
 ```python
 #!/usr/bin/env python3
 import sys
@@ -100,7 +100,7 @@ import argparse
 
 # Repo import path (one level up)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hdh.converters.qasm import from_qasm
+from hdh.converters import from_qasm
 
 BASE_DIR = Path(__file__).resolve().parent
 
