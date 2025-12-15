@@ -25,3 +25,6 @@ site/
 # Other test docs
 .tests/private_test.py
 note_update.tex
+
+# Database workload files
+database/Workloads/Circuit/MQTBench/
