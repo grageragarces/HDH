@@ -218,8 +218,8 @@ This will allow the community to build a data-driven understanding of which hype
 We encourage users to contribute results from their own partitioning methods when working with this database.
 Instructions for how to upload results can be found below.</em></strong></p>
 <h2 id="database-location-and-structure">Database Location and Structure</h2>
-<p>The database is available in the <code>database-branch</code> <a href="https://github.com/grageragarces/HDH/tree/database-branch">of the repository</a>. This separation ensures that users of the main library don't need to download unnecessary files.</p>
-<p><strong>Important</strong>: The database exists only in the repository and is <strong>not included in the pip package or wheels</strong>. Users who want to use the database for benchmarking should clone the <code>database-branch</code> separately.</p>
+<p>The database is available in the <code>main</code> branch <a href="https://github.com/grageragarces/HDH">of the repository</a>. </p>
+<p><strong>Important</strong>: The database exists only in the repository and is <strong>not included in the pip package or wheels</strong>. Users who want to use the database for benchmarking should clone the repository from GitHub. The database files are excluded from the PyPI distribution to keep the package size small.</p>
 <p>The database is organized into two main directories:</p>
 <ul>
 <li><strong><code>Database/</code></strong>: Contains the actual database files (HDHs and workloads)</li>
@@ -511,7 +511,7 @@ edges_df = pd.read_csv(&quot;Database/HDHs/Circuits/MQTBench/text/qft_8__edges.c
 members_df = pd.read_csv(&quot;Database/HDHs/Circuits/MQTBench/text/qft_8__edge_members.csv&quot;)
 </code></pre>
 <h4 id="step-4-submit-a-pr">Step 4: Submit a PR</h4>
-<p>If all went smoothly, submit a PR with your workloads and HDHs back to the <code>database-branch</code>.</p>
+<p>If all went smoothly, submit a PR with your workloads and HDHs back to the <code>main</code> branch.</p>
 <p><strong>Note</strong>: Database files might be too large to directly upload. Use <a href="https://docs.github.com/en/repositories/working-with-files/managing-large-files/configuring-git-large-file-storage">Git LFS</a>:</p>
 <p><strong>macOS:</strong></p>
 <pre><code class="language-bash">brew install git-lfs
@@ -531,7 +531,7 @@ git lfs install
 git lfs track &quot;*.pkl&quot;
 git add .gitattributes
 git commit -m &quot;Adding &lt;Origin&gt; HDHs to database&quot;
-git push -u origin database-branch
+git push -u origin main
 </code></pre>
 <hr />
 <h2 id="2-add-partitioning-method-results">2) Add Partitioning Method Results</h2>
@@ -694,7 +694,7 @@ def get_best_method(row):
 df['best'] = df.apply(get_best_method, axis=1)
 </code></pre>
 <h4 id="step-6-submit-pr">Step 6: Submit PR</h4>
-<p>Submit a PR to the <code>database-branch</code> with:
+<p>Submit a PR to the <code>main</code> branch with:
 * Updated <code>partitions_all.csv</code>
 * Updated or new <code>README.md</code> in the Partitions folder
 * Your GitHub username in the <code>contributor</code> column</p>
@@ -738,11 +738,11 @@ Individual workloads may have their own licenses - check the origin-specific REA
 <h2 id="contributing">Contributing</h2>
 <p>We welcome contributions! When adding to the database:</p>
 <ol>
-<li>Use clear, descriptive commit messages</li>
-<li>Document your methods thoroughly in README files</li>
-<li>Include your GitHub username as contributor</li>
-<li>Verify your data loads correctly before submitting</li>
-<li>Update this documentation if adding new features</li>
+<li>✅ Use clear, descriptive commit messages</li>
+<li>✅ Document your methods thoroughly in README files</li>
+<li>✅ Include your GitHub username as contributor</li>
+<li>✅ Verify your data loads correctly before submitting</li>
+<li>✅ Update this documentation if adding new features</li>
 </ol>
 <p>For questions or discussions, please open an issue on the main repository.</p>
               
