@@ -8,85 +8,203 @@ This will allow the community to build a data-driven understanding of which hype
 We encourage users to contribute results from their own partitioning methods when working with this database.
 Instructions for how to upload results can be found below.***
 
-The database is available in the ```database-branch``` [of the repository](https://github.com/grageragarces/HDH/tree/database-branch). This separation ensures that users of the main library don’t need to download unnecessary files.
+## Database Location and Structure
+
+The database is available in the `main` branch [of the repository](https://github.com/grageragarces/HDH). 
+
+**Important**: The database exists only in the repository and is **not included in the pip package or wheels**. Users who want to use the database for benchmarking should clone the repository from GitHub. The database files are excluded from the PyPI distribution to keep the package size small.
+
+The database is organized into two main directories:
+
+* **`Database/`**: Contains the actual database files (HDHs and workloads)
+* **`Database_generator/`**: Contains scripts, converters, and utilities for generating and extending the database
+
+### Database Directory Structure
+
+```
+Database/
+├── Workloads/          # Raw workload commands
+│   └── <Model>/
+│       └── <Origin>/
+└── HDHs/               # Corresponding Hybrid Dependency Hypergraphs
+    └── <Model>/
+        └── <Origin>/
+            ├── pkl/            # Pickled HDH objects
+            ├── text/           # Human-readable CSV files
+            ├── images/         # (reserved for future visualizations)
+            └── Partitions/     # Partitioning method results
+                ├── partitions_all.csv
+                └── README.md
+```
+
+where:
+* **Model** = computational model (e.g., Circuit, MBQC, QW, QCA)
+* **Origin** = source of the workload (e.g., benchmark suite, custom circuit)
+
+### Database_generator Directory
+
+The `Database_generator/` folder contains:
+* Conversion scripts (QASM → HDH)
+* Partitioning evaluation scripts
+* Utilities for batch processing
+* Configuration templates
 
 The database currently contains:
 
-* HDHs derived from the [Munich Quantum Benchmarking Dataset](https://www.cda.cit.tum.de/mqtbench/).
+* HDHs derived from the [Munich Quantum Benchmarking Dataset](https://www.cda.cit.tum.de/mqtbench/)
 
-The database is organized into two mirrored top-level folders:
+## File Formats
 
-* **Workloads**: contains the raw workload commands (currently QASM files).  
-* **HDHs**: contains the corresponding Hybrid Dependency Hypergraphs for each workload.
+### Workloads Directory
+* QASM files representing the quantum workloads
 
-Both folders share the same internal structure: ```Model/Origin_of_Workload/```.
+### HDHs Directory
+* **`.pkl`**: Python-pickled `HDH` objects for programmatic use
+* **`.txt`** / **`.csv`**: Human-readable text files with annotated metadata
+  * `__nodes.csv`: Node information (node_id, type, time, realisation)
+  * `__edges.csv`: Edge information (edge_index, type, realisation, gate_name, role, edge_args, edge_metadata)
+  * `__edge_members.csv`: Edge-node relationships (edge_index, node_id)
 
-where:
+### Partitions Directory
+* **`partitions_all.csv`**: Partitioning results from various methods
+* **`README.md`**: Documentation of partitioning methods used
 
-* Model = computational model (e.g., Circuit, MBQC, QW, QCA).  
-* Origin_of_Workload = source of the workload (e.g., benchmark suite, custom circuit).  
+## HDH Metadata
 
-## File formats
+Each HDH includes metadata describing:
 
-* Workloads/  
-    * QASM files representing the quantum workloads.
+* **Model type**: Which computational model the HDH was generated from
+* **Workload origin**: Reference to the source workload
+* **Hybrid status**: Whether the HDH contains both quantum and classical nodes
+* **Node count**: Total number of nodes in the hypergraph
+* **Connectivity degree**: Average connectivity of the hypergraph
+* **Disconnected subgraphs**: Number of disconnected components
 
-* HDHs/  
-    * `.pkl`: Python*pickled `HDH` objects for programmatic use.  
-    * `.txt`: human*readable text files with annotated metadata.
+## Partitioning Performance Metrics
 
-## HDH text metadata
+Thanks to the recent additions in PR #24, the library now provides comprehensive metrics for evaluating partitioning quality. These metrics can be computed and added to the database to build a performance baseline.
 
-Each `.txt` file includes metadata lines before the hypergraph specification:
+### Available Metrics (from `hdh.passes`)
 
-* *Model type*: which computational model the HDH was generated from.  
-* *Workload origin*; reference to the source workload.  
-* *Hybrid status*: whether the HDH contains both quantum and classical nodes.  
-* *Node count*: total number of nodes in the hypergraph.  
-* *Connectivity degree*: average connectivity of the hypergraph.  
-* *Disconnected subgraphs*: number of disconnected components.
+#### 1. **`cost(hdh_graph, partitions)`** → `Tuple[float, float]`
+Returns `(cost_q, cost_c)` - the quantum and classical cut costs:
+* `cost_q`: Number of quantum hyperedges that span multiple partitions
+* `cost_c`: Number of classical hyperedges that span multiple partitions
 
-## Extending the dataset
+This is the **primary metric** for comparing partitioning methods.
+
+#### 2. **`partition_size(partitions)`** → `List[int]`
+Returns the size (number of nodes) of each partition.
+Useful for checking balance constraints.
+
+#### 3. **`participation(hdh_graph, partitions)`** → `Dict[str, float]`
+Measures temporal participation (which partitions have activity at each timestep).
+**Note**: This measures presence, not true computational parallelism.
+
+Returns:
+* `max_participation`: Peak number of active partitions
+* `average_participation`: Mean active partitions per timestep
+* `temporal_efficiency`: How well time is utilized
+* `partition_utilization`: Average fraction of partitions active
+* `timesteps`: Total timesteps
+* `num_partitions`: Number of partitions
+
+#### 4. **`parallelism(hdh_graph, partitions)`** → `Dict[str, float]`
+Measures **true parallelism** by counting concurrent τ-edges (operations) per timestep.
+This represents actual computational work that can execute simultaneously.
+
+Returns:
+* `max_parallelism`: Peak concurrent operations
+* `average_parallelism`: Mean operations per timestep
+* `total_operations`: Total operation count
+* `timesteps`: Total timesteps
+* `num_partitions`: Number of partitions
+
+#### 5. **`fair_parallelism(hdh_graph, partitions, capacities)`** → `Dict[str, float]`
+Implements **Jean's fairness principle** - normalizes parallelism by partition capacity to detect workload imbalances.
+
+Returns:
+* `max_fair_parallelism`: Peak fair parallelism
+* `average_fair_parallelism`: Mean fair parallelism
+* `fairness_ratio`: Distribution fairness (1.0 = perfectly fair)
+* `total_operations`: Total operation count
+* `timesteps`: Total timesteps
+* `num_partitions`: Number of partitions
+
+### Usage Example
+
+```python
+from hdh.passes import (
+    cost, partition_size, 
+    participation, parallelism, fair_parallelism
+)
+
+# After running your partitioning method
+bins, _, _, _ = your_partitioning_method(hdh_graph, k=3)
+
+# Evaluate the partition
+cost_q, cost_c = cost(hdh_graph, bins)
+sizes = partition_size(bins)
+participation_metrics = participation(hdh_graph, bins)
+parallelism_metrics = parallelism(hdh_graph, bins)
+fair_metrics = fair_parallelism(hdh_graph, bins, capacities=[10, 10, 10])
+
+print(f"Quantum cut cost: {cost_q}")
+print(f"Classical cut cost: {cost_c}")
+print(f"Partition sizes: {sizes}")
+print(f"Average parallelism: {parallelism_metrics['average_parallelism']}")
+print(f"Fairness ratio: {fair_metrics['fairness_ratio']}")
+```
+
+## Extending the Dataset
 
 We encourage users to:
 
-* Add new workloads (QASM or [other supported formats](models.md)).  
-* Generate corresponding HDHs.  
-* Propose and document new metrics (e.g., depth, cut size, entanglement width).  
+* Add new workloads (QASM or [other supported formats](models.md))
+* Generate corresponding HDHs
+* Run partitioning methods and contribute results
+* Propose and document new metrics
 
 Pull requests that expand the benchmark set or enrich metadata are very welcome!
 
-### How to add to this database
+### How to Add to This Database
 
 There are two ways to contribute:
 
+---
 
-#### 1) Add new workloads + HDHs
+## 1) Add New Workloads + HDHs
 
-##### 1) **Place workloads**  
+#### Step 1: Place Workloads
 Put your workload origin files under:  
-```Workloads/<Model>/<Origin>/```
-This could be anything from a qasm file to circuit generation code.
-If the HDH is not generated from functions within the library, we request you add a ```README.md``` to your origin folder explaining how the HDHs were generated.
+```
+Database/Workloads/<Model>/<Origin>/
+```
+
+This could be anything from a QASM file to circuit generation code.
+
+If the HDH is not generated from functions within the library, we request you add a `README.md` to your origin folder explaining how the HDHs were generated.
 
 Example:  
-```Workloads/Circuits/MQTBench/qft_8.qasm```
-
-##### 2) **Run the converter**  
-Convert the files (qasm strings, qiskit circuits, ...) to HDHs.
 ```
-HDHs/<Model>/<Origin>/pkl/.pkl
-HDHs/<Model>/<Origin>/text/__nodes.csv
-HDHs/<Model>/<Origin>/text/__edges.csv
-HDHs/<Model>/<Origin>/text/__edge_members.csv
+Database/Workloads/Circuits/MQTBench/qft_8.qasm
 ```
 
-The example script below converts QASM → HDH and writes them as expected (it can be adapted for other models):  
+#### Step 2: Run the Converter
+Convert the files (QASM strings, Qiskit circuits, etc.) to HDHs.
 
+The converter will create:
+```
+Database/HDHs/<Model>/<Origin>/pkl/<filename>.pkl
+Database/HDHs/<Model>/<Origin>/text/<filename>__nodes.csv
+Database/HDHs/<Model>/<Origin>/text/<filename>__edges.csv
+Database/HDHs/<Model>/<Origin>/text/<filename>__edge_members.csv
+```
 
-###### Converter script (QASM → HDH → {pkl,csv})
+##### Converter Script (QASM → HDH → {pkl,csv})
 
-Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (hdh.converters from_qasm).
+The converter script is available in `Database_generator/` folder. Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (`hdh.converters.from_qasm`).
+
 ```python
 #!/usr/bin/env python3
 import sys
@@ -98,7 +216,7 @@ from pathlib import Path
 from tqdm import tqdm
 import argparse
 
-# Repo import path (one level up)
+# Repo import path (adjust as needed)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from hdh.converters import from_qasm
 
@@ -116,7 +234,7 @@ def save_pkl(hdh_graph, out_base: Path):
 def save_nodes_csv(hdh_graph, out_path: Path):
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["node_id", "type", "time", "realisation"])  # a|p
+        w.writerow(["node_id", "type", "time", "realisation"])
         for nid in sorted(hdh_graph.S):
             w.writerow([
                 nid,
@@ -126,19 +244,14 @@ def save_nodes_csv(hdh_graph, out_path: Path):
             ])
 
 def save_edges_csvs(hdh_graph, edges_path: Path, members_path: Path):
-    # Stable ordering to assign edge_index deterministically
     edges_sorted = sorted(hdh_graph.C, key=lambda e: tuple(sorted(e)))
-    # edges table (one row per edge)
+    
+    # edges table
     with open(edges_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow([
-            "edge_index",
-            "type",          # q|c
-            "realisation",   # a|p
-            "gate_name",
-            "role",          # teledata|telegate|''
-            "edge_args",     # JSON
-            "edge_metadata"  # JSON
+            "edge_index", "type", "realisation", "gate_name",
+            "role", "edge_args", "edge_metadata"
         ])
         for idx, e in enumerate(edges_sorted):
             w.writerow([
@@ -147,10 +260,11 @@ def save_edges_csvs(hdh_graph, edges_path: Path, members_path: Path):
                 hdh_graph.phi.get(e, ""),
                 getattr(hdh_graph, "gate_name", {}).get(e, ""),
                 getattr(hdh_graph, "edge_role", {}).get(e, ""),
-                json.dumps(getattr(hdh_graph, "edge_args", {}).get(e, None), ensure_ascii=False) if e in getattr(hdh_graph, "edge_args", {}) else "",
-                json.dumps(getattr(hdh_graph, "edge_metadata", {}).get(e, None), ensure_ascii=False) if e in getattr(hdh_graph, "edge_metadata", {}) else ""
+                json.dumps(getattr(hdh_graph, "edge_args", {}).get(e, None)) if e in getattr(hdh_graph, "edge_args", {}) else "",
+                json.dumps(getattr(hdh_graph, "edge_metadata", {}).get(e, None)) if e in getattr(hdh_graph, "edge_metadata", {}) else ""
             ])
-    # edge_members table (one row per (edge,node))
+    
+    # edge_members table
     with open(members_path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["edge_index", "node_id"])
@@ -160,17 +274,17 @@ def save_edges_csvs(hdh_graph, edges_path: Path, members_path: Path):
 
 def main():
     ap = argparse.ArgumentParser(description="Convert QASM workloads to HDH artifacts")
-    ap.add_argument("--model", default="Circuits", help="Model folder under Workloads/ and HDHs/")
-    ap.add_argument("--origin", default="MQTBench", help="Origin folder under Workloads/<Model>/ and HDHs/<Model>/")
-    ap.add_argument("--limit", type=int, default=None, help="Max number of files to convert (useful for large datasets)")
-    ap.add_argument("--src-root", default=None, help="Override source root. Default: Workloads/<Model>/<Origin>")
+    ap.add_argument("--model", default="Circuits", help="Model folder")
+    ap.add_argument("--origin", default="MQTBench", help="Origin folder")
+    ap.add_argument("--limit", type=int, default=None, help="Max files to convert")
+    ap.add_argument("--src-root", default=None, help="Override source root")
     args = ap.parse_args()
 
-    SRC_DIR = Path(args.src_root) if args.src_root else BASE_DIR / "Workloads" / args.model / args.origin
-    DST_ROOT = BASE_DIR / "HDHs" / args.model / args.origin
+    SRC_DIR = Path(args.src_root) if args.src_root else BASE_DIR / "Database" / "Workloads" / args.model / args.origin
+    DST_ROOT = BASE_DIR / "Database" / "HDHs" / args.model / args.origin
     PKL_ROOT = DST_ROOT / "pkl"
     TXT_ROOT = DST_ROOT / "text"
-    IMG_ROOT = DST_ROOT / "images"  # reserved for future visual exports
+    IMG_ROOT = DST_ROOT / "images"
 
     if not SRC_DIR.exists():
         print(f"[error] Source directory not found: {SRC_DIR}")
@@ -185,14 +299,10 @@ def main():
         return
 
     if args.limit is not None:
-        qasm_files = qasm_files[: args.limit]
+        qasm_files = qasm_files[:args.limit]
 
     ok = fail = 0
-    with tqdm(total=len(qasm_files),
-              desc="Converting QASM → HDH",
-              unit="file",
-              dynamic_ncols=True,
-              mininterval=0.2) as pbar:
+    with tqdm(total=len(qasm_files), desc="Converting QASM → HDH", unit="file") as pbar:
         for qf in qasm_files:
             rel = qf.relative_to(SRC_DIR)
             stem = rel.stem
@@ -201,127 +311,333 @@ def main():
             for d in (pkl_dir, txt_dir):
                 ensure_dir(d)
             pbar.set_postfix_str(str(rel))
-            pbar.refresh()
             try:
                 hdh_graph = from_qasm("file", str(qf))
-                # pkl
                 save_pkl(hdh_graph, pkl_dir / stem)
-                # text (CSV)
-                save_nodes_csv(hdh_graph, (txt_dir / f"{stem}__nodes.csv"))
-                save_edges_csvs(
-                    hdh_graph,
-                    edges_path=(txt_dir / f"{stem}__edges.csv"),
-                    members_path=(txt_dir / f"{stem}__edge_members.csv"),
-                )
+                save_nodes_csv(hdh_graph, txt_dir / f"{stem}__nodes.csv")
+                save_edges_csvs(hdh_graph, txt_dir / f"{stem}__edges.csv", txt_dir / f"{stem}__edge_members.csv")
                 ok += 1
             except Exception as e:
                 tqdm.write(f"[fail] {qf}: {e}")
                 fail += 1
             finally:
                 pbar.update(1)
-    print(f"[done] Converted: {ok} | Failed: {fail} | Total processed: {len(qasm_files)}")
+    
+    print(f"[done] Converted: {ok} | Failed: {fail}")
 
 if __name__ == "__main__":
     main()
 ```
 
-##### 3) **Verify & inspect**  
-Please open at least one of the `text/*.csv` files (human-readable) and load at least one of the `pkl/*.pkl` objects in Python, to check everything works!
+#### Step 3: Verify & Inspect
+Please open at least one of the `text/*.csv` files and load at least one of the `pkl/*.pkl` objects in Python to verify everything works.
 
-##### 4) **Submit a PR**  
-If all went smoothly and you're happy to, submit a PR with your workloads, HDHs, and metrics back to the repository so we can keep growing our testing database.  
-If you are going to also submit partitioning method results we recommend to wait and do it all in one!
+```python
+import pickle
+import pandas as pd
 
-Note that the datafiles might be a bit too big to directly upload.
-In that is the case try doing so with [LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/configuring-git-large-file-storage):
+# Load pickled HDH
+with open("Database/HDHs/Circuits/MQTBench/pkl/qft_8.pkl", "rb") as f:
+    hdh = pickle.load(f)
 
-macOS:
+# Load CSV files
+nodes_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/text/qft_8__nodes.csv")
+edges_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/text/qft_8__edges.csv")
+members_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/text/qft_8__edge_members.csv")
 ```
+
+#### Step 4: Submit a PR
+If all went smoothly, submit a PR with your workloads and HDHs back to the `main` branch.
+
+**Note**: Database files might be too large to directly upload. Use [Git LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/configuring-git-large-file-storage):
+
+**macOS:**
+```bash
 brew install git-lfs
 git lfs install
 ```
-Debian/Ubuntu:
-```
+
+**Debian/Ubuntu:**
+```bash
 sudo apt-get update
 sudo apt-get install git-lfs
 git lfs install
 ```
-Windows:
-```
+
+**Windows:**
+```bash
 winget install Git.GitLFS
 git lfs install
 ```
 
-From repo root (make sure to change ```<Origin>``` for your Origin name):
-```
+From repo root:
+```bash
 git lfs track "*.csv"
+git lfs track "*.pkl"
 git add .gitattributes
 git commit -m "Adding <Origin> HDHs to database"
 git push -u origin main
 ```
 
-You may need to add your origin
+---
+
+## 2) Add Partitioning Method Results
+
+If you want to share **partitioning method results**, add them to:
 ```
-git remote add origin https://github.com/<you>/<repo>.git
+Database/HDHs/<Model>/<Origin>/Partitions/partitions_all.csv
 ```
 
-Once you've got it commited to your fork you can push it through a pull request as per usual.
+### CSV Format for Partitioning Results
 
-#### 2) Add partitioning method results
+The `partitions_all.csv` file tracks performance metrics across different partitioning methods.
 
-If you want to share **partitioning method results**, you can do so by adding adding the partitioning method metadata to the ```HDHs/<Model>/<Origin>/Partitions/partitions_all.csv``` file.
+#### Mandatory Columns
 
-These files may look like: 
+* **`file`**: Name of the origin file
+* **`n_qubits`**: Number of qubits in workload
+* **`k_partitions`**: Number of partitions (e.g., 2 if cut once)
+* **`<method>_bins`**: Sets of qubits per partition (JSON format)
+* **`<method>_cost`**: Quantum communication cost (number of quantum hyperedges cut)
+* **`best`**: Name of the method with the lowest cost
+
+#### Optional Columns (Method-Specific)
+
+* **`<method>_cost_q`**: Quantum cut cost (if separating q/c)
+* **`<method>_cost_c`**: Classical cut cost
+* **`<method>_partition_sizes`**: List of partition sizes
+* **`<method>_avg_parallelism`**: Average parallelism metric
+* **`<method>_fairness_ratio`**: Fairness ratio from fair_parallelism
+* **`<method>_fails`**: Boolean indicating if method failed capacity constraints
+* **`<method>_method`**: Sub-method used (e.g., for METIS: 'kl', 'recursive')
+* **`contributor`**: GitHub username of the person who added this result
+
+### Example CSV
 
 ```csv
-file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_bins_cost,best
-ae_indep_qiskit_10.qasm,10,2,"[[""q0"",""q1"",""q2"",""q3"",""q8""],[""q4"",""q5"",""q6"",""q7"",""q9""]]",30,"[[""q1"",""q3"",""q5"",""q6"",""q7""],[""q0"",""q2"",""q4"",""q8"",""q9""]]",25,False,kl,"[[""q0"",""q1"",""q2"",""q3"",""q9""],[""q4"",""q5"",""q6"",""q7"",""q8""]]",30,metis_tl
-ae_indep_qiskit_10.qasm,10,3,"[[""q0"",""q1"",""q2"",""q8""],[""q3"",""q4"",""q6"",""q7""],[""q5"",""q9""]]",40,"[[""q3"",""q5"",""q6"",""q7""],[""q0"",""q2""],[""q1"",""q4"",""q8"",""q9""]]",32,False,kl,"[[""q0"",""q1"",""q2"",""q9""],[""q3"",""q4"",""q5"",""q6""],[""q7"",""q8""]]",38,metis_tl
-ae_indep_qiskit_10.qasm,10,4,"[[""q0"",""q1"",""q8""],[""q2"",""q3"",""q7""],[""q4"",""q5"",""q6""],[""q9""]]",45,"[[""q5"",""q7"",""q9""],[""q2"",""q8""],[""q0"",""q4""],[""q1"",""q3"",""q6""]]",37,False,kl,"[[""q0"",""q1"",""q9""],[""q2"",""q3"",""q4""],[""q5"",""q6"",""q7""],[""q8""]]",43,metis_tl
+file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_cost,best,contributor
+ae_indep_qiskit_10.qasm,10,2,"[[""q0"",""q1"",""q2"",""q3"",""q8""],[""q4"",""q5"",""q6"",""q7"",""q9""]]",30,"[[""q1"",""q3"",""q5"",""q6"",""q7""],[""q0"",""q2"",""q4"",""q8"",""q9""]]",25,False,kl,"[[""q0"",""q1"",""q2"",""q3"",""q9""],[""q4"",""q5"",""q6"",""q7"",""q8""]]",30,metis,alice_researcher
+ae_indep_qiskit_10.qasm,10,3,"[[""q0"",""q1"",""q2"",""q8""],[""q3"",""q4"",""q6"",""q7""],[""q5"",""q9""]]",40,"[[""q3"",""q5"",""q6"",""q7""],[""q0"",""q2""],[""q1"",""q4"",""q8"",""q9""]]",32,False,kl,"[[""q0"",""q1"",""q2"",""q9""],[""q3"",""q4"",""q5"",""q6""],[""q7"",""q8""]]",38,metis,alice_researcher
 ```
 
-First the metadata:
+### Standard Partitioning Methods
 
-* ```file```: name of the origin file
-* ```n_qubits```: number of qubits in workload
-* ```k_partitions```: number of partitions made by the method. For instance if you cut your workload once you only create 2 partitions
+Here are the standard partitioning methods currently in the database:
 
-Then partitioners results can be added. 
-In this example we can see 3 partitioning strategies: greedy, metis and greedytg.
-They correspond to:
-
-* **Greedy (HDH)** :
-Partitions directly on the HDH hypergraph where each hyperedge captures one operation’s dependency set.
-We fill bins sequentially: order qubits by a heuristic (e.g., incident cut weight, then degree), and place each into the earliest bin that (i) respects the logical-qubit capacity and (ii) gives the smallest marginal cut increase.
+#### **Greedy (HDH)**
+Partitions directly on the HDH hypergraph where each hyperedge captures one operation's dependency set.
+We fill bins sequentially: order qubits by heuristic (e.g., incident cut weight, then degree), and place each into the earliest bin that (i) respects the logical-qubit capacity and (ii) gives the smallest marginal cut increase.
 If nothing fits, open the next bin up to k.
-Cost = sum of weights of hyperedges spanning >1 bin (default weight 1 per op; domain weights optional).
 
-* **METIS (Telegate graph)**:
-Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a “telegate” communication if cut).
+**Cost**: Sum of weights of hyperedges spanning >1 bin (default weight 1 per op; domain weights optional).
+
+#### **METIS (Telegate graph)**
+Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a "telegate" communication if cut).
 Uses the [METIS library](https://pypi.org/project/metis/) to compute a k-way partition with balance constraints and minimal cut on this graph.
 Partitions are then re-evaluated on the HDH cost for apples-to-apples comparison.
-We typically set edge weights from interaction counts; you can also up-weight edges representing expensive non-local primitives to steer METIS away from cutting them.
 
-* **Greedy-TG (Telegate graph)**:
+**Cost**: Re-evaluated on HDH hypergraph cut metric.
+
+#### **Greedy-TG (Telegate graph)**
 Same fill-first policy as Greedy (HDH), but decisions are made on the telegate graph.
-Nodes are qubits; edge weights reflect how costly it is to separate two qubits (i.e., expected telegate load).
-Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph, ensuring a fair, representation-matched comparison with the HDH greedy approach.
+Nodes are qubits; edge weights reflect how costly it is to separate two qubits (expected telegate load).
+Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph.
 
-All this information regarding the method used and its origin must be saved in 
-```HDHs/<Model>/<Origin>/Partitions/README.md``` 
-, otherwise the data will not be merged.
+**Cost**: Re-evaluated on HDH hypergraph cut metric.
 
-As you can see in the example depending on the strategy you can have more or less saved data. Mandatory columns include:
+### Adding Your Results
 
-* quantum communication cost achieved (```cost```) = number of quantum partitioned hyperedges
-* the sets of qubits per partitions (```bins```)
+#### Step 1: Run Your Partitioning Method
 
-Additionally, ```best``` must be re-calculated.
-Best corresponds to the name of the method with the lowest cost.
+```python
+from hdh.passes import compute_cut, cost, partition_size, parallelism, fair_parallelism
+import pickle
+import csv
 
-In this example, additional metadata includes the sub-method used within the METIS partitioner (it can default to various sub-methods if the original fails), as well as a failure state for METIS.
-The failure state is very important for methods that do not assure the ability to respect a given capacity.
-Capacity (i.e., the maximum number of qubits allowed in one partition) should be set to the total number of qubits divided by the number of partitions (rounded up to the next integer).
-If the partitioner cannot respect this capacity, the potential failure status should be logged, and if true the method should not be considered in the best evaluation.
-An explanation on whether these types of additional logs are necessary must be added to any commit adding new data to the database.
-If they are needed, an explanation of what is added is also required.
+# Load HDH
+with open("Database/HDHs/Circuits/MQTBench/pkl/qft_8.pkl", "rb") as f:
+    hdh = pickle.load(f)
+
+# Run your partitioning method
+bins, _, _, method_name = your_partitioning_method(hdh, k=3, capacity=3)
+
+# Compute metrics
+cost_q, cost_c = cost(hdh, bins)
+sizes = partition_size(bins)
+parallel_metrics = parallelism(hdh, bins)
+fair_metrics = fair_parallelism(hdh, bins, capacities=[3, 3, 3])
+
+# Prepare data for CSV
+result = {
+    'file': 'qft_8.qasm',
+    'n_qubits': 8,
+    'k_partitions': 3,
+    'yourmethod_bins': str(bins),
+    'yourmethod_cost': cost_q,
+    'yourmethod_cost_q': cost_q,
+    'yourmethod_cost_c': cost_c,
+    'yourmethod_partition_sizes': str(sizes),
+    'yourmethod_avg_parallelism': parallel_metrics['average_parallelism'],
+    'yourmethod_fairness_ratio': fair_metrics['fairness_ratio'],
+    'contributor': 'your_github_username'
+}
+```
+
+#### Step 2: Update partitions_all.csv
+
+Add your results to the existing CSV file:
+
+```python
+import pandas as pd
+
+# Load existing results
+df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv")
+
+# Add your new column(s) if they don't exist
+# Update or append your row
+# Recalculate 'best' column
+
+df.to_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv", index=False)
+```
+
+#### Step 3: Document Your Method
+
+Create or update `Database/HDHs/<Model>/<Origin>/Partitions/README.md`:
+
+```markdown
+# Partitioning Methods for <Origin>
+
+## Your Method Name
+
+**Contributor**: your_github_username
+**Date**: YYYY-MM-DD
+
+### Description
+Brief description of your partitioning algorithm...
+
+### Parameters
+- Parameter 1: description
+- Parameter 2: description
+
+### Implementation Details
+Link to code or detailed explanation...
+
+### Performance Characteristics
+- Time complexity: O(...)
+- Space complexity: O(...)
+- Works best for: ...
+```
+
+#### Step 4: Capacity Constraints and Failure States
+
+**Capacity** = Total qubits ÷ number of partitions (rounded up)
+
+If your partitioner cannot respect this capacity:
+* Log a failure status in a `<method>_fails` column
+* Set to `True` if capacity was violated
+* Exclude from `best` evaluation if failed
+
+**Important**: Document in the Partitions README whether your method:
+* Always respects capacity constraints
+* May violate constraints (and how failures are handled)
+* Requires specific capacity settings
+
+#### Step 5: Recalculate Best
+
+The `best` column should identify the method with the **lowest quantum cost** among methods that:
+1. Did not fail capacity constraints (where `<method>_fails` is False or not present)
+2. Successfully completed partitioning
+
+```python
+# Example: Recalculate best
+cost_columns = [col for col in df.columns if col.endswith('_cost') and not col.endswith('_cost_c')]
+methods = [col.replace('_cost', '') for col in cost_columns]
+
+def get_best_method(row):
+    valid_methods = []
+    for method in methods:
+        fails_col = f'{method}_fails'
+        cost_col = f'{method}_cost'
+        
+        # Check if method failed
+        if fails_col in row and row[fails_col] == True:
+            continue
+        
+        # Check if cost is valid
+        if pd.notna(row[cost_col]):
+            valid_methods.append((method, row[cost_col]))
+    
+    if not valid_methods:
+        return None
+    
+    # Return method with minimum cost
+    return min(valid_methods, key=lambda x: x[1])[0]
+
+df['best'] = df.apply(get_best_method, axis=1)
+```
+
+#### Step 6: Submit PR
+
+Submit a PR to the `main` branch with:
+* Updated `partitions_all.csv`
+* Updated or new `README.md` in the Partitions folder
+* Your GitHub username in the `contributor` column
+
+---
+
+## Database Usage Guidelines
+
+### For Benchmarking
+
+```python
+import pickle
+import pandas as pd
+from pathlib import Path
+
+# Load all HDHs from an origin
+origin_path = Path("Database/HDHs/Circuits/MQTBench/pkl")
+hdhs = {}
+for pkl_file in origin_path.glob("*.pkl"):
+    with open(pkl_file, "rb") as f:
+        hdhs[pkl_file.stem] = pickle.load(f)
+
+# Load partitioning results
+results_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv")
+
+# Benchmark your method against existing results
+for name, hdh in hdhs.items():
+    your_bins, _, _, _ = your_method(hdh, k=3)
+    your_cost, _ = cost(hdh, your_bins)
+    
+    # Compare with best existing method
+    existing_best = results_df[results_df['file'] == f"{name}.qasm"]['best'].values[0]
+    existing_cost = results_df[results_df['file'] == f"{name}.qasm"][f"{existing_best}_cost"].values[0]
+    
+    print(f"{name}: Your method: {your_cost}, Best existing: {existing_cost}")
+```
+
+### Citation and Acknowledgment
+
+When using this database in publications, please cite:
+* The HDH library
+* The Munich Quantum Benchmarking Dataset (for MQTBench workloads)
+* Individual contributors whose partitioning results you use
+
+### Data License
+
+The database is provided under the same license as the HDH library (MIT License).
+Individual workloads may have their own licenses - check the origin-specific README files.
+
+---
+
+## Contributing
+
+We welcome contributions! When adding to the database:
+
+1. ✅ Use clear, descriptive commit messages
+2. ✅ Document your methods thoroughly in README files
+3. ✅ Include your GitHub username as contributor
+4. ✅ Verify your data loads correctly before submitting
+5. ✅ Update this documentation if adding new features
+
+For questions or discussions, please open an issue on the main repository.

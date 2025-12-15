@@ -16,13 +16,13 @@
   <em>Work in Progress - Preparing for 1.0</em>
 </p>
 
-[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://your-docs-url)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://grageragarces.github.io/HDH/)
 
 Documentation can be found at: https://grageragarces.github.io/HDH/
 
 ---
 
-## What is HDH?
+## What is a HDH?
 
 **HDH (Hybrid Dependency Hypergraph)** is an intermediate directed hypergraph-based representation designed to encode the dependecies arising in any quantum workload.
 It provides a unified structure that makes it easier to:

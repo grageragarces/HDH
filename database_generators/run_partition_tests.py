@@ -10,6 +10,15 @@ import csv
 import hashlib
 from datetime import datetime
 
+# CSV field size limit error
+maxInt = sys.maxsize
+while True:
+    try:
+        csv.field_size_limit(maxInt)
+        break
+    except OverflowError:
+        maxInt = int(maxInt / 10)
+
 # Import add_result function inline to avoid module issues
 def hash_config(params: Dict[str, Any]) -> str:
     """Generate hash for configuration parameters."""
