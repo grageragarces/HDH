@@ -167,13 +167,11 @@ We encourage users to:
 
 Pull requests that expand the benchmark set or enrich metadata are very welcome!
 
-### How to Add to This Database
-
 There are two ways to contribute:
 
 ---
 
-## 1) Add New Workloads + HDHs
+### 1) Add New Workloads + HDHs
 
 #### Step 1: Place Workloads
 Put your workload origin files under:  

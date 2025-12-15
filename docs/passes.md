@@ -58,7 +58,7 @@ Beam search is a heuristic that balances between:
    - Qubit 23: delta_cost=-3, frontier_score=90  (3rd best)
 
 3. Check capacity constraints for each in order:
-   - Qubit 42: Would make bin have 26/25 qubits ❌
+   - Qubit 42: Would make bin have 26/25 qubits X
    - Qubit 17: Would make bin have 25/25 qubits ✓
    - Place qubit 17!
 ```
