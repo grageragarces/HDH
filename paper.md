@@ -1,5 +1,5 @@
 ---
-title: 'HDH: A Python package for distributed quantum computing'
+title: 'HDH:The Distributed Quantum Computing library'
 tags:
   - Python
   - distributed quantum computing
