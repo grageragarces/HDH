@@ -11,7 +11,19 @@ import re
 from hdh.models.circuit import Circuit
 
 def _bit_index_from_cond_target(qc, target):
-    # target can be Clbit or ClassicalRegister(1)
+    """
+    Extract the classical bit index from a condition target.
+    
+    Args:
+        qc: QuantumCircuit
+        target: Can be Clbit or ClassicalRegister
+        
+    Returns:
+        int: Index of the classical bit
+        
+    Raises:
+        NotImplementedError: If target type is unsupported or register has multiple bits
+    """
     if isinstance(target, Clbit):
         return qc.clbits.index(target)
     if isinstance(target, ClassicalRegister):
@@ -20,37 +32,125 @@ def _bit_index_from_cond_target(qc, target):
         return qc.clbits.index(target[0])
     raise NotImplementedError(f"Unsupported condition target type: {type(target)}")
 
-def from_qiskit(qc: QuantumCircuit) -> HDH:
-    circuit = Circuit()
-
-    for instr, qargs, cargs in qc.data:
-        if instr.name in {"barrier", "snapshot", "delay", "label"}:
-            continue
-
-        q_indices = [qc.qubits.index(q) for q in qargs]
-        c_indices = [qc.clbits.index(c) for c in cargs]
-
-        # Handles conditionals
-        if isinstance(instr, IfElseOp):
-            cond = instr.condition  # (Clbit|ClassicalRegister, int)
-            target, val = cond
-            if int(val) != 1:
-                raise NotImplementedError("Only IfElseOp conditions == 1 are supported.")
-            bit_index = _bit_index_from_cond_target(qc, target)
-
+def _process_if_else_op(qc, instr, circuit):
+    """
+    Process an IfElseOp instruction and add it to the HDH circuit.
+    
+    Uses the new add_conditional_gate method for cleaner, more maintainable code.
+    
+    Args:
+        qc: QuantumCircuit
+        instr: IfElseOp instance
+        circuit: HDH Circuit object
+        
+    Raises:
+        NotImplementedError: For unsupported condition types or values
+    """
+    # Extract condition - can be tuple or expr.Expr
+    cond = instr.condition
+    
+    # Handle tuple condition: (Clbit|ClassicalRegister, int)
+    if isinstance(cond, tuple):
+        target, val = cond
+        
+        # Only support condition value == 1 for now
+        if int(val) != 1:
+            raise NotImplementedError(
+                f"Only IfElseOp conditions == 1 are supported, got {val}"
+            )
+        
+        bit_index = _bit_index_from_cond_target(qc, target)
+        
+        # Process true_body (blocks[0]) - executes when condition == 1
+        if len(instr.blocks) > 0:
             true_body = instr.blocks[0]
-            for inner_instr, inner_qargs, _ in true_body.data:
+            for inner_instr, inner_qargs, inner_cargs in true_body.data:
+                # Skip metadata instructions
+                if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
+                    continue
+                    
                 inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
+                
+                # Use add_conditional_gate for cleaner code
+                if len(inner_qidx) == 1:
+                    # Single-qubit gate
+                    circuit.add_conditional_gate(
+                        classical_bit=bit_index,
+                        target_qubit=inner_qidx[0],
+                        gate_name=inner_instr.name
+                    )
+                else:
+                    # Multi-qubit gate
+                    circuit.add_conditional_gate(
+                        classical_bit=bit_index,
+                        target_qubit=inner_qidx[0],
+                        gate_name=inner_instr.name,
+                        additional_qubits=inner_qidx[1:]
+                    )
+        
+        # Process false_body (blocks[1]) - executes when condition == 0
+        # Note: Currently uses add_instruction with cond_flag="n" since
+        # add_conditional_gate doesn't support negated conditions yet
+        if len(instr.blocks) > 1 and instr.blocks[1] is not None:
+            false_body = instr.blocks[1]
+            for inner_instr, inner_qargs, inner_cargs in false_body.data:
+                # Skip metadata instructions
+                if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
+                    continue
+                    
+                inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
+                inner_cidx = [qc.clbits.index(c) for c in inner_cargs] if inner_cargs else []
+                
+                # Use add_instruction with negated condition for else block
+                # TODO: Consider adding add_conditional_gate_negated() method
                 circuit.add_instruction(
                     inner_instr.name,
                     inner_qidx,
                     bits=[bit_index],
-                    modifies_flags=[True]*len(inner_qidx),
-                    cond_flag="p"
+                    modifies_flags=[True] * len(inner_qidx),
+                    cond_flag="n"  # Negated condition
                 )
+    else:
+        # For expr.Expr conditions, would need additional handling
+        raise NotImplementedError(
+            f"Expression-based conditions are not yet supported: {type(cond)}"
+        )
+
+def from_qiskit(qc: QuantumCircuit) -> HDH:
+    """
+    Convert a Qiskit QuantumCircuit to HDH format.
+    
+    Supports:
+    - Standard gates (h, rx, cx, measure, etc.)
+    - IfElseOp with single-bit conditions == 1
+    - Both Clbit and single-bit ClassicalRegister conditions
+    
+    Args:
+        qc: Qiskit QuantumCircuit
+        
+    Returns:
+        HDH: HDH representation of the circuit
+        
+    Raises:
+        NotImplementedError: For unsupported operations or condition types
+    """
+    circuit = Circuit()
+
+    for instr, qargs, cargs in qc.data:
+        # Skip metadata instructions
+        if instr.name in {"barrier", "snapshot", "delay", "label"}:
             continue
 
-        # Handles standard instructions
+        # Get indices
+        q_indices = [qc.qubits.index(q) for q in qargs]
+        c_indices = [qc.clbits.index(c) for c in cargs]
+
+        # Handle IfElseOp
+        if isinstance(instr, IfElseOp):
+            _process_if_else_op(qc, instr, circuit)
+            continue
+
+        # Handle standard instructions
         if instr.name == "measure":
             circuit.add_instruction("measure", q_indices, None)  
         else:
@@ -60,9 +160,16 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
     return circuit.build_hdh()
 
 def to_qiskit(hdh) -> QuantumCircuit:
-
     """
-    No longer compatible with from_qiskit
+    Convert HDH format back to Qiskit QuantumCircuit.
+    
+    Note: No longer compatible with from_qiskit due to HDH representation changes.
+    
+    Args:
+        hdh: HDH object
+        
+    Returns:
+        QuantumCircuit: Qiskit representation
     """
 
     def resolve_qidxs(raw_q, anc_q, expected_len, edge, name):

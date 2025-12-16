@@ -57,8 +57,7 @@ circuit.add_instruction("h", [5])
 circuit.add_instruction("cx", [3, 4])
 circuit.add_instruction("cx", [2, 1])
 
-# NOTE: The example with the line bellow uncommented will be added soon
-# circuit.add_conditional_gate(5, 4, "z") 
+circuit.add_conditional_gate(5, 4, "z") 
 
 circuit.add_instruction("cx", [0, 3])
 circuit.add_instruction("measure", [2])

@@ -26,8 +26,6 @@ q1_t7,q,7,a
 q2_t0,q,0,a
 q2_t1,q,1,a
 q2_t10,q,10,a
-q2_t2,q,2,a
-q2_t3,q,3,a
 q2_t5,q,5,a
 q2_t6,q,6,a
 q2_t7,q,7,a
@@ -54,8 +52,6 @@ q5_t1,q,1,a
 q5_t11,q,11,a
 q5_t12,q,12,a
 q5_t13,q,13,a
-q5_t2,q,2,a
-q5_t3,q,3,a
 q5_t5,q,5,a
 q5_t6,q,6,a
 q5_t7,q,7,a
@@ -65,15 +61,11 @@ q6_t10,q,10,a
 q6_t11,q,11,a
 q6_t12,q,12,a
 q6_t13,q,13,a
-q6_t2,q,2,a
-q6_t3,q,3,a
 q6_t8,q,8,a
 q6_t9,q,9,a
 q7_t0,q,0,a
 q7_t1,q,1,a
 q7_t10,q,10,a
-q7_t2,q,2,a
-q7_t3,q,3,a
 q7_t5,q,5,a
 q7_t6,q,6,a
 q7_t7,q,7,a

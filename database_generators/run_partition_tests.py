@@ -9,6 +9,9 @@ import sys
 import csv
 import hashlib
 from datetime import datetime
+import multiprocessing as mp
+from functools import partial
+from tqdm import tqdm
 
 # CSV field size limit error
 maxInt = sys.maxsize
@@ -30,6 +33,43 @@ def hash_config(params: Dict[str, Any]) -> str:
 def ensure_dir(p: Path):
     """Create directory if it doesn't exist."""
     p.mkdir(parents=True, exist_ok=True)
+
+def add_result_safe(
+    results_csv: Path,
+    result: Dict,
+    lock: mp.Lock,
+    allow_overwrite: bool = False
+) -> bool:
+    """
+    Thread-safe version of add_result.
+    
+    Args:
+        results_csv: Path to CSV file
+        result: Result dictionary
+        lock: Multiprocessing lock
+        allow_overwrite: Whether to overwrite existing results
+    """
+    with lock:
+        return add_result(
+            results_csv=results_csv,
+            workload_file=result['workload_file'],
+            model=result['model'],
+            origin=result['origin'],
+            n_qubits=result['n_qubits'],
+            k_partitions=result['k_partitions'],
+            capacity=result['capacity'],
+            method_name=result['method_name'],
+            method_version=result['method_version'],
+            bins=result['bins'],
+            cost=result['cost'],
+            respects_capacity=result['respects_capacity'],
+            method_metadata=result['method_metadata'],
+            time_seconds=result['time_seconds'],
+            memory_mb=result['memory_mb'],
+            library_version=result['library_version'],
+            contributor=result['contributor'],
+            allow_overwrite=allow_overwrite
+        )
 
 def add_result(
     results_csv: Path,
@@ -87,25 +127,40 @@ def add_result(
     # Check if entry already exists
     existing = []
     if results_csv.exists():
-        with open(results_csv, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            existing = list(reader)
+        try:
+            with open(results_csv, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                existing = list(reader)
+        except Exception as e:
+            print(f"Warning: Error reading CSV: {e}")
+            # Backup corrupted file
+            backup_path = results_csv.with_suffix('.csv.backup')
+            if results_csv.exists():
+                import shutil
+                shutil.copy(results_csv, backup_path)
+                print(f"Backed up corrupted CSV to {backup_path}")
+            existing = []
     
     # Check for duplicate
     dup_key = (workload_file, k_partitions, method_name, config_hash)
     duplicate_found = False
     for ex in existing:
-        ex_key = (ex['workload_file'], int(ex['k_partitions']), 
-                  ex['method_name'], ex['config_hash'])
-        if dup_key == ex_key:
-            duplicate_found = True
-            if not allow_overwrite:
-                return False
-            
-            # Remove old entry
-            existing = [e for e in existing if (e['workload_file'], int(e['k_partitions']), 
-                       e['method_name'], e['config_hash']) != dup_key]
-            break
+        try:
+            ex_key = (ex['workload_file'], int(ex['k_partitions']), 
+                      ex['method_name'], ex['config_hash'])
+            if dup_key == ex_key:
+                duplicate_found = True
+                if not allow_overwrite:
+                    return False
+                
+                # Remove old entry
+                existing = [e for e in existing if (e['workload_file'], int(e['k_partitions']), 
+                           e['method_name'], e['config_hash']) != dup_key]
+                break
+        except (KeyError, ValueError) as e:
+            # Skip malformed entries
+            print(f"Warning: Skipping malformed entry: {e}")
+            continue
     
     # Add new entry
     existing.append(entry)
@@ -246,8 +301,12 @@ def get_n_qubits(hdh_graph) -> int:
             qubits.add(int(match.group(1)))
     return len(qubits)
 
-def find_hdh_files(database_root: Path, model: str = None, origin: str = None, 
-                   max_qubits: int = None) -> List[Dict]:
+def find_hdh_files(
+    database_root: Path,
+    model: str = None,
+    origin: str = None,
+    max_qubits: int = None
+) -> List[Dict]:
     """
     Find all HDH pickle files in the database.
     
@@ -262,27 +321,27 @@ def find_hdh_files(database_root: Path, model: str = None, origin: str = None,
     
     found = []
     
-    # Search pattern
+    # Search for pickle files
     if model and origin:
         search_path = hdhs_dir / model / origin / "pkl"
         pkl_files = list(search_path.glob("*.pkl")) if search_path.exists() else []
     elif model:
-        pkl_files = list((hdhs_dir / model).rglob("pkl/*.pkl"))
+        pkl_files = list((hdhs_dir / model).rglob("*.pkl"))
     else:
-        pkl_files = list(hdhs_dir.rglob("pkl/*.pkl"))
+        pkl_files = list(hdhs_dir.rglob("*.pkl"))
     
     for pkl_path in pkl_files:
-        # Extract model and origin from path
+        # Extract model, origin, and workload name from path
         parts = pkl_path.relative_to(hdhs_dir).parts
         file_model = parts[0]
-        file_origin = parts[1]
-        workload_file = pkl_path.stem + ".qasm"  # Assume .qasm extension
+        file_origin = parts[1] if len(parts) > 1 else "Unknown"
+        workload_file = pkl_path.stem + ".qasm"
         
-        # Load HDH to check n_qubits if max_qubits filter is set
-        if max_qubits is not None:
+        # Filter by max_qubits if specified
+        if max_qubits:
             try:
-                hdh = load_hdh(pkl_path)
-                n_qubits = get_n_qubits(hdh)
+                hdh_graph = load_hdh(pkl_path)
+                n_qubits = get_n_qubits(hdh_graph)
                 if n_qubits > max_qubits:
                     continue
             except Exception as e:
@@ -370,14 +429,45 @@ def run_test(
         return result
         
     except Exception as e:
-        print(f"  Error: {e}")
-        import traceback
-        traceback.print_exc()
         return None
+
+def run_test_worker(task: Dict) -> Tuple[bool, Optional[Dict], str]:
+    """
+    Worker function for parallel test execution.
+    
+    Args:
+        task: Dictionary with test parameters
+    
+    Returns:
+        (success, result_dict, error_msg)
+    """
+    try:
+        result = run_test(
+            hdh_path=task['hdh_path'],
+            workload_file=task['workload_file'],
+            model=task['model'],
+            origin=task['origin'],
+            k=task['k'],
+            overhead=task['overhead'],
+            method_name=task['method_name'],
+            method_config=task['method_config'],
+            library_version=task['library_version'],
+            contributor=task['contributor']
+        )
+        
+        if result:
+            return True, result, ""
+        else:
+            return False, None, "Test execution failed"
+            
+    except Exception as e:
+        import traceback
+        error_msg = f"{str(e)}\n{traceback.format_exc()}"
+        return False, None, error_msg
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Run automated partitioning tests on HDH database',
+        description='Run automated partitioning tests on HDH database (PARALLEL VERSION)',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     
@@ -385,7 +475,7 @@ def main():
                        help='Root directory of the database')
     
     # Filtering
-    parser.add_argument('--model', help='Filter by model (e.g., Circuits)')
+    parser.add_argument('--model', help='Filter by model (e.g., Circuit)')
     parser.add_argument('--origin', help='Filter by origin (e.g., MQTBench)')
     parser.add_argument('--max-qubits', type=int, 
                        help='Only test circuits with <= this many qubits')
@@ -407,6 +497,10 @@ def main():
     parser.add_argument('--contributor', default='unknown',
                        help='Your name/username')
     
+    # Parallel options
+    parser.add_argument('--workers', type=int, default=None,
+                       help='Number of parallel workers (default: CPU count - 2)')
+    
     # Output options
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be tested without running')
@@ -414,6 +508,13 @@ def main():
                        help='Save results to JSON file instead of database')
     
     args = parser.parse_args()
+    
+    # Determine number of workers
+    if args.workers is None:
+        # Leave 2 cores free for system
+        args.workers = max(1, mp.cpu_count() - 2)
+    
+    print(f"Using {args.workers} parallel workers")
     
     # Parse config
     method_config = {}
@@ -439,8 +540,26 @@ def main():
     
     print(f"Found {len(hdh_files)} HDH files")
     
-    # Calculate total tests
-    total_tests = len(hdh_files) * len(args.methods) * len(args.k_values) * len(args.overhead)
+    # Build task list
+    tasks = []
+    for hdh_info in hdh_files:
+        for method_name in args.methods:
+            for k in args.k_values:
+                for overhead in args.overhead:
+                    tasks.append({
+                        'hdh_path': hdh_info['hdh_path'],
+                        'workload_file': hdh_info['workload_file'],
+                        'model': hdh_info['model'],
+                        'origin': hdh_info['origin'],
+                        'k': k,
+                        'overhead': overhead,
+                        'method_name': method_name,
+                        'method_config': method_config,
+                        'library_version': args.library_version,
+                        'contributor': args.contributor
+                    })
+    
+    total_tests = len(tasks)
     print(f"Will run {total_tests} tests:")
     print(f"  {len(hdh_files)} circuits")
     print(f"  {len(args.methods)} methods: {', '.join(args.methods)}")
@@ -449,63 +568,55 @@ def main():
     
     if args.dry_run:
         print("\n[DRY RUN] Would test:")
-        for hdh_info in hdh_files[:5]:  # Show first 5
-            print(f"  - {hdh_info['model']}/{hdh_info['origin']}/{hdh_info['workload_file']}")
-        if len(hdh_files) > 5:
-            print(f"  ... and {len(hdh_files) - 5} more")
+        for task in tasks[:5]:
+            print(f"  - {task['model']}/{task['origin']}/{task['workload_file']} "
+                  f"(k={task['k']}, method={task['method_name']})")
+        if len(tasks) > 5:
+            print(f"  ... and {len(tasks) - 5} more")
         sys.exit(0)
     
-    # Run tests
-    print("\nRunning tests...")
+    # Run tests in parallel
+    print("\nRunning tests in parallel...")
     results_csv = args.database_root / "Partitions" / "results" / "partitions.csv"
     
     all_results = []
     completed = 0
     failed = 0
     
-    for i, hdh_info in enumerate(hdh_files):
-        print(f"\n[{i+1}/{len(hdh_files)}] {hdh_info['workload_file']}")
+    # Create a lock for thread-safe CSV writing
+    lock = mp.Manager().Lock()
+    
+    # Run with multiprocessing pool
+    with mp.Pool(processes=args.workers) as pool:
+        results_iter = pool.imap_unordered(run_test_worker, tasks)
         
-        for method_name in args.methods:
-            for k in args.k_values:
-                for overhead in args.overhead:
-                    print(f"  Testing {method_name} with k={k}, overhead={overhead*100:.1f}%...", end=' ')
-                    
-                    result = run_test(
-                        hdh_path=hdh_info['hdh_path'],
-                        workload_file=hdh_info['workload_file'],
-                        model=hdh_info['model'],
-                        origin=hdh_info['origin'],
-                        k=k,
-                        overhead=overhead,
-                        method_name=method_name,
-                        method_config=method_config,
-                        library_version=args.library_version,
-                        contributor=args.contributor
-                    )
-                    
-                    if result:
-                        all_results.append(result)
-                        
-                        if not args.output_json:
-                            # Add directly to database
-                            success = add_result(
-                                results_csv=results_csv,
-                                allow_overwrite=True,
-                                **result
-                            )
-                            if success:
-                                print(f"✓ cost={result['cost']}")
-                                completed += 1
-                            else:
-                                print(f"✗ Failed to save")
-                                failed += 1
-                        else:
-                            print(f"✓ cost={result['cost']}")
+        for success, result, error_msg in tqdm(results_iter, total=total_tests, 
+                                               desc="Processing", unit="test"):
+            if success and result:
+                all_results.append(result)
+                
+                if not args.output_json:
+                    # Add directly to database (thread-safe)
+                    try:
+                        add_success = add_result_safe(
+                            results_csv=results_csv,
+                            result=result,
+                            lock=lock,
+                            allow_overwrite=True
+                        )
+                        if add_success:
                             completed += 1
-                    else:
-                        print("✗ Failed")
+                        else:
+                            failed += 1
+                    except Exception as e:
+                        tqdm.write(f"Error saving result: {e}")
                         failed += 1
+                else:
+                    completed += 1
+            else:
+                if error_msg:
+                    tqdm.write(f"Test failed: {error_msg[:100]}")
+                failed += 1
     
     # Save to JSON if requested
     if args.output_json:
@@ -513,15 +624,13 @@ def main():
         with open(args.output_json, 'w') as f:
             json.dump({'results': all_results}, f, indent=2)
         print(f"✓ Saved {len(all_results)} results")
-        print(f"\nTo add to database, run:")
-        print(f"  python add_method_results.py --database-root {args.database_root} \\")
-        print(f"    --from-json {args.output_json} --allow-overwrite")
     
     # Summary
     print("\n" + "="*60)
     print(f"Tests complete:")
     print(f"  Completed: {completed}/{total_tests}")
     print(f"  Failed: {failed}/{total_tests}")
+    print(f"  Success rate: {100*completed/total_tests:.1f}%")
     
     sys.exit(0 if failed == 0 else 1)
 

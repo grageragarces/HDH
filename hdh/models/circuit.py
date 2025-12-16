@@ -28,6 +28,36 @@ class Circuit:
 
         self.instructions.append((name, qubits, bits, modifies_flags, cond_flag))
 
+    def add_conditional_gate(
+        self,
+        classical_bit: int,
+        target_qubit: int,
+        gate_name: str,
+        additional_qubits: Optional[List[int]] = None,
+        modifies_flags: Optional[List[bool]] = None
+    ):
+        gate_name = gate_name.lower()
+        
+        # Build the qubit list
+        if additional_qubits is None:
+            qubits = [target_qubit]
+        else:
+            qubits = [target_qubit] + additional_qubits
+        
+        # Set default modifies_flags
+        if modifies_flags is None:
+            modifies_flags = [True] * len(qubits)
+        
+        # Add the instruction with cond_flag="p" (positive condition)
+        # and the classical bit in the bits list
+        self.add_instruction(
+            name=gate_name,
+            qubits=qubits,
+            bits=[classical_bit],
+            modifies_flags=modifies_flags,
+            cond_flag="p"
+        )
+
     def build_hdh(self, hdh_cls=HDH) -> HDH:
         hdh = hdh_cls()
         qubit_time: Dict[int, int] = {}
@@ -103,7 +133,7 @@ class Circuit:
                     e = hdh.add_hyperedge({cnode, qout}, "c", name=name, node_real=cond_flag)
                     edges.append(e)
 
-                    # advance quantum time
+                    # advance time
                     last_gate_input_time[tq] = t_in_q
                     qubit_time[tq] = t_gate
 
@@ -146,29 +176,32 @@ class Circuit:
                     t1 = common_start + 1
                     t2 = common_start + 2
                     t3 = common_start + 3
+                    
+                    # FIX ISSUE #37: Create intermediate nodes INSIDE loop for each qubit
+                    mid_id   = f"{qname}_t{t1}"
+                    final_id = f"{qname}_t{t2}"
+                    post_id  = f"{qname}_t{t3}"
+
+                    hdh.add_node(mid_id,   "q", t1, node_real=cond_flag)
+                    hdh.add_node(final_id, "q", t2, node_real=cond_flag)
+                    hdh.add_node(post_id,  "q", t3, node_real=cond_flag)
+
+                    intermediate_nodes.append(mid_id)
+                    final_nodes.append(final_id)
+                    post_nodes.append(post_id)
+                    
+                    last_gate_input_time[qubit] = t_in
+                    qubit_time[qubit] = t3
                 else:
+                    # Single-qubit gates: don't create nodes here
+                    # created by the single-qubit handler below
                     t1 = t_in + 1
                     t2 = t1 + 1
                     t3 = t2 + 1
 
-                # create mid/final/post nodes for BOTH cases
-                mid_id   = f"{qname}_t{t1}"
-                final_id = f"{qname}_t{t2}"
-                post_id  = f"{qname}_t{t3}"
-
-                hdh.add_node(mid_id,   "q", t1, node_real=cond_flag)
-                hdh.add_node(final_id, "q", t2, node_real=cond_flag)
-                hdh.add_node(post_id,  "q", t3, node_real=cond_flag)
-
-                intermediate_nodes.append(mid_id)
-                final_nodes.append(final_id)
-                post_nodes.append(post_id)
-
-                last_gate_input_time[qubit] = t_in
-                qubit_time[qubit] = t3
-
             edges = []
             if len(qargs) > 1:
+                # Multi-qubit gate
                 # Stage 1: input → intermediate (1:1)
                 for in_node, mid_node in zip(in_nodes, intermediate_nodes):
                     e = hdh.add_hyperedge({in_node, mid_node}, "q", name=f"{name}_stage1", node_real=cond_flag)
@@ -215,30 +248,12 @@ class Circuit:
             else:
                 edge_type = "q"
 
-            edges = []
-
-            if len(qargs) > 1:
-                # Multi-qubit gate 
-                # Stage 1: input → intermediate (1:1)
-                for in_node, mid_node in zip(in_nodes, intermediate_nodes):
-                    edge = hdh.add_hyperedge({in_node, mid_node}, "q", name=f"{name}_stage1", node_real=cond_flag)
-                    edges.append(edge)
-
-                # Stage 2: full multiqubit edge from intermediate → final
-                edge2 = hdh.add_hyperedge(set(intermediate_nodes) | set(final_nodes), "q", name=f"{name}_stage2", node_real=cond_flag)
-                edges.append(edge2)
-
-                # Stage 3: final → post (1:1 again)
-                for final_node, post_node in zip(final_nodes, post_nodes):
-                    edge = hdh.add_hyperedge({final_node, post_node}, "q", name=f"{name}_stage3", node_real=cond_flag)
-                    edges.append(edge)
-                                                    
-            else:
+            if len(qargs) == 1:
                 # Single-qubit gate
                 for i, qubit in enumerate(qargs):
-                    
                     if modifies_flags[i] and name != "measure":
-                        t_in = last_gate_input_time[qubit] # t_in = qubit_time[qubit]
+                        # Use current qubit_time
+                        t_in = qubit_time[qubit]  
                         t_out = t_in + 1
                         qname = f"q{qubit}"
                         in_id = f"{qname}_t{t_in}"
@@ -246,7 +261,7 @@ class Circuit:
                         hdh.add_node(out_id, "q", t_out, node_real=cond_flag)
                         edge = hdh.add_hyperedge({in_id, out_id}, "q", name=name, node_real=cond_flag)
                         edges.append(edge)
-                        # Update time
+                        # Update time for next gate
                         qubit_time[qubit] = t_out
                         last_gate_input_time[qubit] = t_in
 

@@ -18,7 +18,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://grageragarces.github.io/HDH/)
 
-Documentation can be found at: https://grageragarces.github.io/HDH/
+<!-- Documentation can be found at: https://grageragarces.github.io/HDH/ -->
 
 ---
 
