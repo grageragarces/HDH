@@ -6,6 +6,9 @@ This script:
 2. Converts them to HDH using the appropriate converter
 3. Saves as pickle files in Database/HDHs/
 4. Optionally exports to CSV format (text/)
+
+RUN:
+python convert_workloads_to_hdh.py --database-root ./Database --model Circuit --origin MQTBench
 """
 
 import argparse
