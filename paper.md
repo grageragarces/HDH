@@ -106,7 +106,9 @@ fig = plot_hdh(hdh)  # Visualize HDH
 ```
 
 The resulting HDH is shown below as a graph representation of a hypergraph, since visualizing large, multi-colored hypergraphs directly becomes impractical at scale. Gates have hyperedges corresponding to the qubit state transformations they generate, as well as preceding and following hyperedges that capture pre- and post-teleportation of the involved states. HDHs differ from previous abstractions in two key ways: 
+
 (1) nodes represent possible state transformations rather than individual qubits or operations, and 
+
 (2) classical data flows are explicitly included (shown in orange):
 
 ![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.png){ width=80% }
@@ -122,3 +124,5 @@ We acknowledge contributions from [Joseph Tedds](https://github.com/josephtedds)
 We thank Unitary Fund for supporting this project through their quantum microgrant program.
 
 The work of the author is supported by the EPSRC UK Quantum Technologies Programme under grant EP/T001062/1 and VeriQloud.
+
+# References
