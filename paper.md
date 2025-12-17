@@ -61,11 +61,11 @@ HDHs use the following notation to describe quantum workload dependencies,
 including predicted elements that represent potential future state 
 transformations based on classical measurement outcomes:
 
-![HDH symbol legend.\label{fig:hdh_legend}](docs/img/HDHobjects.png){ width=50% }
+![HDH symbol legend.\label{fig:hdh_legend}](docs/img/HDHobjects.png){ width=20% }
 
 Mapping a quantum workload such as a circuit to an HDH involves applying specific correspondences between model elements and hypergraph motifs. This library provides model-specific classes such as the `Circuit` class that enable straightforward conversions to HDHs using mapping tables:
 
-![Circuit to HDH mapping table.\label{fig:circuit_mappings}](docs/img/circuitmappings.png){ width=80% }
+![Circuit to HDH mapping table.\label{fig:circuit_mappings}](docs/img/circuitmappings.png){ width=30% }
 
 In the context of DQC, entangling operations in a model can be made non-local (namely non-local gates) and thus partitioned through 
 a quantum network via quantum communication primitives [@Wu:2022]. Alternatively, 
@@ -109,7 +109,7 @@ The resulting HDH is shown below as a graph representation of a hypergraph, sinc
 (1) nodes represent possible state transformations rather than individual qubits or operations, and 
 (2) classical data flows are explicitly included (shown in orange):
 
-![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.png)
+![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.png){ width=80% }
 
 # The HDH database
 To support reproducible evaluation and training of partitioning strategies, this library's git repository also includes a database of pre-generated HDHs, based on the MQT Benchmark suite [@MQTBench], as well as baseline partitions offered by the library's heuristics.
