@@ -40,16 +40,7 @@ def add_result_safe(
     lock: mp.Lock,
     allow_overwrite: bool = False
 ) -> bool:
-    """
-    Thread-safe version of add_result.
-    
-    Args:
-        results_csv: Path to CSV file
-        result: Result dictionary
-        lock: Multiprocessing lock
-        allow_overwrite: Whether to overwrite existing results
-    """
-    #workload_file,model,origin,n_qubits,k_partitions,capacity,method_name,method_version,bins,cost,respects_capacity,method_metadata,time_seconds,memory_mb,library_version,contributor
+    """Thread-safe version of add_result."""
     with lock:
         return add_result(
             results_csv=results_csv,
@@ -67,8 +58,10 @@ def add_result_safe(
             method_metadata=result['method_metadata'],
             time_seconds=result['time_seconds'],
             memory_mb=result['memory_mb'],
+            config_params=result.get('config_params'),  # ADD THIS
             library_version=result['library_version'],
             contributor=result['contributor'],
+            notes=result.get('notes', ''),  # ADD THIS
             allow_overwrite=allow_overwrite
         )
 
