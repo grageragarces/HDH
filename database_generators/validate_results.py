@@ -8,6 +8,13 @@ Checks:
 - Bins are valid JSON
 - Costs are non-negative
 - Capacity constraints make sense
+
+IMPORTANT NOTE: this file cannot take the entire database!
+------------------------------------------------------------
+If you find a way to make it so it does please open a pull request. 
+But otherwise what we recommend is that if you want to check your results (which you *really* should) 
+you should call  --database-root to point to a folder such as database that 
+only contains the files you may want to test.
 """
 
 import argparse

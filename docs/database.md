@@ -32,22 +32,32 @@ Database/
             ├── pkl/            # Pickled HDH objects
             ├── text/           # Human-readable CSV files
             ├── images/         # (reserved for future visualizations)
-            └── Partitions/     # Partitioning method results
-                ├── partitions_all.csv
-                └── README.md
+└── Partitions/     # Partitioning method results
+            ├── configs/         # Test configurations and settings
+            ├── leaderboards/    # Pre-computed comparison view
+            ├── methods/         # Method configurations and documentation
+            ├── results/         # Main results database (`partitions.csv` - .gz compressed)
+            ├── scripts          # Helper scripts for database operations
 ```
 
 where:
 * **Model** = computational model (e.g., Circuit, MBQC, QW, QCA)
-* **Origin** = source of the workload (e.g., benchmark suite, custom circuit)
+* **Origin** = source of the workload (e.g., benchmark suite, custom circuit, artificial circuit)
 
 ### Database_generator Directory
 
 The `Database_generator/` folder contains:
-* Conversion scripts (QASM → HDH)
-* Partitioning evaluation scripts
-* Utilities for batch processing
-* Configuration templates
+* Utilities for batch processing (`run_partition_tests.py`)
+* A file to decompress the `partitions.csv.gz` compressed database (`decompress_data.py`)
+* Leadeboard generators (`generate_leaderboards.py`)
+* A data querying file which can be used to "ask" specific questions (`query_results.py`). By calling things like:
+```python
+  # Compare two methods
+  python query_results.py --database-root ./Database \\
+    compare --method-a greedy_hdh --method-b metis_telegate
+```
+All the possible query commands can be found in the documents comments. They include finding the best method (meaning partitioner strategy) for a workload, method comparison, method statistics, etc.
+
 
 The database currently contains:
 
@@ -61,24 +71,12 @@ The database currently contains:
 ### HDHs Directory
 * **`.pkl`**: Python-pickled `HDH` objects for programmatic use
 * **`.txt`** / **`.csv`**: Human-readable text files with annotated metadata
-  * `__nodes.csv`: Node information (node_id, type, time, realisation)
-  * `__edges.csv`: Edge information (edge_index, type, realisation, gate_name, role, edge_args, edge_metadata)
   * `__edge_members.csv`: Edge-node relationships (edge_index, node_id)
+  * `__edges.csv`: Edge information (edge_index, type, realisation, gate_name, role, edge_args, edge_metadata)
+  * `__nodes.csv`: Node information (node_id, type, time, realisation)
 
 ### Partitions Directory
-* **`partitions_all.csv`**: Partitioning results from various methods
-* **`README.md`**: Documentation of partitioning methods used
-
-## HDH Metadata
-
-Each HDH includes metadata describing:
-
-* **Model type**: Which computational model the HDH was generated from
-* **Workload origin**: Reference to the source workload
-* **Hybrid status**: Whether the HDH contains both quantum and classical nodes
-* **Node count**: Total number of nodes in the hypergraph
-* **Connectivity degree**: Average connectivity of the hypergraph
-* **Disconnected subgraphs**: Number of disconnected components
+* **`partitions.csv.gz`**: Partitioning results (aka the dabase)
 
 ## Partitioning Performance Metrics
 
@@ -383,14 +381,15 @@ git push -u origin main
 
 If you want to share **partitioning method results**, add them to:
 ```
-Database/HDHs/<Model>/<Origin>/Partitions/partitions_all.csv
+Database/HDHs/<Model>/<Origin>/Partitions/partitions.csv.gz
 ```
 
 ### CSV Format for Partitioning Results
 
-The `partitions_all.csv` file tracks performance metrics across different partitioning methods.
+The `partitions.csv.gz` file tracks performance metrics across different partitioning methods.
+The `.gz` decorator comes from compression (necessary to mantain this database on GitHub).
 
-#### Mandatory Columns
+#### Mandatory Columns #TOUPDATE
 
 * **`file`**: Name of the origin file
 * **`n_qubits`**: Number of qubits in workload
@@ -399,7 +398,7 @@ The `partitions_all.csv` file tracks performance metrics across different partit
 * **`<method>_cost`**: Quantum communication cost (number of quantum hyperedges cut)
 * **`best`**: Name of the method with the lowest cost
 
-#### Optional Columns (Method-Specific)
+#### Optional Columns (Method-Specific) #TOUPDATE
 
 * **`<method>_cost_q`**: Quantum cut cost (if separating q/c)
 * **`<method>_cost_c`**: Classical cut cost
@@ -410,7 +409,7 @@ The `partitions_all.csv` file tracks performance metrics across different partit
 * **`<method>_method`**: Sub-method used (e.g., for METIS: 'kl', 'recursive')
 * **`contributor`**: GitHub username of the person who added this result
 
-### Example CSV
+### Example CSV #TOUPDATE
 
 ```csv
 file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_cost,best,contributor
@@ -429,14 +428,14 @@ If nothing fits, open the next bin up to k.
 
 **Cost**: Sum of weights of hyperedges spanning >1 bin (default weight 1 per op; domain weights optional).
 
-#### **METIS (Telegate graph)**
+#### **METIS (Telegate graph)** #TOUPDATE: true? I don't think so this is graph based
 Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a "telegate" communication if cut).
 Uses the [METIS library](https://pypi.org/project/metis/) to compute a k-way partition with balance constraints and minimal cut on this graph.
 Partitions are then re-evaluated on the HDH cost for apples-to-apples comparison.
 
 **Cost**: Re-evaluated on HDH hypergraph cut metric.
 
-#### **Greedy-TG (Telegate graph)**
+#### **Greedy-TG (Telegate graph)** #TOUPDATE - I don't think this is true anymore
 Same fill-first policy as Greedy (HDH), but decisions are made on the telegate graph.
 Nodes are qubits; edge weights reflect how costly it is to separate two qubits (expected telegate load).
 Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph.
@@ -445,43 +444,7 @@ Each qubit goes to the earliest feasible bin that minimizes marginal cut on the 
 
 ### Adding Your Results
 
-#### Step 1: Run Your Partitioning Method
-
-```python
-from hdh.passes import compute_cut, cost, partition_size, parallelism, fair_parallelism
-import pickle
-import csv
-
-# Load HDH
-with open("Database/HDHs/Circuits/MQTBench/pkl/qft_8.pkl", "rb") as f:
-    hdh = pickle.load(f)
-
-# Run your partitioning method
-bins, _, _, method_name = your_partitioning_method(hdh, k=3, capacity=3)
-
-# Compute metrics
-cost_q, cost_c = cost(hdh, bins)
-sizes = partition_size(bins)
-parallel_metrics = parallelism(hdh, bins)
-fair_metrics = fair_parallelism(hdh, bins, capacities=[3, 3, 3])
-
-# Prepare data for CSV
-result = {
-    'file': 'qft_8.qasm',
-    'n_qubits': 8,
-    'k_partitions': 3,
-    'yourmethod_bins': str(bins),
-    'yourmethod_cost': cost_q,
-    'yourmethod_cost_q': cost_q,
-    'yourmethod_cost_c': cost_c,
-    'yourmethod_partition_sizes': str(sizes),
-    'yourmethod_avg_parallelism': parallel_metrics['average_parallelism'],
-    'yourmethod_fairness_ratio': fair_metrics['fairness_ratio'],
-    'contributor': 'your_github_username'
-}
-```
-
-#### Step 2: Update partitions_all.csv
+#### Step 1: Update partitions.csv #TOUPDATE
 
 Add your results to the existing CSV file:
 
@@ -489,18 +452,18 @@ Add your results to the existing CSV file:
 import pandas as pd
 
 # Load existing results
-df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv")
+df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv")
 
 # Add your new column(s) if they don't exist
 # Update or append your row
 # Recalculate 'best' column
 
-df.to_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv", index=False)
+df.to_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv", index=False)
 ```
 
-#### Step 3: Document Your Method
+#### Step 2: Document Your Method 
 
-Create or update `Database/HDHs/<Model>/<Origin>/Partitions/README.md`:
+Create or update `Database/Partitions/README.md`:
 
 ```markdown
 # Partitioning Methods for <Origin>
@@ -518,7 +481,7 @@ Brief description of your partitioning algorithm...
 - Parameter 2: description
 
 ### Implementation Details
-Link to code or detailed explanation...
+Input your code or/and detailed explanation...
 
 ### Performance Characteristics
 - Time complexity: O(...)
@@ -526,7 +489,7 @@ Link to code or detailed explanation...
 - Works best for: ...
 ```
 
-#### Step 4: Capacity Constraints and Failure States
+#### Step 3: Capacity Constraints and Failure States #TOUPDATE - maybe this should be within 1? or within the readme: specific oh its not assured , maybe both?
 
 **Capacity** = Total qubits ÷ number of partitions (rounded up)
 
@@ -540,7 +503,7 @@ If your partitioner cannot respect this capacity:
 * May violate constraints (and how failures are handled)
 * Requires specific capacity settings
 
-#### Step 5: Recalculate Best
+#### Step 4: Recalculate Best #TOUPDATE - this will basically jsut be running 'generate_leaderboards.py'
 
 The `best` column should identify the method with the **lowest quantum cost** among methods that:
 1. Did not fail capacity constraints (where `<method>_fails` is False or not present)
@@ -574,10 +537,15 @@ def get_best_method(row):
 df['best'] = df.apply(get_best_method, axis=1)
 ```
 
-#### Step 6: Submit PR
+#### Step 5: Re-compress your csv file
+Make sure to re-compress the csv file as `partitions.csv.gz` before you attempt to push (it won't otherwise due to size).
+
+<!-- Maybe I should make a compression file to? - TODO in issues -->
+
+#### Step 6: Submit PR 
 
 Submit a PR to the `main` branch with:
-* Updated `partitions_all.csv`
+* Updated `partitions.csv.gz`
 * Updated or new `README.md` in the Partitions folder
 * Your GitHub username in the `contributor` column
 
@@ -600,7 +568,7 @@ for pkl_file in origin_path.glob("*.pkl"):
         hdhs[pkl_file.stem] = pickle.load(f)
 
 # Load partitioning results
-results_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv")
+results_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv")
 
 # Benchmark your method against existing results
 for name, hdh in hdhs.items():
@@ -616,8 +584,8 @@ for name, hdh in hdhs.items():
 
 ### Citation and Acknowledgment
 
-When using this database in publications, please cite:
-* The HDH library
+When using this database in publications, note that it was generated thanks to:
+* The HDH library project
 * The Munich Quantum Benchmarking Dataset (for MQTBench workloads)
 * Individual contributors whose partitioning results you use
 
@@ -632,10 +600,10 @@ Individual workloads may have their own licenses - check the origin-specific REA
 
 We welcome contributions! When adding to the database:
 
-1. ✅ Use clear, descriptive commit messages
-2. ✅ Document your methods thoroughly in README files
-3. ✅ Include your GitHub username as contributor
-4. ✅ Verify your data loads correctly before submitting
-5. ✅ Update this documentation if adding new features
+1. Use clear, descriptive commit messages
+2. Document your methods thoroughly in README files 
+3. Include your GitHub username as contributor
+4. Verify your data loads correctly before submitting
+5. Update this documentation if adding new features
 
 For questions or discussions, please open an issue on the main repository.

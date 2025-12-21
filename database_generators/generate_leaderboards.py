@@ -6,12 +6,13 @@ pre-computed leaderboard views for quick access.
 """
 
 import argparse
+import sys
 import csv
+csv.field_size_limit(sys.maxsize)
 import json
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Any
-import sys
 
 def load_results(results_csv: Path) -> List[Dict[str, Any]]:
     """Load results from CSV."""

@@ -28,3 +28,5 @@ note_update.tex
 
 # Database workload files
 database/Workloads/Circuit/MQTBench/
+
+# Big unzipped database 

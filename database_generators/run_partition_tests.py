@@ -49,6 +49,7 @@ def add_result_safe(
         lock: Multiprocessing lock
         allow_overwrite: Whether to overwrite existing results
     """
+    #workload_file,model,origin,n_qubits,k_partitions,capacity,method_name,method_version,bins,cost,respects_capacity,method_metadata,time_seconds,memory_mb,library_version,contributor
     with lock:
         return add_result(
             results_csv=results_csv,
@@ -207,6 +208,7 @@ def calculate_capacity(n_qubits: int, k_partitions: int, overhead: float = 0.0) 
     capacity_with_overhead = int(base_capacity * (1.0 + overhead))
     return capacity_with_overhead
 
+# THIS IS MY METHOD - Replace it by yours!
 def run_greedy_hdh(hdh_graph, k: int, capacity: int, config: Dict) -> Tuple[List, int, Dict]:
     """
     Run greedy HDH partitioner.
