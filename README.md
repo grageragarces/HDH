@@ -7,7 +7,11 @@
   <a href="https://pypi.org/project/hdh/">
     <img src="https://badge.fury.io/py/hdh.svg" alt="PyPI version">
   </a>
-  · [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://grageragarces.github.io/HDH/) ·
+  · 
+  <a href="https://grageragarces.github.io/HDH/">
+    <img src="https://img.shields.io/badge/docs-online-blue" alt="Docs">
+  </a>
+  · 
   <a href="https://unitary.foundation">
     <img src="https://img.shields.io/badge/Supported%20By-UNITARY%20FOUNDATION-brightgreen.svg?style=for-the-badge" alt="Unitary Foundation">
   </a>
