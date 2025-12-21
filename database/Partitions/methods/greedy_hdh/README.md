@@ -2,6 +2,8 @@
 
 Greedy bin-filling algorithm operating directly on HDH hypergraph. Uses beam search to select candidates and automatically places all nodes of a qubit together.
 
+**Contributor**: grageragarces
+**Date**: 2025-12-20
 **Library function:** `hdh.passes.cut.compute_cut`
 
 ## Description

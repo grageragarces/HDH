@@ -539,6 +539,11 @@ df['best'] = df.apply(get_best_method, axis=1)
 
 #### Step 5: Re-compress your csv file
 Make sure to re-compress the csv file as `partitions.csv.gz` before you attempt to push (it won't otherwise due to size).
+To do this, you can just run:
+
+```
+gzip partitions.csv
+```
 
 <!-- Maybe I should make a compression file to? - TODO in issues -->
 
