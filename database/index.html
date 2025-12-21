@@ -80,8 +80,6 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#hdh-metadata">HDH Metadata</a>
-    </li>
     <li class="toctree-l2"><a class="reference internal" href="#partitioning-performance-metrics">Partitioning Performance Metrics</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#available-metrics-from-hdhpasses">Available Metrics (from hdh.passes)</a>
@@ -122,35 +120,35 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#csv-format-for-partitioning-results">CSV Format for Partitioning Results</a>
         <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#mandatory-columns">Mandatory Columns</a>
+    <li class="toctree-l4"><a class="reference internal" href="#mandatory-columns-toupdate">Mandatory Columns #TOUPDATE</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#optional-columns-method-specific">Optional Columns (Method-Specific)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#optional-columns-method-specific-toupdate">Optional Columns (Method-Specific) #TOUPDATE</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#example-csv">Example CSV</a>
+    <li class="toctree-l3"><a class="reference internal" href="#example-csv-toupdate">Example CSV #TOUPDATE</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#standard-partitioning-methods">Standard Partitioning Methods</a>
         <ul>
     <li class="toctree-l4"><a class="reference internal" href="#greedy-hdh">Greedy (HDH)</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#metis-telegate-graph">METIS (Telegate graph)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#metis-telegate-graph-toupdate-true-i-dont-think-so-this-is-graph-based">METIS (Telegate graph) #TOUPDATE: true? I don't think so this is graph based</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#greedy-tg-telegate-graph">Greedy-TG (Telegate graph)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#greedy-tg-telegate-graph-toupdate-i-dont-think-this-is-true-anymore">Greedy-TG (Telegate graph) #TOUPDATE - I don't think this is true anymore</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#adding-your-results">Adding Your Results</a>
         <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#step-1-run-your-partitioning-method">Step 1: Run Your Partitioning Method</a>
+    <li class="toctree-l4"><a class="reference internal" href="#step-1-update-partitionscsv-toupdate">Step 1: Update partitions.csv #TOUPDATE</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#step-2-update-partitions_allcsv">Step 2: Update partitions_all.csv</a>
+    <li class="toctree-l4"><a class="reference internal" href="#step-2-document-your-method">Step 2: Document Your Method</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#step-3-document-your-method">Step 3: Document Your Method</a>
+    <li class="toctree-l4"><a class="reference internal" href="#step-3-capacity-constraints-and-failure-states-toupdate-maybe-this-should-be-within-1-or-within-the-readme-specific-oh-its-not-assured-maybe-both">Step 3: Capacity Constraints and Failure States #TOUPDATE - maybe this should be within 1? or within the readme: specific oh its not assured , maybe both?</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#step-4-capacity-constraints-and-failure-states">Step 4: Capacity Constraints and Failure States</a>
+    <li class="toctree-l4"><a class="reference internal" href="#step-4-recalculate-best-toupdate-this-will-basically-jsut-be-running-generate_leaderboardspy">Step 4: Recalculate Best #TOUPDATE - this will basically jsut be running 'generate_leaderboards.py'</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#step-5-recalculate-best">Step 5: Recalculate Best</a>
+    <li class="toctree-l4"><a class="reference internal" href="#step-5-re-compress-your-csv-file">Step 5: Re-compress your csv file</a>
     </li>
     <li class="toctree-l4"><a class="reference internal" href="#step-6-submit-pr">Step 6: Submit PR</a>
     </li>
@@ -230,19 +228,27 @@ Instructions for how to upload results can be found below.</em></strong></p>
             ├── pkl/            # Pickled HDH objects
             ├── text/           # Human-readable CSV files
             ├── images/         # (reserved for future visualizations)
-            └── Partitions/     # Partitioning method results
-                ├── partitions_all.csv
-                └── README.md
+└── Partitions/     # Partitioning method results
+            ├── configs/         # Test configurations and settings
+            ├── leaderboards/    # Pre-computed comparison view
+            ├── methods/         # Method configurations and documentation
+            ├── results/         # Main results database (`partitions.csv` - .gz compressed)
+            ├── scripts          # Helper scripts for database operations
 </code></pre>
 <p>where:
 * <strong>Model</strong> = computational model (e.g., Circuit, MBQC, QW, QCA)
-* <strong>Origin</strong> = source of the workload (e.g., benchmark suite, custom circuit)</p>
+* <strong>Origin</strong> = source of the workload (e.g., benchmark suite, custom circuit, artificial circuit)</p>
 <h3 id="database_generator-directory">Database_generator Directory</h3>
 <p>The <code>Database_generator/</code> folder contains:
-* Conversion scripts (QASM → HDH)
-* Partitioning evaluation scripts
-* Utilities for batch processing
-* Configuration templates</p>
+* Utilities for batch processing (<code>run_partition_tests.py</code>)
+* A file to decompress the <code>partitions.csv.gz</code> compressed database (<code>decompress_data.py</code>)
+* Leadeboard generators (<code>generate_leaderboards.py</code>)
+* A data querying file which can be used to "ask" specific questions (<code>query_results.py</code>). By calling things like:</p>
+<pre><code class="language-python">  # Compare two methods
+  python query_results.py --database-root ./Database \\
+    compare --method-a greedy_hdh --method-b metis_telegate
+</code></pre>
+<p>All the possible query commands can be found in the documents comments. They include finding the best method (meaning partitioner strategy) for a workload, method comparison, method statistics, etc.</p>
 <p>The database currently contains:</p>
 <ul>
 <li>HDHs derived from the <a href="https://www.cda.cit.tum.de/mqtbench/">Munich Quantum Benchmarking Dataset</a></li>
@@ -256,24 +262,13 @@ Instructions for how to upload results can be found below.</em></strong></p>
 <ul>
 <li><strong><code>.pkl</code></strong>: Python-pickled <code>HDH</code> objects for programmatic use</li>
 <li><strong><code>.txt</code></strong> / <strong><code>.csv</code></strong>: Human-readable text files with annotated metadata</li>
-<li><code>__nodes.csv</code>: Node information (node_id, type, time, realisation)</li>
-<li><code>__edges.csv</code>: Edge information (edge_index, type, realisation, gate_name, role, edge_args, edge_metadata)</li>
 <li><code>__edge_members.csv</code>: Edge-node relationships (edge_index, node_id)</li>
+<li><code>__edges.csv</code>: Edge information (edge_index, type, realisation, gate_name, role, edge_args, edge_metadata)</li>
+<li><code>__nodes.csv</code>: Node information (node_id, type, time, realisation)</li>
 </ul>
 <h3 id="partitions-directory">Partitions Directory</h3>
 <ul>
-<li><strong><code>partitions_all.csv</code></strong>: Partitioning results from various methods</li>
-<li><strong><code>README.md</code></strong>: Documentation of partitioning methods used</li>
-</ul>
-<h2 id="hdh-metadata">HDH Metadata</h2>
-<p>Each HDH includes metadata describing:</p>
-<ul>
-<li><strong>Model type</strong>: Which computational model the HDH was generated from</li>
-<li><strong>Workload origin</strong>: Reference to the source workload</li>
-<li><strong>Hybrid status</strong>: Whether the HDH contains both quantum and classical nodes</li>
-<li><strong>Node count</strong>: Total number of nodes in the hypergraph</li>
-<li><strong>Connectivity degree</strong>: Average connectivity of the hypergraph</li>
-<li><strong>Disconnected subgraphs</strong>: Number of disconnected components</li>
+<li><strong><code>partitions.csv.gz</code></strong>: Partitioning results (aka the dabase)</li>
 </ul>
 <h2 id="partitioning-performance-metrics">Partitioning Performance Metrics</h2>
 <p>Thanks to the recent additions in PR #24, the library now provides comprehensive metrics for evaluating partitioning quality. These metrics can be computed and added to the database to build a performance baseline.</p>
@@ -529,11 +524,12 @@ git push -u origin main
 <hr />
 <h2 id="2-add-partitioning-method-results">2) Add Partitioning Method Results</h2>
 <p>If you want to share <strong>partitioning method results</strong>, add them to:</p>
-<pre><code>Database/HDHs/&lt;Model&gt;/&lt;Origin&gt;/Partitions/partitions_all.csv
+<pre><code>Database/HDHs/&lt;Model&gt;/&lt;Origin&gt;/Partitions/partitions.csv.gz
 </code></pre>
 <h3 id="csv-format-for-partitioning-results">CSV Format for Partitioning Results</h3>
-<p>The <code>partitions_all.csv</code> file tracks performance metrics across different partitioning methods.</p>
-<h4 id="mandatory-columns">Mandatory Columns</h4>
+<p>The <code>partitions.csv.gz</code> file tracks performance metrics across different partitioning methods.
+The <code>.gz</code> decorator comes from compression (necessary to mantain this database on GitHub).</p>
+<h4 id="mandatory-columns-toupdate">Mandatory Columns #TOUPDATE</h4>
 <ul>
 <li><strong><code>file</code></strong>: Name of the origin file</li>
 <li><strong><code>n_qubits</code></strong>: Number of qubits in workload</li>
@@ -542,7 +538,7 @@ git push -u origin main
 <li><strong><code>&lt;method&gt;_cost</code></strong>: Quantum communication cost (number of quantum hyperedges cut)</li>
 <li><strong><code>best</code></strong>: Name of the method with the lowest cost</li>
 </ul>
-<h4 id="optional-columns-method-specific">Optional Columns (Method-Specific)</h4>
+<h4 id="optional-columns-method-specific-toupdate">Optional Columns (Method-Specific) #TOUPDATE</h4>
 <ul>
 <li><strong><code>&lt;method&gt;_cost_q</code></strong>: Quantum cut cost (if separating q/c)</li>
 <li><strong><code>&lt;method&gt;_cost_c</code></strong>: Classical cut cost</li>
@@ -553,7 +549,7 @@ git push -u origin main
 <li><strong><code>&lt;method&gt;_method</code></strong>: Sub-method used (e.g., for METIS: 'kl', 'recursive')</li>
 <li><strong><code>contributor</code></strong>: GitHub username of the person who added this result</li>
 </ul>
-<h3 id="example-csv">Example CSV</h3>
+<h3 id="example-csv-toupdate">Example CSV #TOUPDATE</h3>
 <pre><code class="language-csv">file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_cost,best,contributor
 ae_indep_qiskit_10.qasm,10,2,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q8&quot;&quot;],[&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,30,&quot;[[&quot;&quot;q1&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q0&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q8&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,25,False,kl,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q3&quot;&quot;,&quot;&quot;q9&quot;&quot;],[&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;,&quot;&quot;q8&quot;&quot;]]&quot;,30,metis,alice_researcher
 ae_indep_qiskit_10.qasm,10,3,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q8&quot;&quot;],[&quot;&quot;q3&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q5&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,40,&quot;[[&quot;&quot;q3&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;,&quot;&quot;q7&quot;&quot;],[&quot;&quot;q0&quot;&quot;,&quot;&quot;q2&quot;&quot;],[&quot;&quot;q1&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q8&quot;&quot;,&quot;&quot;q9&quot;&quot;]]&quot;,32,False,kl,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&quot;&quot;,&quot;&quot;q2&quot;&quot;,&quot;&quot;q9&quot;&quot;],[&quot;&quot;q3&quot;&quot;,&quot;&quot;q4&quot;&quot;,&quot;&quot;q5&quot;&quot;,&quot;&quot;q6&quot;&quot;],[&quot;&quot;q7&quot;&quot;,&quot;&quot;q8&quot;&quot;]]&quot;,38,metis,alice_researcher
@@ -565,65 +561,32 @@ ae_indep_qiskit_10.qasm,10,3,&quot;[[&quot;&quot;q0&quot;&quot;,&quot;&quot;q1&q
 We fill bins sequentially: order qubits by heuristic (e.g., incident cut weight, then degree), and place each into the earliest bin that (i) respects the logical-qubit capacity and (ii) gives the smallest marginal cut increase.
 If nothing fits, open the next bin up to k.</p>
 <p><strong>Cost</strong>: Sum of weights of hyperedges spanning &gt;1 bin (default weight 1 per op; domain weights optional).</p>
-<h4 id="metis-telegate-graph"><strong>METIS (Telegate graph)</strong></h4>
+<h4 id="metis-telegate-graph-toupdate-true-i-dont-think-so-this-is-graph-based"><strong>METIS (Telegate graph)</strong> #TOUPDATE: true? I don't think so this is graph based</h4>
 <p>Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a "telegate" communication if cut).
 Uses the <a href="https://pypi.org/project/metis/">METIS library</a> to compute a k-way partition with balance constraints and minimal cut on this graph.
 Partitions are then re-evaluated on the HDH cost for apples-to-apples comparison.</p>
 <p><strong>Cost</strong>: Re-evaluated on HDH hypergraph cut metric.</p>
-<h4 id="greedy-tg-telegate-graph"><strong>Greedy-TG (Telegate graph)</strong></h4>
+<h4 id="greedy-tg-telegate-graph-toupdate-i-dont-think-this-is-true-anymore"><strong>Greedy-TG (Telegate graph)</strong> #TOUPDATE - I don't think this is true anymore</h4>
 <p>Same fill-first policy as Greedy (HDH), but decisions are made on the telegate graph.
 Nodes are qubits; edge weights reflect how costly it is to separate two qubits (expected telegate load).
 Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph.</p>
 <p><strong>Cost</strong>: Re-evaluated on HDH hypergraph cut metric.</p>
 <h3 id="adding-your-results">Adding Your Results</h3>
-<h4 id="step-1-run-your-partitioning-method">Step 1: Run Your Partitioning Method</h4>
-<pre><code class="language-python">from hdh.passes import compute_cut, cost, partition_size, parallelism, fair_parallelism
-import pickle
-import csv
-
-# Load HDH
-with open(&quot;Database/HDHs/Circuits/MQTBench/pkl/qft_8.pkl&quot;, &quot;rb&quot;) as f:
-    hdh = pickle.load(f)
-
-# Run your partitioning method
-bins, _, _, method_name = your_partitioning_method(hdh, k=3, capacity=3)
-
-# Compute metrics
-cost_q, cost_c = cost(hdh, bins)
-sizes = partition_size(bins)
-parallel_metrics = parallelism(hdh, bins)
-fair_metrics = fair_parallelism(hdh, bins, capacities=[3, 3, 3])
-
-# Prepare data for CSV
-result = {
-    'file': 'qft_8.qasm',
-    'n_qubits': 8,
-    'k_partitions': 3,
-    'yourmethod_bins': str(bins),
-    'yourmethod_cost': cost_q,
-    'yourmethod_cost_q': cost_q,
-    'yourmethod_cost_c': cost_c,
-    'yourmethod_partition_sizes': str(sizes),
-    'yourmethod_avg_parallelism': parallel_metrics['average_parallelism'],
-    'yourmethod_fairness_ratio': fair_metrics['fairness_ratio'],
-    'contributor': 'your_github_username'
-}
-</code></pre>
-<h4 id="step-2-update-partitions_allcsv">Step 2: Update partitions_all.csv</h4>
+<h4 id="step-1-update-partitionscsv-toupdate">Step 1: Update partitions.csv #TOUPDATE</h4>
 <p>Add your results to the existing CSV file:</p>
 <pre><code class="language-python">import pandas as pd
 
 # Load existing results
-df = pd.read_csv(&quot;Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv&quot;)
+df = pd.read_csv(&quot;Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv&quot;)
 
 # Add your new column(s) if they don't exist
 # Update or append your row
 # Recalculate 'best' column
 
-df.to_csv(&quot;Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv&quot;, index=False)
+df.to_csv(&quot;Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv&quot;, index=False)
 </code></pre>
-<h4 id="step-3-document-your-method">Step 3: Document Your Method</h4>
-<p>Create or update <code>Database/HDHs/&lt;Model&gt;/&lt;Origin&gt;/Partitions/README.md</code>:</p>
+<h4 id="step-2-document-your-method">Step 2: Document Your Method</h4>
+<p>Create or update <code>Database/Partitions/README.md</code>:</p>
 <pre><code class="language-markdown"># Partitioning Methods for &lt;Origin&gt;
 
 ## Your Method Name
@@ -639,14 +602,14 @@ Brief description of your partitioning algorithm...
 - Parameter 2: description
 
 ### Implementation Details
-Link to code or detailed explanation...
+Input your code or/and detailed explanation...
 
 ### Performance Characteristics
 - Time complexity: O(...)
 - Space complexity: O(...)
 - Works best for: ...
 </code></pre>
-<h4 id="step-4-capacity-constraints-and-failure-states">Step 4: Capacity Constraints and Failure States</h4>
+<h4 id="step-3-capacity-constraints-and-failure-states-toupdate-maybe-this-should-be-within-1-or-within-the-readme-specific-oh-its-not-assured-maybe-both">Step 3: Capacity Constraints and Failure States #TOUPDATE - maybe this should be within 1? or within the readme: specific oh its not assured , maybe both?</h4>
 <p><strong>Capacity</strong> = Total qubits ÷ number of partitions (rounded up)</p>
 <p>If your partitioner cannot respect this capacity:
 * Log a failure status in a <code>&lt;method&gt;_fails</code> column
@@ -656,7 +619,7 @@ Link to code or detailed explanation...
 * Always respects capacity constraints
 * May violate constraints (and how failures are handled)
 * Requires specific capacity settings</p>
-<h4 id="step-5-recalculate-best">Step 5: Recalculate Best</h4>
+<h4 id="step-4-recalculate-best-toupdate-this-will-basically-jsut-be-running-generate_leaderboardspy">Step 4: Recalculate Best #TOUPDATE - this will basically jsut be running 'generate_leaderboards.py'</h4>
 <p>The <code>best</code> column should identify the method with the <strong>lowest quantum cost</strong> among methods that:
 1. Did not fail capacity constraints (where <code>&lt;method&gt;_fails</code> is False or not present)
 2. Successfully completed partitioning</p>
@@ -686,9 +649,13 @@ def get_best_method(row):
 
 df['best'] = df.apply(get_best_method, axis=1)
 </code></pre>
+<h4 id="step-5-re-compress-your-csv-file">Step 5: Re-compress your csv file</h4>
+<p>Make sure to re-compress the csv file as <code>partitions.csv.gz</code> before you attempt to push (it won't otherwise due to size).</p>
+<!-- Maybe I should make a compression file to? - TODO in issues -->
+
 <h4 id="step-6-submit-pr">Step 6: Submit PR</h4>
 <p>Submit a PR to the <code>main</code> branch with:
-* Updated <code>partitions_all.csv</code>
+* Updated <code>partitions.csv.gz</code>
 * Updated or new <code>README.md</code> in the Partitions folder
 * Your GitHub username in the <code>contributor</code> column</p>
 <hr />
@@ -706,7 +673,7 @@ for pkl_file in origin_path.glob(&quot;*.pkl&quot;):
         hdhs[pkl_file.stem] = pickle.load(f)
 
 # Load partitioning results
-results_df = pd.read_csv(&quot;Database/HDHs/Circuits/MQTBench/Partitions/partitions_all.csv&quot;)
+results_df = pd.read_csv(&quot;Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv&quot;)
 
 # Benchmark your method against existing results
 for name, hdh in hdhs.items():
@@ -720,8 +687,8 @@ for name, hdh in hdhs.items():
     print(f&quot;{name}: Your method: {your_cost}, Best existing: {existing_cost}&quot;)
 </code></pre>
 <h3 id="citation-and-acknowledgment">Citation and Acknowledgment</h3>
-<p>When using this database in publications, please cite:
-* The HDH library
+<p>When using this database in publications, note that it was generated thanks to:
+* The HDH library project
 * The Munich Quantum Benchmarking Dataset (for MQTBench workloads)
 * Individual contributors whose partitioning results you use</p>
 <h3 id="data-license">Data License</h3>
@@ -731,11 +698,11 @@ Individual workloads may have their own licenses - check the origin-specific REA
 <h2 id="contributing">Contributing</h2>
 <p>We welcome contributions! When adding to the database:</p>
 <ol>
-<li>✅ Use clear, descriptive commit messages</li>
-<li>✅ Document your methods thoroughly in README files</li>
-<li>✅ Include your GitHub username as contributor</li>
-<li>✅ Verify your data loads correctly before submitting</li>
-<li>✅ Update this documentation if adding new features</li>
+<li>Use clear, descriptive commit messages</li>
+<li>Document your methods thoroughly in README files </li>
+<li>Include your GitHub username as contributor</li>
+<li>Verify your data loads correctly before submitting</li>
+<li>Update this documentation if adding new features</li>
 </ol>
 <p>For questions or discussions, please open an issue on the main repository.</p>
               
