@@ -7,13 +7,13 @@
   <a href="https://pypi.org/project/hdh/">
     <img src="https://badge.fury.io/py/hdh.svg" alt="PyPI version">
   </a>
-  · MIT Licensed ·
+  · [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://grageragarces.github.io/HDH/) ·
   <a href="https://unitary.foundation">
     <img src="https://img.shields.io/badge/Supported%20By-UNITARY%20FOUNDATION-brightgreen.svg?style=for-the-badge" alt="Unitary Foundation">
   </a>
+  · MIT Licensed ·
   · Author: Maria Gragera Garces
   <br><br>
-  <em>Work in Progress - Preparing for 1.0</em>
 </p>
 
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://grageragarces.github.io/HDH/)
