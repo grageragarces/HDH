@@ -33,7 +33,6 @@ Database/
             ├── text/           # Human-readable CSV files
             ├── images/         # (reserved for future visualizations)
 └── Partitions/     # Partitioning method results
-            ├── configs/         # Test configurations and settings
             ├── leaderboards/    # Pre-computed comparison view
             ├── methods/         # Method configurations and documentation
             ├── results/         # Main results database (`partitions.csv` - .gz compressed)
