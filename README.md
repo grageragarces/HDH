@@ -15,12 +15,9 @@
   <a href="https://unitary.foundation">
     <img src="https://img.shields.io/badge/Supported%20By-UNITARY%20FOUNDATION-brightgreen.svg?style=for-the-badge" alt="Unitary Foundation">
   </a>
-  · MIT Licensed ·
-  · Author: Maria Gragera Garces
+  · MIT Licensed
   <br><br>
 </p>
-
-[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://grageragarces.github.io/HDH/)
 
 <!-- Documentation can be found at: https://grageragarces.github.io/HDH/ -->
 
