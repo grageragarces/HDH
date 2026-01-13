@@ -201,6 +201,16 @@ def calculate_capacity(n_qubits: int, k_partitions: int, overhead: float = 0.0) 
     capacity_with_overhead = int(base_capacity * (1.0 + overhead))
     return capacity_with_overhead
 
+# Check if capacity is respected (count UNIQUE QUBITS, not total nodes)
+def count_unique_qubits(bin_nodes):
+    """Count unique qubits in a bin (ignoring time steps)."""
+    qubits = set()
+    for node in bin_nodes:
+        match = re.match(r"^q(\d+)_t\d+$", node)
+        if match:
+            qubits.add(int(match.group(1)))
+    return len(qubits)
+
 # THIS IS MY METHOD - Replace it by yours!
 def run_greedy_hdh(hdh_graph, k: int, capacity: int, config: Dict) -> Tuple[List, int, Dict]:
     """
@@ -233,7 +243,7 @@ def run_greedy_hdh(hdh_graph, k: int, capacity: int, config: Dict) -> Tuple[List
         bins_list.append(bin_list)
     
     # Check if capacity is respected
-    respects_capacity = all(len(b) <= capacity for b in bins_list)
+    respects_capacity = all(count_unique_qubits(b) <= capacity for b in bins_list)
     
     metadata = {
         'beam_k': beam_k,
