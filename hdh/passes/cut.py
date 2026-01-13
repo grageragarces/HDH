@@ -341,9 +341,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     - Uses hyperedge connectivity from HDH.C
     - Respects capacity by counting unique QUBITS per partition
     - Allows teledata cuts (same qubit in different partitions)
-    
-    This is a drop-in replacement for the original compute_cut() function.
-    
+        
     Args:
         hdh_graph: HDH object with .S (nodes), .C (hyperedges), .time_map
         k: Number of partitions
