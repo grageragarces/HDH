@@ -229,7 +229,6 @@ Instructions for how to upload results can be found below.</em></strong></p>
             ├── text/           # Human-readable CSV files
             ├── images/         # (reserved for future visualizations)
 └── Partitions/     # Partitioning method results
-            ├── configs/         # Test configurations and settings
             ├── leaderboards/    # Pre-computed comparison view
             ├── methods/         # Method configurations and documentation
             ├── results/         # Main results database (`partitions.csv` - .gz compressed)
@@ -650,7 +649,10 @@ def get_best_method(row):
 df['best'] = df.apply(get_best_method, axis=1)
 </code></pre>
 <h4 id="step-5-re-compress-your-csv-file">Step 5: Re-compress your csv file</h4>
-<p>Make sure to re-compress the csv file as <code>partitions.csv.gz</code> before you attempt to push (it won't otherwise due to size).</p>
+<p>Make sure to re-compress the csv file as <code>partitions.csv.gz</code> before you attempt to push (it won't otherwise due to size).
+To do this, you can just run:</p>
+<pre><code>gzip partitions.csv
+</code></pre>
 <!-- Maybe I should make a compression file to? - TODO in issues -->
 
 <h4 id="step-6-submit-pr">Step 6: Submit PR</h4>
