@@ -24,6 +24,7 @@ import math
 import re
 import itertools
 import random
+import heapq
 from typing import List, Set, Tuple, Dict, Optional, Iterable
 from collections import defaultdict, Counter
 import networkx as nx
@@ -215,93 +216,80 @@ def _get_qubit_to_nodes(hdh) -> Dict[int, List[str]]:
     return qubit_nodes
 
 
-def _partition_nodes_bfs(hdh, node_adjacency: Dict[str, Set[str]], 
-                         k: int, cap: int) -> List[Set[str]]:
+def _build_temporal_incidence(hdh) -> Tuple[Dict[str, List[Tuple[frozenset, int]]], Dict[frozenset, Set[str]]]:
     """
-    Partition HDH nodes using BFS bin-packing.
+    Build temporal incidence structure for the HDH.
     
-    Strategy:
-    1. Start with unassigned nodes, picking by earliest time step
-    2. BFS from that node to fill current partition
-    3. Track capacity by counting UNIQUE QUBITS per partition
-    4. Allow same qubit to appear in multiple partitions (teledata cuts)
-    
-    Args:
-        hdh: HDH object
-        node_adjacency: Node connectivity graph
-        k: Number of partitions
-        cap: Qubit capacity per partition
-        
     Returns:
-        List of k sets, each containing node IDs
+        inc[node] -> list of (hyperedge, time) tuples sorted by time
+        pins[edge] -> set of nodes in the hyperedge
     """
-    partitions = [set() for _ in range(k)]
-    assigned_nodes = set()
-    current_partition = 0
+    # Build basic incidence and pins
+    pins: Dict[frozenset, Set[str]] = {e: set(e) for e in hdh.C}
+    inc_raw: Dict[str, List[frozenset]] = defaultdict(list)
     
-    # Track unique qubits per partition for capacity
-    partition_qubits = [set() for _ in range(k)]
+    for e in hdh.C:
+        for node in e:
+            inc_raw[node].append(e)
     
-    # Sort nodes by time step for deterministic traversal
-    nodes_by_time = sorted(hdh.S, key=lambda n: hdh.time_map.get(n, 0))
+    # Add temporal information
+    inc: Dict[str, List[Tuple[frozenset, int]]] = {}
+    for node, edges in inc_raw.items():
+        # Sort edges by their earliest timestep
+        edge_times = []
+        for e in edges:
+            # Find the earliest timestep of any node in this edge
+            min_time = min(hdh.time_map.get(n, 0) for n in e)
+            edge_times.append((e, min_time))
+        # Sort by time
+        edge_times.sort(key=lambda x: x[1])
+        inc[node] = edge_times
     
-    for start_node in nodes_by_time:
-        if start_node in assigned_nodes:
+    return inc, pins
+
+
+def _push_next_valid_neighbors(hdh, node: str, frontier: List[Tuple[int, int, str]], 
+                                unassigned: Set[str], inc: Dict[str, List[Tuple[frozenset, int]]],
+                                pins: Dict[frozenset, Set[str]], counter: List[int]):
+    """
+    Push unassigned neighbors of `node` to the frontier priority queue.
+    
+    Frontier is a min-heap of (earliest_connection_time, tie_breaker, neighbor_node).
+    The counter provides unique tie-breakers for deterministic ordering.
+    """
+    node_time = hdh.time_map.get(node, 0)
+    
+    # Examine all hyperedges incident to this node
+    for edge, edge_time in inc.get(node, []):
+        # Only consider edges at or after the current node's time (temporal validity)
+        if edge_time < node_time:
             continue
-        
-        # Check if we can fit the qubit of this node in current partition
-        start_qubit = _extract_qubit_id(start_node)
-        
-        # Move to next partition if current is full
-        if start_qubit is not None and len(partition_qubits[current_partition]) >= cap:
-            current_partition = (current_partition + 1) % k
-            # If all partitions full, break
-            if all(len(pq) >= cap for pq in partition_qubits):
-                break
-        
-        # BFS from start_node to fill current partition
-        queue = deque([start_node])
-        
-        while queue:
-            node = queue.popleft()
             
-            if node in assigned_nodes:
-                continue
-            
-            # Check capacity before assigning
-            node_qubit = _extract_qubit_id(node)
-            if node_qubit is not None:
-                # Would this node's qubit exceed capacity?
-                if (node_qubit not in partition_qubits[current_partition] and 
-                    len(partition_qubits[current_partition]) >= cap):
-                    # Skip this node, but don't stop BFS (might find other nodes)
-                    continue
-            
-            # Assign node to current partition
-            partitions[current_partition].add(node)
-            assigned_nodes.add(node)
-            
-            # Track qubit for capacity
-            if node_qubit is not None:
-                partition_qubits[current_partition].add(node_qubit)
-            
-            # Add neighbors to queue (sorted for determinism)
-            neighbors = sorted([n for n in node_adjacency.get(node, []) 
-                               if n not in assigned_nodes])
-            queue.extend(neighbors)
-        
-        # Move to next partition when done with BFS
-        if len(partition_qubits[current_partition]) >= cap or not queue:
-            current_partition = (current_partition + 1) % k
+        # Find all unassigned neighbors in this edge
+        for neighbor in pins[edge]:
+            if neighbor != node and neighbor in unassigned:
+                # Calculate earliest connection time for this neighbor
+                # This is the maximum of: edge time, neighbor's own time
+                neighbor_time = hdh.time_map.get(neighbor, 0)
+                earliest_time = max(edge_time, neighbor_time)
+                
+                # Push to heap with unique counter for deterministic tie-breaking
+                heapq.heappush(frontier, (earliest_time, counter[0], neighbor))
+                counter[0] += 1
+
+
+def _pop_earliest_valid(frontier: List[Tuple[int, int, str]], 
+                        unassigned: Set[str]) -> Optional[str]:
+    """
+    Pop the earliest valid (still unassigned) node from the frontier.
     
-    # Round-robin remaining nodes
-    unassigned = sorted([n for n in hdh.S if n not in assigned_nodes],
-                       key=lambda n: hdh.time_map.get(n, 0))
-    
-    for i, node in enumerate(unassigned):
-        partitions[i % k].add(node)
-    
-    return partitions
+    Returns None if no valid candidates remain.
+    """
+    while frontier:
+        _, _, node = heapq.heappop(frontier)
+        if node in unassigned:
+            return node
+    return None
 
 
 def _compute_cut_cost(hdh, node_assignment: Dict[str, int]) -> int:
@@ -334,20 +322,26 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
                 predictive_reject: bool = True,
                 seed: int = 0) -> Tuple[List[Set[str]], int]:
     """
-    Simple BFS bin-packing partitioner for HDH graphs.
+    Capacity-aware temporal greedy partitioner for HDH graphs.
+    
+    Implements the algorithm from the paper:
+    - Greedy bin filling via temporal expansion (earliest connection time)
+    - Sequential bin construction
+    - Residual round-robin assignment
     
     Works directly on the HDH hypergraph structure:
     - Partitions at the NODE level (nodes like "q0_t1", "q1_t2", etc.)
-    - Uses hyperedge connectivity from HDH.C
+    - Uses temporal hyperedge connectivity from HDH.C
     - Respects capacity by counting unique QUBITS per partition
     - Allows teledata cuts (same qubit in different partitions)
+    - Priority queue selects earliest-time unassigned neighbors
         
     Args:
         hdh_graph: HDH object with .S (nodes), .C (hyperedges), .time_map
-        k: Number of partitions
+        k: Number of partitions (QPUs)
         cap: Capacity per partition (max unique qubits, not nodes)
         
-        The following parameters are accepted for compatibility but not used:
+        The following parameters are accepted for compatibility but currently not used:
         beam_k, backtrack_window, polish_1swap_budget, restarts, 
         reserve_frac, predictive_reject, seed
     
@@ -358,74 +352,173 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     if not hdh_graph.S or not hdh_graph.C:
         return [set() for _ in range(k)], 0
     
-    # Build node connectivity from hyperedges
-    node_adjacency = _build_node_connectivity(hdh_graph)
+    # Build temporal incidence structure
+    inc, pins = _build_temporal_incidence(hdh_graph)
     
-    # Partition nodes using BFS
-    partitions = _partition_nodes_bfs(hdh_graph, node_adjacency, k, cap)
+    # Initialize partitions and tracking structures
+    partitions = [set() for _ in range(k)]
+    unassigned = set(hdh_graph.S)
+    partition_qubits = [set() for _ in range(k)]  # Track unique qubits per partition
+    used = [0] * k  # Track number of unique qubits used per partition
     
-    # Build node -> partition mapping
+    # QPU order (for now, just sequential; could be topology-aware)
+    qpu_order = list(range(k))
+    
+    # Phase 1 & 2: Greedy bin filling with sequential construction
+    for i in range(k):
+        bin_idx = qpu_order[i]
+        
+        if not unassigned:
+            break
+        
+        # Select seed: lowest-index unassigned node
+        seed = min(unassigned, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
+        
+        # Initialize bin with seed
+        current_bin = {seed}
+        unassigned.remove(seed)
+        
+        # Track qubits in this bin
+        seed_qubit = _extract_qubit_id(seed)
+        if seed_qubit is not None:
+            partition_qubits[bin_idx].add(seed_qubit)
+            used[bin_idx] = len(partition_qubits[bin_idx])
+        
+        # Initialize frontier with seed's neighbors
+        frontier = []  # Min-heap of (time, counter, node)
+        counter = [0]  # Counter for tie-breaking
+        _push_next_valid_neighbors(hdh_graph, seed, frontier, unassigned, inc, pins, counter)
+        
+        # Greedy temporal expansion
+        while used[bin_idx] < cap:
+            # Pop earliest valid neighbor
+            next_node = _pop_earliest_valid(frontier, unassigned)
+            
+            if next_node is None:
+                break  # No more valid neighbors
+            
+            # Check if adding this node would exceed capacity
+            next_qubit = _extract_qubit_id(next_node)
+            if next_qubit is not None:
+                # Would this introduce a new qubit?
+                if next_qubit not in partition_qubits[bin_idx]:
+                    if used[bin_idx] + 1 > cap:
+                        # Would exceed capacity, skip this node
+                        continue
+            
+            # Add node to current bin
+            current_bin.add(next_node)
+            unassigned.remove(next_node)
+            
+            # Update qubit tracking
+            if next_qubit is not None and next_qubit not in partition_qubits[bin_idx]:
+                partition_qubits[bin_idx].add(next_qubit)
+                used[bin_idx] = len(partition_qubits[bin_idx])
+            
+            # Push this node's neighbors to frontier
+            _push_next_valid_neighbors(hdh_graph, next_node, frontier, unassigned, inc, pins, counter)
+        
+        # Finalize this bin
+        partitions[bin_idx] = current_bin
+    
+    # Phase 3: Residual round-robin assignment under hard capacity
+    r = 0
+    stuck_count = 0  # Track how many consecutive bins couldn't take the current node
+    unplaceable_nodes = set()  # Track nodes that can't be placed anywhere
+    
+    # DEBUG
+    debug = False  # Set to True to enable debug output
+    if debug:
+        print(f"\n=== ROUND-ROBIN PHASE ===")
+        print(f"Unassigned: {len(unassigned)} nodes")
+        print(f"partition_qubits: {partition_qubits}")
+        print(f"used: {used}")
+    
+    while unassigned:
+        bin_idx = qpu_order[r % k]
+        
+        # Find the lowest-index unassigned node that's not in unplaceable_nodes
+        remaining = unassigned - unplaceable_nodes
+        if not remaining:
+            break  # All remaining nodes are unplaceable
+        node = min(remaining, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
+        
+        # Check if we can add this node without exceeding capacity
+        node_qubit = _extract_qubit_id(node)
+        can_add = True
+        
+        if debug:
+            print(f"\nIteration {r}: node={node}, qubit={node_qubit}, bin={bin_idx}")
+            print(f"  Bin {bin_idx} qubits: {partition_qubits[bin_idx]}, used: {used[bin_idx]}")
+        
+        if node_qubit is not None:
+            # If this qubit is NOT already in this bin, check capacity
+            if node_qubit not in partition_qubits[bin_idx]:
+                if used[bin_idx] >= cap:
+                    can_add = False
+                    if debug:
+                        print(f"  Can't add: new qubit but bin at capacity")
+            # If qubit IS already in this bin, we can always add (teledata cut)
+            else:
+                if debug:
+                    print(f"  Can add: qubit already in bin (teledata)")
+        
+        if can_add:
+            partitions[bin_idx].add(node)
+            unassigned.remove(node)
+            
+            # Update qubit tracking only if this is a new qubit for this bin
+            if node_qubit is not None and node_qubit not in partition_qubits[bin_idx]:
+                partition_qubits[bin_idx].add(node_qubit)
+                used[bin_idx] = len(partition_qubits[bin_idx])
+            
+            if debug:
+                print(f"  ADDED. New used[{bin_idx}] = {used[bin_idx]}")
+            
+            stuck_count = 0  # Reset stuck counter when we successfully add a node
+        else:
+            stuck_count += 1
+            if debug:
+                print(f"  SKIPPED. stuck_count = {stuck_count}")
+            # If we've tried all bins and none can take this node, it's unplaceable
+            if stuck_count >= k:
+                if debug:
+                    print(f"  Stuck count >= k, trying teledata fallback...")
+                # Try to find a bin where this node's qubit already exists (teledata cut)
+                placed = False
+                if node_qubit is not None:
+                    for b in range(k):
+                        if node_qubit in partition_qubits[b]:
+                            if debug:
+                                print(f"    Found qubit {node_qubit} in bin {b}, adding there")
+                            partitions[b].add(node)
+                            unassigned.remove(node)
+                            placed = True
+                            stuck_count = 0
+                            break
+                
+                if not placed:
+                    # Node is unplaceable with current partitions, mark it and try next node
+                    if debug:
+                        print(f"    No bin has qubit {node_qubit}, marking as unplaceable")
+                    unplaceable_nodes.add(node)
+                    stuck_count = 0  # Reset to try the next node
+        
+        r += 1
+        
+        if debug and r > 50:
+            print(f"\n  Breaking after 50 iterations for safety")
+            break
+    
+    # Compute cost (count cut hyperedges)
     node_assignment = {}
     for partition_idx, partition_nodes in enumerate(partitions):
         for node in partition_nodes:
             node_assignment[node] = partition_idx
     
-    # Compute cost (count cut hyperedges)
     cost = _compute_cut_cost(hdh_graph, node_assignment)
     
     return partitions, cost
-
-
-# Test with HDH class
-if __name__ == "__main__":
-    import sys
-    sys.path.append('/mnt/user-data/uploads')
-    
-    try:
-        from hdh import HDH
-        
-        print("Testing with actual HDH class...")
-        
-        # Create simple HDH
-        hdh = HDH()
-        
-        # Add nodes for 4 qubits over 3 timesteps
-        for q in range(4):
-            for t in range(3):
-                hdh.add_node(f"q{q}_t{t}", "q", t)
-        
-        # Add some hyperedges (gates connecting qubits)
-        hdh.add_hyperedge({"q0_t0", "q0_t1"}, "q", "wire")  # q0 wire
-        hdh.add_hyperedge({"q1_t0", "q1_t1"}, "q", "wire")  # q1 wire
-        hdh.add_hyperedge({"q0_t1", "q1_t1", "q0_t2", "q1_t2"}, "q", "cnot")  # CNOT
-        hdh.add_hyperedge({"q2_t0", "q2_t1"}, "q", "wire")  # q2 wire
-        hdh.add_hyperedge({"q3_t0", "q3_t1"}, "q", "wire")  # q3 wire
-        hdh.add_hyperedge({"q2_t1", "q3_t1", "q2_t2", "q3_t2"}, "q", "cnot")  # CNOT
-        
-        print(f"HDH has {len(hdh.S)} nodes, {len(hdh.C)} hyperedges")
-        print(f"Qubits: {hdh.get_num_qubits()}")
-        
-        # Test partitioning
-        partitions, cost = compute_cut(hdh, k=2, cap=2)
-        
-        print(f"\nPartitioning into 2 partitions (cap=2 qubits each):")
-        for i, p in enumerate(partitions):
-            # Count unique qubits in partition
-            qubits = set()
-            for node in p:
-                q = _extract_qubit_id(node)
-                if q is not None:
-                    qubits.add(q)
-            print(f"  Partition {i}: {len(p)} nodes, {len(qubits)} qubits")
-            print(f"    Qubits: {sorted(qubits)}")
-        
-        print(f"\nCommunication cost: {cost} cut hyperedges")
-        
-        print("\n✓ Test passed!")
-        
-    except ImportError as e:
-        print(f"Could not import HDH class: {e}")
-        print("Run this from a location where hdh.py is available")
 
 # ------------------------------- METIS telegate -------------------------------
 
@@ -955,8 +1048,7 @@ def fair_parallelism(hdh_graph, partitions, capacities: Optional[List[int]] = No
         'num_partitions': len(partitions)
     }
 
-
-# Keep old name as alias for backward compatibility (deprecated)
+# Keeping old name as alias for backward compatibility (deprecated)
 def compute_parallelism_by_time(hdh_graph, partitions) -> Dict[str, float]:
     """
     Deprecated: Use `parallelism()` instead.
@@ -964,4 +1056,3 @@ def compute_parallelism_by_time(hdh_graph, partitions) -> Dict[str, float]:
     This function now calls `parallelism()` for backward compatibility.
     """
     return parallelism(hdh_graph, partitions)
-
