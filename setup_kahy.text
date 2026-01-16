@@ -1,0 +1,23 @@
+# ====== HOW TO SETUP KAHYPAR
+git clone --depth=1 --recursive https://github.com/kahypar/kahypar.git
+
+cd kahypar
+
+mkdir -p build 
+
+cd build
+
+cd python
+
+make
+
+ls -lh kahypar.so # this might be something different!
+
+set SITEPKG (python -c "import site; print(site.getsitepackages()[0])") 
+
+cp kahypar.so $SITEPKG/kahypar.so
+
+cd ../../../ # back to HDH
+
+# test:
+python -c 'import kahypar; print("Success! Attributes:", [x for x in dir(kahypar) if not x.startswith("_")])'
