@@ -1,0 +1,6 @@
+num_qpus,capacity_per_qpu,cut_cost
+2,30,5
+3,20,17
+4,15,18
+5,12,23
+6,10,28
