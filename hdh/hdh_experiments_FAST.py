@@ -30,7 +30,9 @@ import time
 sys.path.insert(0, str(Path.cwd()))
 
 from hdh import HDH
-from hdh.passes import compute_cut, cost, parallelism, fair_parallelism, partition_size
+# Import directly from the module that defines the cutter/metrics.
+# This avoids package/module shadowing issues when running as a module.
+from hdh.passes.cut import compute_cut, cost, parallelism, fair_parallelism, partition_size, kahypar_cutter
 
 # Set plotting style
 sns.set_style("whitegrid")
@@ -282,23 +284,48 @@ def worker_kahypar_test(config):
         'method': 'temporal_greedy'
     }
     
-    # Run baseline (METIS)
+    # Run baseline (KaHyPar cutter)
+    # NOTE: kahypar_cutter returns HDH *node-level* partitions.
+    # We also tolerate a qubit-level return (e.g., {'q7', ...}) for compatibility.
     try:
-        bins, _, _, method = metis_telegate(hdh, k, cap)
-        partitions_baseline = [set() for _ in range(k)]
-        for bin_idx, qubit_set in enumerate(bins):
-            for qubit_str in qubit_set:
-                if qubit_str.startswith('q'):
-                    q_idx = int(qubit_str[1:])
+        out = kahypar_cutter(hdh, k, cap, seed=seed)
+        bins = out[0] if isinstance(out, (tuple, list)) else out
+
+        # Case A: already node-level partitions (strings like 'q3_t7', 'c0_t2', ...)
+        node_level = False
+        if isinstance(bins, (list, tuple)) and len(bins) > 0:
+            first_bin = next(iter(bins))
+            # first_bin is expected to be an iterable
+            try:
+                first_item = next(iter(first_bin))
+                if isinstance(first_item, str) and ('_t' in first_item):
+                    node_level = True
+            except StopIteration:
+                node_level = True  # empty bin -> treat as node-level
+
+        if node_level:
+            partitions_baseline = [set(b) for b in bins]
+        else:
+            # Case B: qubit-level bins (ints like 7 or strings like 'q7')
+            partitions_baseline = [set() for _ in range(k)]
+            for bin_idx, qubit_set in enumerate(bins):
+                for qtok in qubit_set:
+                    if isinstance(qtok, int):
+                        q_idx = qtok
+                    else:
+                        s = str(qtok)
+                        if not s.startswith('q'):
+                            continue
+                        q_idx = int(s[1:])
                     for node in hdh.S:
                         if node.startswith(f'q{q_idx}_'):
                             partitions_baseline[bin_idx].add(node)
-        
+
         cost_q_b, cost_c_b = cost(hdh, partitions_baseline)
         par_metrics_b = parallelism(hdh, partitions_baseline)
         fair_metrics_b = fair_parallelism(hdh, partitions_baseline, capacities)
         sizes_b = partition_size(partitions_baseline)
-        
+
         result_baseline = {
             'test': label,
             'k': k,
@@ -310,10 +337,25 @@ def worker_kahypar_test(config):
             'avg_parallelism': par_metrics_b['average_parallelism'],
             'avg_fair_parallelism': fair_metrics_b['average_fair_parallelism'],
             'balance_ratio': min(sizes_b) / max(sizes_b) if sizes_b and max(sizes_b) > 0 else 1.0,
-            'method': method
+            'method': 'kahypar_cutter',
+            'error': ''
         }
     except Exception as e:
-        result_baseline = None
+        # Keep a row so the CSV is never silently empty.
+        result_baseline = {
+            'test': label,
+            'k': k,
+            'cap': cap,
+            'num_qubits': num_qubits,
+            'num_nodes': len(hdh.S),
+            'num_edges': len(hdh.C),
+            'cut_cost': np.nan,
+            'avg_parallelism': np.nan,
+            'avg_fair_parallelism': np.nan,
+            'balance_ratio': np.nan,
+            'method': 'kahypar_cutter',
+            'error': repr(e)
+        }
     
     return (result_temporal, result_baseline)
 
@@ -704,17 +746,17 @@ def main():
     total_start = time.time()
     
     # Run experiments
-    if args.exp in ['1', 'all']:
-        df1 = run_experiment_1(n_cores, args.quick)
-        plot_experiment_1(df1)
+    # if args.exp in ['1', 'all']:
+    #     df1 = run_experiment_1(n_cores, args.quick)
+    #     plot_experiment_1(df1)
     
-    if args.exp in ['2', 'all']:
-        df2 = run_experiment_2(n_cores, args.quick)
-        plot_experiment_2(df2)
+    # if args.exp in ['2', 'all']:
+    #     df2 = run_experiment_2(n_cores, args.quick)
+    #     plot_experiment_2(df2)
     
-    if args.exp in ['3', 'all']:
-        df3 = run_experiment_3(n_cores, args.quick)
-        plot_experiment_3(df3)
+    # if args.exp in ['3', 'all']:
+    #     df3 = run_experiment_3(n_cores, args.quick)
+    #     plot_experiment_3(df3)
     
     if args.exp in ['4', 'all']:
         df4_t, df4_b, df4_c = run_experiment_4(n_cores, args.quick)

@@ -1,0 +1,13 @@
+test,k,cap,num_qubits,num_nodes,num_edges,cut_cost,avg_parallelism,avg_fair_parallelism,balance_ratio,method,error
+size_16,4,4,16,336,415,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+size_32,4,8,32,672,831,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+size_64,4,16,64,1344,1675,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+size_128,4,32,128,2688,3332,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+qpu_2,2,32,64,1344,1675,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+qpu_4,4,16,64,1344,1675,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+qpu_6,6,11,64,1344,1675,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+qpu_8,8,8,64,1344,1675,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+model_Circuit,4,16,64,1024,1260,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+model_MBQC,4,16,64,960,1875,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+model_QW,4,16,64,960,945,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"
+model_QCA,4,16,64,960,1680,,,,,kahypar_cutter,"AttributeError(""module 'kahypar' has no attribute 'Context'"")"

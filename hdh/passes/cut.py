@@ -21,6 +21,7 @@ from __future__ import annotations
 
 # ------------------------------ Imports ------------------------------
 import math
+import os
 import re
 import itertools
 import random
@@ -29,6 +30,208 @@ from typing import List, Set, Tuple, Dict, Optional, Iterable
 from collections import defaultdict, Counter
 import networkx as nx
 from networkx.algorithms.community import kernighan_lin_bisection
+
+# ------------------------------ KaHyPar cutter (qubit-level -> HDH node-level) ------------------------------
+
+def kahypar_cutter(
+    hdh,
+    k: int,
+    cap: int,
+    *,
+    seed: int = 0,
+    config_path: Optional[str] = None,
+    suppress_output: bool = True,
+):
+    """Partition an HDH using the `kahypar` Python package.
+
+    What this does (as requested):
+    - Converts the (directed-by-time) HDH hypergraph into a *non-directed* hypergraph
+      suitable for KaHyPar.
+    - Partitions at the *logical qubit* level (1 vertex per qubit) to respect `cap`
+      (capacity = max unique qubits per partition).
+    - Projects the qubit partitioning back onto the original HDH nodes.
+
+    Notes:
+    - KaHyPar itself partitions undirected hypergraphs.
+    - This does *not* fall back to METIS or any other partitioner.
+
+    Args:
+        hdh: HDH object with .S (nodes) and .C (hyperedges)
+        k: number of partitions
+        cap: max unique qubits per partition
+        seed: RNG seed passed to KaHyPar (if supported)
+        config_path: path to KaHyPar INI config; required by KaHyPar.
+        suppress_output: whether to silence KaHyPar stdout.
+
+    Returns:
+        partitions: list[set[str]] length k; each set is HDH node-ids assigned to that partition
+        cut_cost: number of cut hyperedges in the original HDH (same definition as compute_cut)
+    """
+    try:
+        import kahypar  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "`kahypar` is not installed. Install it (e.g. `pip install kahypar==1.3.6`) "
+            "and ensure you have the build requirements from the PyPI page."
+        ) from e
+
+    if k <= 0:
+        raise ValueError("k must be >= 1")
+
+    # --- Build qubit vertex set ---
+    qubits: Set[int] = set()
+    qubit_nodes = defaultdict(list)  # q -> [node ids]
+    classical_nodes_by_idx = defaultdict(list)  # c -> [node ids]
+
+    for nid in getattr(hdh, "S", set()):
+        qm = _Q_RE.match(nid)
+        if qm:
+            q = int(qm.group(1))
+            qubits.add(q)
+            qubit_nodes[q].append(nid)
+            continue
+        cm = _C_RE.match(nid)
+        if cm:
+            c = int(cm.group(1))
+            classical_nodes_by_idx[c].append(nid)
+
+    qubit_list = sorted(qubits)
+    n = len(qubit_list)
+    if n == 0:
+        # No qubits: nothing meaningful to partition.
+        return [set() for _ in range(k)], 0
+
+    if k > n:
+        raise ValueError(f"k={k} cannot exceed number of qubits n={n} for kahypar_cutter")
+
+    if cap <= 0:
+        raise ValueError("cap must be >= 1 (capacity = max unique qubits per partition)")
+
+    # If cap is too small to ever fit an even split, fail early.
+    min_required = (n + k - 1) // k
+    if cap < min_required:
+        raise ValueError(
+            f"cap={cap} is too small for n={n}, k={k}. "
+            f"Need at least ceil(n/k)={min_required} to be feasible."
+        )
+
+    q_to_vid = {q: i for i, q in enumerate(qubit_list)}
+
+    # --- Build undirected hyperedges on qubit-vertices ---
+    # KaHyPar expects hyperedges as pins (vertex IDs). We collapse each HDH hyperedge
+    # to the set of qubits it touches.
+    hedge_pins: List[List[int]] = []
+    hedge_weights: List[int] = []
+
+    for e in getattr(hdh, "C", set()):
+        qs = set()
+        for nid in e:
+            qm = _Q_RE.match(nid)
+            if qm:
+                qs.add(int(qm.group(1)))
+        if len(qs) >= 2:
+            hedge_pins.append([q_to_vid[q] for q in sorted(qs)])
+            hedge_weights.append(1)
+
+    # Degenerate case: no multi-qubit couplings
+    if not hedge_pins:
+        # Purely disconnected qubits: just pack sequentially.
+        partitions = [set() for _ in range(k)]
+        for i, q in enumerate(qubit_list):
+            b = i % k
+            partitions[b].update(qubit_nodes[q])
+            # Attach same-index classical nodes if present
+            partitions[b].update(classical_nodes_by_idx.get(q, []))
+        return partitions, _compute_cut_cost(hdh, {nid: b for b, part in enumerate(partitions) for nid in part})
+
+    # Convert pins list to CSR-style arrays required by KaHyPar.
+    # hyperedge_indices: prefix-sum offsets into `hyperedges` array.
+    hyperedge_indices = [0]
+    hyperedges: List[int] = []
+    for pins in hedge_pins:
+        hyperedges.extend(pins)
+        hyperedge_indices.append(len(hyperedges))
+
+    num_hyperedges = len(hedge_pins)
+    vertex_weights = [1] * n  # each qubit counts as 1 capacity unit
+
+    # --- KaHyPar context/config ---
+    if config_path is None:
+        # Prefer a local config if user has one, otherwise force them to provide.
+        candidate = "kahypar/config/km1_kKaHyPar_sea20.ini"
+        if os.path.exists(candidate):
+            config_path = candidate
+        else:
+            raise FileNotFoundError(
+                "KaHyPar needs an INI configuration file. "
+                "Pass `config_path=...` (e.g. a KaHyPar .ini file)."
+            )
+
+    # Balance: ensure max block size <= cap.
+    target = n / float(k)
+    epsilon = max(0.0, (cap / target) - 1.0)
+
+    context = kahypar.Context()
+    context.loadINIconfiguration(str(config_path))
+    context.setK(k)
+    context.setEpsilon(epsilon)
+
+    # Some builds support setting a seed.
+    if hasattr(context, "setSeed"):
+        try:
+            context.setSeed(int(seed))
+        except Exception:
+            pass
+
+    if suppress_output and hasattr(context, "suppressOutput"):
+        try:
+            context.suppressOutput(True)
+        except Exception:
+            pass
+
+    # --- Build and partition hypergraph ---
+    # KaHyPar signature differs slightly across versions; try the common one.
+    try:
+        hg = kahypar.Hypergraph(
+            n,
+            num_hyperedges,
+            hyperedge_indices,
+            hyperedges,
+            hedge_weights,
+            vertex_weights,
+        )
+    except TypeError:
+        # Older signature: Hypergraph(num_vertices, num_hyperedges, hyperedge_indices, hyperedges, k, ...)
+        hg = kahypar.Hypergraph(
+            n,
+            num_hyperedges,
+            hyperedge_indices,
+            hyperedges,
+            k,
+            hedge_weights,
+            vertex_weights,
+        )
+
+    kahypar.partition(hg, context)
+
+    # --- Read partitioning and lift back to HDH nodes ---
+    qubit_block = {qubit_list[v]: int(hg.blockID(v)) for v in range(n)}
+
+    partitions: List[Set[str]] = [set() for _ in range(k)]
+    for q, nodes in qubit_nodes.items():
+        b = qubit_block[q]
+        partitions[b].update(nodes)
+        # Attach same-index classical nodes if present
+        partitions[b].update(classical_nodes_by_idx.get(q, []))
+
+    # Any remaining classical nodes with indices not matching qubits go to block 0
+    for c_idx, nodes in classical_nodes_by_idx.items():
+        if c_idx not in qubit_nodes:
+            partitions[0].update(nodes)
+
+    node_assignment = {nid: b for b, part in enumerate(partitions) for nid in part}
+    cut_cost = _compute_cut_cost(hdh, node_assignment)
+    return partitions, cut_cost
 
 # ------------------------------ Regexes ------------------------------
 # useful for recognising qubit and bit IDs
