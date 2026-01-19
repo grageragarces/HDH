@@ -233,6 +233,133 @@ def kahypar_cutter(
     cut_cost = _compute_cut_cost(hdh, node_assignment)
     return partitions, cut_cost
 
+
+def kahypar_cutter_nodebalanced(
+    hdh,
+    k: int,
+    *,
+    seed: int = 0,
+    config_path: Optional[str] = None,
+    epsilon: float = 0.03,
+    suppress_output: bool = True,
+):
+    """Partition an HDH using KaHyPar with **node-balanced** constraints.
+
+    This is intentionally the "capacity-oblivious" baseline:
+    - vertices = HDH nodes (q*_t* and c*_t*)
+    - vertex_weights = 1 for all vertices
+    - balance enforced by epsilon around equal-size blocks (in *nodes*, not logical qubits)
+
+    This is useful for measuring how often such a baseline violates a
+    *logical-qubit* capacity constraint when you evaluate it post-hoc.
+
+    Returns:
+        partitions: list[set[str]] of HDH node IDs per block
+        cut_cost: cut hyperedge count in the original HDH
+    """
+    try:
+        import kahypar  # type: ignore
+    except Exception as e:
+        raise ImportError(
+            "`kahypar` is not installed. Install it (e.g. `pip install kahypar==1.3.6`)."
+        ) from e
+
+    if k <= 0:
+        raise ValueError("k must be >= 1")
+
+    nodes = sorted(list(getattr(hdh, "S", set())))
+    n = len(nodes)
+    if n == 0:
+        return [set() for _ in range(k)], 0
+    if k > n:
+        raise ValueError(f"k={k} cannot exceed number of HDH nodes n={n} for node-balanced KaHyPar")
+
+    # Build node id -> vertex id
+    nid_to_vid = {nid: i for i, nid in enumerate(nodes)}
+
+    # Build undirected hyperedges as pins (vertex IDs)
+    hedge_pins: List[List[int]] = []
+    hedge_weights: List[int] = []
+    for e in getattr(hdh, "C", set()):
+        pins = [nid_to_vid[nid] for nid in e if nid in nid_to_vid]
+        pins = sorted(set(pins))
+        if len(pins) >= 2:
+            hedge_pins.append(pins)
+            hedge_weights.append(1)
+
+    # Degenerate case: no usable hyperedges
+    if not hedge_pins:
+        parts = [set() for _ in range(k)]
+        for i, nid in enumerate(nodes):
+            parts[i % k].add(nid)
+        node_assignment = {nid: b for b, part in enumerate(parts) for nid in part}
+        return parts, _compute_cut_cost(hdh, node_assignment)
+
+    hyperedge_indices = [0]
+    hyperedges: List[int] = []
+    for pins in hedge_pins:
+        hyperedges.extend(pins)
+        hyperedge_indices.append(len(hyperedges))
+
+    num_hyperedges = len(hedge_pins)
+    vertex_weights = [1] * n
+
+    if config_path is None:
+        candidate = "kahypar/config/km1_kKaHyPar_sea20.ini"
+        if os.path.exists(candidate):
+            config_path = candidate
+        else:
+            raise FileNotFoundError(
+                "KaHyPar needs an INI configuration file. Pass `config_path=...` (a KaHyPar .ini file)."
+            )
+
+    context = kahypar.Context()
+    context.loadINIconfiguration(str(config_path))
+    context.setK(k)
+    context.setEpsilon(float(epsilon))
+
+    if hasattr(context, "setSeed"):
+        try:
+            context.setSeed(int(seed))
+        except Exception:
+            pass
+    if suppress_output and hasattr(context, "suppressOutput"):
+        try:
+            context.suppressOutput(True)
+        except Exception:
+            pass
+
+    try:
+        hg = kahypar.Hypergraph(
+            n,
+            num_hyperedges,
+            hyperedge_indices,
+            hyperedges,
+            hedge_weights,
+            vertex_weights,
+        )
+    except TypeError:
+        hg = kahypar.Hypergraph(
+            n,
+            num_hyperedges,
+            hyperedge_indices,
+            hyperedges,
+            k,
+            hedge_weights,
+            vertex_weights,
+        )
+
+    kahypar.partition(hg, context)
+
+    partitions: List[Set[str]] = [set() for _ in range(k)]
+    for vid, nid in enumerate(nodes):
+        b = int(hg.blockID(vid))
+        partitions[b].add(nid)
+
+    node_assignment = {nid: b for b, part in enumerate(partitions) for nid in part}
+    cut_cost = _compute_cut_cost(hdh, node_assignment)
+    return partitions, cut_cost
+
 # ------------------------------ Regexes ------------------------------
 # useful for recognising qubit and bit IDs
 _Q_RE   = re.compile(r"^q(\d+)_t\d+$")
@@ -981,6 +1108,35 @@ def partition_size(partitions) -> List[int]:
         return []
     
     return [len(partition) for partition in partitions]
+
+
+def partition_logical_qubit_size(partitions) -> List[int]:
+    """Return the number of *unique logical qubits* used in each partition.
+
+    Notes
+    -----
+    - HDH node IDs are time-expanded (e.g., ``q7_t16``), so counting nodes vastly
+      overestimates resource usage.
+    - In this codebase, capacity ``cap`` is defined in *logical qubits*.
+
+    Args:
+        partitions: List[set[str]]; each set contains HDH node IDs.
+
+    Returns:
+        List[int]: unique logical-qubit count per partition.
+    """
+    if not partitions:
+        return []
+
+    sizes: List[int] = []
+    for part in partitions:
+        qubits = set()
+        for nid in part:
+            m = _Q_RE.match(str(nid))
+            if m:
+                qubits.add(int(m.group(1)))
+        sizes.append(len(qubits))
+    return sizes
 
 
 def participation(hdh_graph, partitions) -> Dict[str, float]:

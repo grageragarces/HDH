@@ -25,14 +25,14 @@ import argparse
 from multiprocessing import Pool, cpu_count
 from functools import partial
 import time
+import math
 
 # Set up paths
 sys.path.insert(0, str(Path.cwd()))
 
 from hdh import HDH
-# Import directly from the module that defines the cutter/metrics.
-# This avoids package/module shadowing issues when running as a module.
-from hdh.passes.cut import compute_cut, cost, parallelism, fair_parallelism, partition_size, kahypar_cutter
+from hdh.passes.cut import compute_cut,cost,parallelism,fair_parallelism,partition_size,partition_logical_qubit_size,kahypar_cutter,kahypar_cutter_nodebalanced
+
 
 # Set plotting style
 sns.set_style("whitegrid")
@@ -577,6 +577,203 @@ def run_experiment_4(n_cores=None, quick_mode=False):
 
 
 # =============================================================================
+# Experiment 5: Capacity Violation Test (MQTBench-derived HDHs)
+# =============================================================================
+
+def _load_hdh_pickle(path: Path) -> HDH:
+    import pickle
+    with open(path, 'rb') as f:
+        obj = pickle.load(f)
+    # Accept either a raw HDH or a dict wrapper.
+    if isinstance(obj, HDH):
+        return obj
+    if isinstance(obj, dict):
+        for key in ['hdh', 'HDH', 'graph']:
+            if key in obj and isinstance(obj[key], HDH):
+                return obj[key]
+    raise TypeError(f"Unsupported pickle content at {path} (expected HDH or dict containing HDH)")
+
+
+def _logical_qubit_id(node_id: str) -> Optional[str]:
+    # Expected node IDs: q7_t16, c3_t20, etc.
+    if not isinstance(node_id, str):
+        return None
+    if node_id.startswith('q') and '_t' in node_id:
+        return node_id.split('_t', 1)[0]  # 'q7'
+    return None
+
+
+def _count_unique_qubits_in_partition(partition: Set[str]) -> int:
+    qs = set()
+    for nid in partition:
+        q = _logical_qubit_id(nid)
+        if q is not None:
+            qs.add(q)
+    return len(qs)
+
+
+def worker_capacity_violation_test(config):
+    """Worker for Experiment 5."""
+    (hdh_path, k, overhead, seed, config_path) = config
+    np.random.seed(seed)
+
+    hdh = _load_hdh_pickle(Path(hdh_path))
+
+    # logical qubit count
+    qubits = set()
+    for nid in getattr(hdh, 'S', set()):
+        q = _logical_qubit_id(nid)
+        if q is not None:
+            qubits.add(q)
+    n_qubits = len(qubits)
+    if n_qubits == 0:
+        return [
+            {
+            'circuit': Path(hdh_path).stem,
+            'k': k,
+            'overhead': overhead,
+            'cap_q': 0,
+            'method': 'skip_no_qubits',
+            'violated': False,
+            'violation_max': 0,
+            'violation_sum': 0,
+            }
+        ]
+
+    cap_q = int(math.ceil((n_qubits / k) * overhead))
+
+    # Method A: your technique (capacity-aware)
+    parts_a, _ = compute_cut(hdh, k, cap_q)
+    sizes_a = [_count_unique_qubits_in_partition(p) for p in parts_a]
+    viol_a = [max(0, s - cap_q) for s in sizes_a]
+
+    rows = [
+        {
+            'circuit': Path(hdh_path).stem,
+            'k': k,
+            'overhead': overhead,
+            'cap_q': cap_q,
+            'method': 'temporal_greedy_capacity',
+            'violated': any(v > 0 for v in viol_a),
+            'violation_max': max(viol_a) if viol_a else 0,
+            'violation_sum': int(sum(viol_a)) if viol_a else 0,
+        }
+    ]
+
+    # Method B: KaHyPar node-balanced baseline (if available)
+    if kahypar_cutter_nodebalanced is not None:
+        try:
+            parts_b, _ = kahypar_cutter_nodebalanced(
+                hdh,
+                k,
+                seed=seed,
+                config_path=config_path,
+            )
+            sizes_b = [_count_unique_qubits_in_partition(p) for p in parts_b]
+            viol_b = [max(0, s - cap_q) for s in sizes_b]
+            rows.append(
+                {
+                    'circuit': Path(hdh_path).stem,
+                    'k': k,
+                    'overhead': overhead,
+                    'cap_q': cap_q,
+                    'method': 'kahypar_nodebalanced',
+                    'violated': any(v > 0 for v in viol_b),
+                    'violation_max': max(viol_b) if viol_b else 0,
+                    'violation_sum': int(sum(viol_b)) if viol_b else 0,
+                }
+            )
+        except Exception as e:
+            rows.append(
+                {
+                    'circuit': Path(hdh_path).stem,
+                    'k': k,
+                    'overhead': overhead,
+                    'cap_q': cap_q,
+                    'method': 'kahypar_nodebalanced',
+                    'violated': np.nan,
+                    'violation_max': np.nan,
+                    'violation_sum': np.nan,
+                    'error': repr(e),
+                }
+            )
+
+    return rows
+
+def run_experiment_5(n_cores=None, quick_mode=False, config_path=None):
+    print("EXPERIMENT 5: Capacity violations vs slack (k·cap_q − N), slack >= 0 only")
+
+    # We want to study: does KaHyPar violate capacity even when feasible?
+    # So we only test slack >= 0.
+    slack_targets = [0, 1, 2, 4, 8] if not quick_mode else [0, 2]
+    num_qubits_list = [8, 12, 16] if not quick_mode else [8]
+    depth = 20
+    k_list = [2, 3, 4] if not quick_mode else [2, 4]
+    seeds = range(5 if not quick_mode else 2)
+
+    rows = []
+
+    for num_qubits in num_qubits_list:
+        for seed in seeds:
+            hdh = generate_random_circuit_hdh(num_qubits, depth, seed=seed)
+
+            for k in k_list:
+                for slack_target in slack_targets:
+                    # Choose cap_q to achieve the desired slack (after ceiling).
+                    cap_q = max(1, int(math.ceil((num_qubits + slack_target) / float(k))))
+                    slack = (k * cap_q) - num_qubits
+                    # Enforce the design decision: only keep feasible (slack >= 0).
+                    if slack < 0:
+                        continue
+
+                    # ---- Capacity-aware cut (should never violate for slack >= 0) ----
+                    parts_cap, _ = compute_cut(hdh, k, cap_q)
+                    sizes_cap = partition_logical_qubit_size(parts_cap)
+                    violated_cap = any(s > cap_q for s in sizes_cap)
+
+                    # ---- KaHyPar node-balanced baseline ----
+                    kh_ran = False
+                    kh_exception = ""
+                    violated_kh = np.nan
+                    max_violation = np.nan
+
+                    if kahypar_cutter_nodebalanced is None:
+                        kh_exception = "kahypar_nodebalanced_unavailable"
+                    else:
+                        try:
+                            parts_kh, _ = kahypar_cutter_nodebalanced(
+                                hdh, k, seed=seed, config_path=config_path
+                            )
+                            kh_ran = True
+                            sizes_kh = partition_logical_qubit_size(parts_kh)
+                            violated_kh = any(s > cap_q for s in sizes_kh)
+                            max_violation = max(0, (max(sizes_kh) - cap_q)) if sizes_kh else 0
+                        except Exception as e:
+                            kh_exception = f"kahypar_error: {type(e).__name__}: {e}"
+
+                    rows.append({
+                        "k": k,
+                        "num_qubits": num_qubits,
+                        "cap_q": cap_q,
+                        "slack_target": slack_target,
+                        "slack": slack,
+                        "feasible": True,
+                        "seed": seed,
+                        "violated_capacity_aware": bool(violated_cap),
+                        "kh_ran": bool(kh_ran),
+                        "kh_exception": kh_exception,
+                        "violated_kahypar": violated_kh,
+                        "kahypar_violation_magnitude": max_violation,
+                    })
+
+    df = pd.DataFrame(rows)
+    out = OUTPUT_DIR / "exp5_capacity_violation_raw.csv"
+    df.to_csv(out, index=False)
+    print(f"✓ Saved {out}")
+    return df
+
+
+# =============================================================================
 # Visualization Functions
 # =============================================================================
 
@@ -721,6 +918,94 @@ def plot_experiment_4(df_comparison):
     print(f"✓ Saved: {OUTPUT_DIR / 'fig4_kahypar_comparison.png'}")
 
 
+def plot_experiment_5(df):
+    """Plot Experiment 5 results: violation probability vs slack (slack >= 0)."""
+    if df is None or df.empty:
+        print("⚠ No data to plot for Experiment 5")
+        return
+
+    df2 = df.copy()
+
+    # Only keep slack >= 0 (design choice)
+    df2 = df2[df2['slack'] >= 0]
+
+    # Aggregate by slack
+    def _mean_bool(series: pd.Series) -> float:
+        return float(np.mean(series.astype(float))) if len(series) else float('nan')
+
+    # KaHyPar violation rate should be computed only on successful runs
+    def _kh_violation_rate(sub: pd.DataFrame) -> float:
+        ok = sub[sub['kh_ran'] == True]
+        if ok.empty:
+            return float('nan')
+        return float(np.mean(ok['violated_kahypar'].astype(float)))
+
+    def _kh_mag_mean(sub: pd.DataFrame) -> float:
+        ok = sub[sub['kh_ran'] == True]
+        if ok.empty:
+            return float('nan')
+        return float(ok['kahypar_violation_magnitude'].mean())
+
+    grouped = []
+    for slack, sub in df2.groupby('slack'):
+        grouped.append({
+            'slack': int(slack),
+            'n': int(len(sub)),
+            'feasible': 1.0,
+            'cap_violation_rate': _mean_bool(sub['violated_capacity_aware']),
+            'kh_run_rate': _mean_bool(sub['kh_ran']),
+            'kh_violation_rate': _kh_violation_rate(sub),
+            'kh_violation_mag_mean': _kh_mag_mean(sub),
+        })
+
+    summary = pd.DataFrame(grouped).sort_values('slack')
+
+    out_csv = OUTPUT_DIR / 'exp5_capacity_violation_vs_slack_summary.csv'
+    summary.to_csv(out_csv, index=False)
+    print(f"✓ Saved: {out_csv}")
+
+    # # ---- Plot 1: violation probability vs slack ----
+    # fig, ax = plt.subplots(figsize=(11, 6))
+    # ax.plot(summary['slack'], summary['cap_violation_rate'], marker='o', linewidth=2, label='capacity_aware')
+    # ax.plot(summary['slack'], summary['kh_violation_rate'], marker='s', linewidth=2, label='kahypar_nodebalanced')
+    # ax.set_xlabel('Slack ') #= k·cap_q − N (>= 0)')
+    # ax.set_ylabel('Violation probability')
+    # ax.set_title('Capacity violation probability vs slack')
+    # ax.grid(True, alpha=0.3)
+    # ax.legend(fontsize=10, loc='upper right')
+    # plt.tight_layout()
+    # out1 = OUTPUT_DIR / 'fig5_violation_probability_vs_slack.png'
+    # plt.savefig(out1, dpi=300, bbox_inches='tight')
+    # plt.close()
+    # print(f"✓ Saved: {out1}")
+
+    # # ---- Plot 2: KaHyPar run rate vs slack ----
+    # fig, ax = plt.subplots(figsize=(11, 6))
+    # ax.plot(summary['slack'], summary['kh_run_rate'], marker='o', linewidth=2)
+    # ax.set_xlabel('Slack ') #= k·cap_q − N (>= 0)')
+    # ax.set_ylabel('KaHyPar run rate')
+    # ax.set_title('KaHyPar success rate vs slack')
+    # ax.grid(True, alpha=0.3)
+    # plt.tight_layout()
+    # out2 = OUTPUT_DIR / 'fig5_kahypar_run_rate_vs_slack.png'
+    # plt.savefig(out2, dpi=300, bbox_inches='tight')
+    # plt.close()
+    # print(f"✓ Saved: {out2}")
+
+    # ---- Plot 3: KaHyPar mean violation magnitude vs slack ----
+    fig, ax = plt.subplots(figsize=(11, 6))
+    ax.plot(summary['slack'], summary['kh_violation_mag_mean'], marker='o', linewidth=2)
+    ax.set_xlabel('Slack ') #= k·cap_q − N (>= 0)')
+    ax.set_ylabel('Mean max(used_qubits − cap_q)')
+    ax.set_title('KaHyPar violation magnitude vs slack')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    out3 = OUTPUT_DIR / 'fig5_kahypar_violation_magnitude_vs_slack.png'
+    plt.savefig(out3, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"✓ Saved: {out3}")
+
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -729,7 +1014,8 @@ def main():
     parser = argparse.ArgumentParser(description='Run parallelized HDH experiments')
     parser.add_argument('--cores', type=int, default=None, help='Number of cores to use')
     parser.add_argument('--quick', action='store_true', help='Run in quick mode (reduced tests)')
-    parser.add_argument('--exp', type=str, default='all', help='Which experiment to run (1,2,3,4, or all)')
+    parser.add_argument('--exp', type=str, default='all', help='Which experiment to run (1,2,3,4,5, or all)')
+    parser.add_argument('--kahypar_config', type=str, default=None, help='Path to a KaHyPar .ini config (optional; used for exp=4/5 baseline)')
     
     args = parser.parse_args()
     
@@ -745,22 +1031,20 @@ def main():
     
     total_start = time.time()
     
-    # Run experiments
-    # if args.exp in ['1', 'all']:
-    #     df1 = run_experiment_1(n_cores, args.quick)
-    #     plot_experiment_1(df1)
+    #Run experiments
+    df1 = run_experiment_1(n_cores, args.quick)
+    plot_experiment_1(df1)
     
-    # if args.exp in ['2', 'all']:
-    #     df2 = run_experiment_2(n_cores, args.quick)
-    #     plot_experiment_2(df2)
+    df2 = run_experiment_2(n_cores, args.quick)
+    plot_experiment_2(df2)
     
-    # if args.exp in ['3', 'all']:
-    #     df3 = run_experiment_3(n_cores, args.quick)
-    #     plot_experiment_3(df3)
+    df3 = run_experiment_3(n_cores, args.quick)
+    plot_experiment_3(df3)
     
-    if args.exp in ['4', 'all']:
-        df4_t, df4_b, df4_c = run_experiment_4(n_cores, args.quick)
-        plot_experiment_4(df4_c)
+    df4_t, df4_b, df4_c = run_experiment_4(n_cores, args.quick)
+
+    df5 = run_experiment_5(n_cores=n_cores, quick_mode=args.quick, config_path=args.kahypar_config)
+    plot_experiment_5(df5)
     
     total_elapsed = time.time() - total_start
     
