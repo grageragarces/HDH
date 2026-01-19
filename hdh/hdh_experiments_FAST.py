@@ -1042,6 +1042,7 @@ def main():
     plot_experiment_3(df3)
     
     df4_t, df4_b, df4_c = run_experiment_4(n_cores, args.quick)
+    plot_experiment_4(df4_c)
 
     df5 = run_experiment_5(n_cores=n_cores, quick_mode=args.quick, config_path=args.kahypar_config)
     plot_experiment_5(df5)
