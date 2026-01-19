@@ -3,7 +3,7 @@
 MQT BENCH VERSION: All HDH Experiments with MQT Bench Inputs
 
 This script runs ALL experiments using real MQT Bench circuit HDHs.
-Loads pre-computed HDH pickles from /Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_reduce
+Loads pre-computed HDH pickles from /Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_
 
 Usage:
     python hdh_experiments_MQTBENCH.py              # Run all experiments
@@ -49,7 +49,7 @@ print(f"✓ Output directory: {OUTPUT_DIR.absolute()}")
 # MQT Bench HDH Loading
 # =============================================================================
 
-def load_mqtbench_hdhs(pkl_dir: str = "/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_reduce", quick_mode: bool = False) -> Dict[str, HDH]:
+def load_mqtbench_hdhs(pkl_dir: str = "/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_", quick_mode: bool = False) -> Dict[str, HDH]:
     """
     Load all MQT Bench HDH files from pickle directory.
     
@@ -230,7 +230,8 @@ def worker_overhead_test(config):
     stats = get_circuit_stats(hdh)
     num_qubits = stats['num_qubits']
     
-    if num_qubits == 0 or k == 0:
+    # Skip if no qubits or k exceeds number of qubits
+    if num_qubits == 0 or k == 0 or k > num_qubits:
         return None
     
     cap = int((num_qubits / k) * overhead)
@@ -260,7 +261,8 @@ def worker_qpu_test(config):
     stats = get_circuit_stats(hdh)
     num_qubits = stats['num_qubits']
     
-    if num_qubits == 0 or k == 0:
+    # Skip if no qubits or k exceeds number of qubits
+    if num_qubits == 0 or k == 0 or k > num_qubits:
         return None
     
     cap = int((num_qubits / k) * overhead)
@@ -293,7 +295,8 @@ def worker_capacity_test(config):
     stats = get_circuit_stats(hdh)
     num_qubits = stats['num_qubits']
     
-    if num_qubits == 0 or k == 0:
+    # Skip if no qubits or k exceeds number of qubits
+    if num_qubits == 0 or k == 0 or k > num_qubits:
         return None
     
     cap = int((num_qubits / k) * overhead)
@@ -328,7 +331,8 @@ def worker_kahypar_comparison(config):
     stats = get_circuit_stats(hdh)
     num_qubits = stats['num_qubits']
     
-    if num_qubits == 0 or k == 0:
+    # Skip if no qubits or k exceeds number of qubits
+    if num_qubits == 0 or k == 0 or k > num_qubits:
         return None
     
     cap = int((num_qubits / k) * overhead)
@@ -337,17 +341,15 @@ def worker_kahypar_comparison(config):
         # Temporal greedy (our method)
         partitions_temporal, cut_cost_temporal = compute_cut(hdh, k, cap)
         
-        # Baseline KaHyPar
-        partitions_baseline, cut_cost_baseline = kahypar_cutter(hdh, k)
+        # Baseline KaHyPar (also needs cap argument)
+        partitions_baseline, cut_cost_baseline = kahypar_cutter(hdh, k, cap)
         
-        # Calculate metrics for both
-        def calc_metrics(partitions):
-            para = parallelism(partitions, hdh)
-            fair_para = fair_parallelism(partitions, hdh)
-            return para, fair_para
+        # Calculate metrics for both - parallelism functions return dicts
+        para_temporal_dict = parallelism(hdh, partitions_temporal)
+        fair_para_temporal_dict = fair_parallelism(hdh, partitions_temporal)
         
-        para_temporal, fair_para_temporal = calc_metrics(partitions_temporal)
-        para_baseline, fair_para_baseline = calc_metrics(partitions_baseline)
+        para_baseline_dict = parallelism(hdh, partitions_baseline)
+        fair_para_baseline_dict = fair_parallelism(hdh, partitions_baseline)
         
         return {
             'circuit': circuit_name,
@@ -356,10 +358,10 @@ def worker_kahypar_comparison(config):
             'cut_cost_temporal': cut_cost_temporal,
             'cut_cost_baseline': cut_cost_baseline,
             'cut_cost_ratio': cut_cost_baseline / cut_cost_temporal if cut_cost_temporal > 0 else 1.0,
-            'avg_parallelism_temporal': para_temporal,
-            'avg_parallelism_baseline': para_baseline,
-            'avg_fair_parallelism_temporal': fair_para_temporal,
-            'avg_fair_parallelism_baseline': fair_para_baseline,
+            'avg_parallelism_temporal': para_temporal_dict.get('average_parallelism', 0.0),
+            'avg_parallelism_baseline': para_baseline_dict.get('average_parallelism', 0.0),
+            'avg_fair_parallelism_temporal': fair_para_temporal_dict.get('average_fair_parallelism', 0.0),
+            'avg_fair_parallelism_baseline': fair_para_baseline_dict.get('average_fair_parallelism', 0.0),
         }
     except Exception as e:
         print(f"⚠ Error in KaHyPar comparison for {circuit_name}: {e}")
@@ -373,7 +375,8 @@ def worker_capacity_violation(config):
     stats = get_circuit_stats(hdh)
     num_qubits = stats['num_qubits']
     
-    if num_qubits == 0 or k == 0:
+    # Skip if no qubits or k exceeds number of qubits
+    if num_qubits == 0 or k == 0 or k > num_qubits:
         return None
     
     cap_q = (num_qubits // k) + slack
@@ -863,7 +866,7 @@ def main():
     parser.add_argument('--quick', action='store_true', help='Quick mode (subset of circuits and tests)')
     parser.add_argument('--exp', type=str, default='all', 
                         help='Which experiment to run (1,2,3,4,5, or all)')
-    parser.add_argument('--pkl_dir', type=str, default='/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_reduce',
+    parser.add_argument('--pkl_dir', type=str, default='/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_',
                         help='Directory containing MQT Bench pickle files')
     
     args = parser.parse_args()
