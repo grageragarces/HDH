@@ -911,18 +911,18 @@ def main():
     #     df2 = run_experiment_2(hdhs, n_cores, args.quick)
     #     plot_experiment_2(df2)
     
-    if args.exp in ['all', '3']:
-        df3 = run_experiment_3(hdhs, n_cores, args.quick)
-        plot_experiment_3(df3)
-    
-    if args.exp in ['all', '4']:
-        df4 = run_experiment_4(hdhs, n_cores, args.quick)
-        plot_experiment_4(df4)
+    # if args.exp in ['all', '3']: #NOT NEEDED
+    #     df3 = run_experiment_3(hdhs, n_cores, args.quick)
+    #     plot_experiment_3(df3)
     
     if args.exp in ['all', '5']:
         df5 = run_experiment_5(hdhs, n_cores, args.quick)
         plot_experiment_5(df5)
-    
+
+    if args.exp in ['all', '4']:
+        df4 = run_experiment_4(hdhs, n_cores, args.quick)
+        plot_experiment_4(df4)
+        
     total_elapsed = time.time() - total_start
     
     print("\n" + "="*70)
