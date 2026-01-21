@@ -871,7 +871,8 @@ def main():
     
     args = parser.parse_args()
     
-    n_cores = args.cores if args.cores else cpu_count()
+    #n_cores = args.cores if args.cores else cpu_count()
+    n_cores = 4 #less mem
     
     print("\n" + "="*70)
     print("MQT BENCH HDH PARTITIONING EXPERIMENTS")
@@ -902,13 +903,13 @@ def main():
     print(f"{'='*70}\n")
     
     # Run experiments based on args.exp
-    if args.exp in ['all', '1']:
-        df1 = run_experiment_1(hdhs, n_cores, args.quick)
-        plot_experiment_1(df1)
+    # if args.exp in ['all', '1']:
+    #     df1 = run_experiment_1(hdhs, n_cores, args.quick)
+    #     plot_experiment_1(df1)
     
-    if args.exp in ['all', '2']:
-        df2 = run_experiment_2(hdhs, n_cores, args.quick)
-        plot_experiment_2(df2)
+    # if args.exp in ['all', '2']:
+    #     df2 = run_experiment_2(hdhs, n_cores, args.quick)
+    #     plot_experiment_2(df2)
     
     if args.exp in ['all', '3']:
         df3 = run_experiment_3(hdhs, n_cores, args.quick)
