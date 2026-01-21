@@ -3,7 +3,7 @@
 MQT BENCH VERSION: All HDH Experiments with MQT Bench Inputs
 
 This script runs ALL experiments using real MQT Bench circuit HDHs.
-Loads pre-computed HDH pickles from /Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_
+Loads pre-computed HDH pickles from /Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl
 
 Usage:
     python hdh_experiments_MQTBENCH.py              # Run all experiments
@@ -49,7 +49,7 @@ print(f"✓ Output directory: {OUTPUT_DIR.absolute()}")
 # MQT Bench HDH Loading
 # =============================================================================
 
-def load_mqtbench_hdhs(pkl_dir: str = "/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_", quick_mode: bool = False) -> Dict[str, HDH]:
+def load_mqtbench_hdhs(pkl_dir: str = "/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl", quick_mode: bool = False) -> Dict[str, HDH]:
     """
     Load all MQT Bench HDH files from pickle directory.
     
@@ -866,7 +866,7 @@ def main():
     parser.add_argument('--quick', action='store_true', help='Quick mode (subset of circuits and tests)')
     parser.add_argument('--exp', type=str, default='all', 
                         help='Which experiment to run (1,2,3,4,5, or all)')
-    parser.add_argument('--pkl_dir', type=str, default='/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl_',
+    parser.add_argument('--pkl_dir', type=str, default='/Users/mariagragera/Desktop/HDH/database/HDHs/Circuit/MQTBench/pkl',
                         help='Directory containing MQT Bench pickle files')
     
     args = parser.parse_args()
