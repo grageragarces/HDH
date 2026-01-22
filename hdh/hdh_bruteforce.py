@@ -134,7 +134,7 @@ def brute_force_node_level(
     hdh: HDH, 
     k: int, 
     cap: int,
-    max_nodes: int = 100
+    max_nodes: int = 1000
 ) -> Tuple[Dict[str, int], int]:
     """
     Brute force search at NODE level (allows temporal qubit splitting).
@@ -317,7 +317,9 @@ def brute_force_qubit_level(
                     node_partition[node] = 0
             
             # Count cuts
-            cut_cost = count_cut_hyperedges(hdh, node_partition)
+            partition_sets = convert_node_partition_to_sets(node_partition, k)
+            cut_cost_raw = cost(hdh, partition_sets)
+            cut_cost = sum(cut_cost_raw) if isinstance(cut_cost_raw, tuple) else cut_cost_raw
             
             if cut_cost < min_cut_cost:
                 min_cut_cost = cut_cost
@@ -352,8 +354,8 @@ def convert_node_partition_to_sets(
 
 def load_small_mqtbench_hdhs(
     pkl_dir: str,
-    max_qubits: int = 10,
-    max_nodes: int = 100
+    max_qubits: int = 12,
+    max_nodes: int = 1000
 ) -> Dict[str, HDH]:
     """
     Load MQT Bench HDH files with size constraints.
@@ -436,7 +438,7 @@ def compute_capacity_from_overhead(num_qubits: int, overhead: float, k: int) -> 
     
     Example:
         num_qubits=10, overhead=1.0, k=3:
-        - Total network capacity = 10 qubits
+        - Total network capacity = 12 qubits
         - Per QPU capacity = ceil(10/3) = 4 qubits
         - This forces distribution since no single QPU can hold all 10 qubits
     """

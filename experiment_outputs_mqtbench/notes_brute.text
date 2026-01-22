@@ -1,0 +1,124 @@
+Dataset Overview:
+  Total experiments: 507
+  Unique circuits: 169
+  Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2)]
+
+Algorithms Analyzed:
+  Total unique algorithms: 23
+
+  Algorithm                 Qubit Sizes                   
+  ------------------------------------------------------------
+  ae                        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  dj                        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  ghz                       2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  graphstate                3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  groundstate               4, 12                         
+  grover-noancilla          2, 3, 4, 5                    
+  grover-v-chain            2, 3, 4, 5                    
+  portfolioqaoa             3, 4, 5, 6, 7, 8, 9, 10       
+  portfoliovqe              3, 4, 5, 6, 7, 8, 9, 10       
+  pricingcall               5, 7, 9, 11                   
+  pricingput                5, 7, 9, 11                   
+  qaoa                      3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  qft                       2, 3, 4, 6, 7, 8, 9, 10, 11, 12
+  qftentangled              2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  qnn                       2, 3, 4, 5, 6, 7, 8           
+  qpeexact                  2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  qpeinexact                2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  qwalk-noancilla           3, 4                          
+  qwalk-v-chain             3, 5, 7, 9                    
+  routing                   2, 6, 12                      
+  tsp                       4, 9                          
+  vqe                       3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  wstate                    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+
+  Optimality Distribution:
+  Finite values: 507
+  Infinite values: 0
+  NaN values: 0
+
+Optimality Statistics (finite values only):
+  Mean:   63.4%
+  Median: 57.1%
+  Std:    28.1 percentage points
+  Min:    12.5%
+  Max:    185.7%
+
+  Perfect matches (100% optimal): 26/507 (5.1%)
+
+Breakdown by Overhead:
+  Overhead     Count    Mean Optimality    Std          Perfect %   
+  ---------------------------------------------------------------------------
+  1.00         169      77.1              % 32.7        pp 11.2        %
+  1.10         169      58.0              % 23.8        pp 2.4         %
+  1.20         169      55.0              % 21.3        pp 1.8         %
+
+Cost Statistics:
+  Optimal costs:
+    Mean:   20.91
+    Median: 11.00
+    Min:    1.00
+    Max:    104.00
+
+  Heuristic costs:
+    Mean:   31.76
+    Median: 20.00
+    Min:    2.00
+    Max:    169.00
+
+Timing (seconds):
+  Brute force average: 3.6038s
+  Heuristic average:   0.0109s
+
+Optimality distribution by overhead:
+  Overhead 1.00: median=73.9%, mean=77.1%, n=169
+  Overhead 1.10: median=53.6%, mean=58.0%, n=169
+  Overhead 1.20: median=50.0%, mean=55.0%, n=169
+
+Algorithm            Count   Mean±Std Optimality    Min-Max         Avg Costs (O/H)     
+-----------------------------------------------------------------------------------------------
+tsp                  6       29.9%±4.5%             28.0%-39.0%     11.2/37.0           
+pricingput           12      39.0%±6.9%             29.3%-54.4%     23.4/63.3           
+pricingcall          12      39.2%±8.0%             29.6%-60.8%     23.4/63.1           
+vqe                  30      46.7%±19.0%            20.0%-85.7%     7.8/17.5            
+wstate               33      50.7%±15.9%            23.1%-85.7%     7.4/15.0            
+grover-noancilla     12      51.6%±14.4%            30.8%-88.9%     28.6/54.2           
+routing              9       51.6%±23.9%            22.2%-80.0%     8.2/20.3            
+qwalk-noancilla      6       51.9%±23.7%            38.9%-100.0%    35.7/77.8           
+grover-v-chain       12      52.9%±14.8%            30.8%-88.9%     23.3/41.4           
+dj                   33      54.9%±17.2%            25.0%-100.0%    7.1/12.4            
+ae                   33      55.6%±18.5%            23.5%-87.5%     26.2/45.2           
+qwalk-v-chain        12      57.6%±16.6%            38.9%-100.0%    39.4/72.2           
+ghz                  33      59.7%±22.3%            25.0%-114.3%    5.7/9.7             
+qaoa                 30      65.5%±19.0%            31.2%-109.1%    9.4/15.0            
+graphstate           30      65.5%±25.0%            33.3%-122.2%    6.8/10.9            
+qpeexact             33      69.4%±30.0%            12.5%-139.1%    20.5/27.6           
+qft                  30      71.0%±31.6%            27.3%-174.1%    23.8/30.7           
+qftentangled         33      74.2%±30.4%            29.4%-159.4%    25.7/32.7           
+qpeinexact           33      74.4%±33.6%            18.2%-161.8%    21.4/26.2           
+qnn                  21      74.8%±28.0%            32.3%-145.9%    38.3/52.4           
+portfolioqaoa        24      87.3%±33.9%            31.8%-173.9%    47.1/52.8           
+portfoliovqe         24      87.3%±33.9%            31.8%-173.9%    47.1/52.8           
+groundstate          6       99.8%±51.2%            58.8%-185.7%    54.7/45.2           
+
+🚨 WORST PERFORMERS (optimality < 50%):
+   • tsp: 29.9% optimal (n=6)
+     Overhead breakdown:
+       OH=1.00: 33.5% optimal (n=2)
+       OH=1.10: 28.2% optimal (n=2)
+       OH=1.20: 28.2% optimal (n=2)
+   • pricingput: 39.0% optimal (n=12)
+     Overhead breakdown:
+       OH=1.00: 43.2% optimal (n=4)
+       OH=1.10: 36.9% optimal (n=4)
+       OH=1.20: 36.9% optimal (n=4)
+   • pricingcall: 39.2% optimal (n=12)
+     Overhead breakdown:
+       OH=1.00: 44.6% optimal (n=4)
+       OH=1.10: 36.4% optimal (n=4)
+       OH=1.20: 36.4% optimal (n=4)
+   • vqe: 46.7% optimal (n=30)
+     Overhead breakdown:
+       OH=1.00: 54.6% optimal (n=10)
+       OH=1.10: 42.8% optimal (n=10)
+       OH=1.20: 42.9% optimal (n=10)
