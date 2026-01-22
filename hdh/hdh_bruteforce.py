@@ -169,17 +169,19 @@ def brute_force_node_level(
     node_to_qubit = get_node_qubit_mapping(hdh)
     
     print(f"  Brute forcing {n} nodes into {k} partitions (cap={cap} qubits)...")
-    print(f"  This will evaluate up to {k**n:,} partitions...")
+    print(f"  Search space: {k**n:,} total partitions")
     
     if k**n > 10_000_000:
         warnings.warn(
             f"Very large search space ({k**n:,} partitions). This may take a long time!",
             RuntimeWarning
         )
+        print(f"  ⚠ WARNING: This will take a while! Consider reducing max_nodes or using --qubit-level")
     
     min_cut_cost = float('inf')
     optimal_partition = None
     evaluated = 0
+    valid_partitions = 0
     
     # Generate all possible assignments: k choices for each of n nodes
     total_partitions = k ** n
@@ -187,7 +189,10 @@ def brute_force_node_level(
     # Use tqdm with a sample rate to avoid slowdown
     sample_rate = max(1, total_partitions // 10000)  # Update progress ~10k times max
     
-    with tqdm(total=total_partitions, desc="  Evaluating partitions", leave=False) as pbar:
+    print(f"  Starting brute force search...")
+    with tqdm(total=total_partitions, desc="  🔍 Evaluating partitions", 
+              unit="partitions", unit_scale=True, leave=False,
+              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
         for assignment in product(range(k), repeat=n):
             evaluated += 1
             
@@ -204,6 +209,8 @@ def brute_force_node_level(
                 if evaluated % sample_rate == 0:
                     pbar.update(sample_rate)
                 continue
+            
+            valid_partitions += 1
             
             # Add classical nodes to partition 0
             for node in hdh.S:
@@ -223,7 +230,10 @@ def brute_force_node_level(
         # Update for any remaining
         pbar.update(total_partitions - pbar.n)
     
-    print(f"  Evaluated {evaluated:,} partitions")
+    print(f"  ✓ Search complete!")
+    print(f"    Total partitions: {evaluated:,}")
+    print(f"    Valid partitions: {valid_partitions:,} ({valid_partitions/evaluated*100:.1f}%)")
+    print(f"    Best cut cost found: {min_cut_cost}")
     
     if optimal_partition is None:
         raise ValueError("No valid partition found! Check capacity constraints.")
@@ -389,31 +399,78 @@ def run_comparison_experiment(
     
     method = "NODE-LEVEL" if use_node_level else "QUBIT-LEVEL"
     
-    print(f"\n{'='*70}")
-    print(f"Running Comparison Experiments ({method})")
-    print(f"Circuits: {len(hdhs)}")
-    print(f"k (QPUs): {k}")
-    print(f"Overhead values: {overhead_values}")
-    print(f"{'='*70}\n")
+    # Pre-calculate total experiments for progress tracking
+    total_experiments = 0
+    circuit_experiment_counts = {}
     
     for circuit_name, hdh in hdhs.items():
+        num_qubits = len(extract_qubits_from_hdh(hdh))
+        num_qnodes = sum(1 for n in hdh.S if hdh.sigma[n] == 'q')
+        
+        # Skip if too large for node-level
+        if use_node_level and num_qnodes > max_nodes_for_node_level:
+            circuit_experiment_counts[circuit_name] = 0
+            continue
+        
+        # Count feasible experiments for this circuit
+        count = 0
+        for overhead in overhead_values:
+            cap = compute_capacity_from_overhead(num_qubits, overhead)
+            if num_qubits <= k * cap:
+                count += 1
+        
+        circuit_experiment_counts[circuit_name] = count
+        total_experiments += count
+    
+    print(f"\n{'='*70}")
+    print(f"Running Comparison Experiments ({method})")
+    print(f"Circuits loaded: {len(hdhs)}")
+    print(f"k (QPUs): {k}")
+    print(f"Overhead values: {overhead_values}")
+    print(f"Total experiments planned: {total_experiments}")
+    print(f"{'='*70}\n")
+    
+    completed_experiments = 0
+    overall_start_time = time.time()
+    
+    for circuit_idx, (circuit_name, hdh) in enumerate(hdhs.items(), 1):
         num_qubits = len(extract_qubits_from_hdh(hdh))
         num_nodes = len(hdh.S)
         num_qnodes = sum(1 for n in hdh.S if hdh.sigma[n] == 'q')
         num_edges = len(hdh.C)
         
+        # Circuit-level progress
+        circuit_progress = (circuit_idx / len(hdhs)) * 100
+        elapsed_time = time.time() - overall_start_time
+        
+        if completed_experiments > 0:
+            avg_time_per_exp = elapsed_time / completed_experiments
+            remaining_exp = total_experiments - completed_experiments
+            eta_seconds = avg_time_per_exp * remaining_exp
+            eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
+        else:
+            eta_str = "calculating..."
+        
         print(f"\n{'='*70}")
+        print(f"[Circuit {circuit_idx}/{len(hdhs)} - {circuit_progress:.1f}% of circuits]")
+        print(f"[Experiments: {completed_experiments}/{total_experiments} - "
+              f"{(completed_experiments/total_experiments*100):.1f}% complete]")
+        print(f"[Elapsed: {int(elapsed_time//60)}m {int(elapsed_time%60)}s | ETA: {eta_str}]")
+        print(f"{'='*70}")
         print(f"Circuit: {circuit_name}")
         print(f"  Qubits: {num_qubits}, Quantum nodes: {num_qnodes}, "
               f"Total nodes: {num_nodes}, Edges: {num_edges}")
-        print(f"{'='*70}")
         
         # Skip if too large for node-level
         if use_node_level and num_qnodes > max_nodes_for_node_level:
             print(f"  ⊘ Skipping: too many quantum nodes ({num_qnodes} > {max_nodes_for_node_level})")
             continue
         
-        for overhead in overhead_values:
+        # Get number of feasible experiments for this circuit
+        circuit_experiments = circuit_experiment_counts.get(circuit_name, 0)
+        circuit_exp_completed = 0
+        
+        for overhead_idx, overhead in enumerate(overhead_values, 1):
             # Compute capacity based on overhead
             cap = compute_capacity_from_overhead(num_qubits, overhead)
             
@@ -423,7 +480,9 @@ def run_comparison_experiment(
                       f"infeasible ({num_qubits} > {k}*{cap})")
                 continue
             
-            print(f"\n  Testing overhead={overhead:.2f} (cap={cap} qubits/QPU):")
+            # Overhead-level progress for this circuit
+            print(f"\n  [{circuit_exp_completed+1}/{circuit_experiments} for this circuit] "
+                  f"Testing overhead={overhead:.2f} (cap={cap} qubits/QPU):")
             
             # Brute force optimal
             start_time = time.time()
@@ -482,6 +541,14 @@ def run_comparison_experiment(
             
             print(f"    → Ratio (heuristic/optimal): {ratio:.3f}")
             
+            # Update progress counters
+            completed_experiments += 1
+            circuit_exp_completed += 1
+            
+            # Show overall progress after each experiment
+            overall_pct = (completed_experiments / total_experiments) * 100
+            print(f"    📊 Overall progress: {completed_experiments}/{total_experiments} ({overall_pct:.1f}%)")
+            
             results.append({
                 'circuit': circuit_name,
                 'num_qubits': num_qubits,
@@ -500,6 +567,18 @@ def run_comparison_experiment(
                 'optimal_qubit_counts': str(partition_qubit_counts),
                 'heuristic_qubit_counts': str(heuristic_qubit_counts) if heuristic_qubit_counts else None,
             })
+    
+    # Final summary
+    total_elapsed = time.time() - overall_start_time
+    print(f"\n{'='*70}")
+    print(f"🎉 ALL EXPERIMENTS COMPLETE!")
+    print(f"{'='*70}")
+    print(f"Total experiments completed: {completed_experiments}/{total_experiments}")
+    print(f"Completion rate: {(completed_experiments/total_experiments*100):.1f}%")
+    print(f"Total time elapsed: {int(total_elapsed//60)}m {int(total_elapsed%60)}s")
+    if completed_experiments > 0:
+        print(f"Average time per experiment: {total_elapsed/completed_experiments:.1f}s")
+    print(f"{'='*70}\n")
     
     df = pd.DataFrame(results)
     
