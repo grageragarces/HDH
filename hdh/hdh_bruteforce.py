@@ -32,8 +32,8 @@ sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
 plt.rcParams['font.size'] = 11
 
-OUTPUT_DIR = Path('brute_force_comparison_v2')
-OUTPUT_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR = Path('experiment_outputs_mqtbench/brute_force_comparison')
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 print("✓ Imports successful")
 print(f"✓ Output directory: {OUTPUT_DIR.absolute()}")
@@ -134,7 +134,7 @@ def brute_force_node_level(
     hdh: HDH, 
     k: int, 
     cap: int,
-    max_nodes: int = 15
+    max_nodes: int = 100
 ) -> Tuple[Dict[str, int], int]:
     """
     Brute force search at NODE level (allows temporal qubit splitting).
@@ -259,24 +259,80 @@ def brute_force_qubit_level(
     Returns:
         (optimal_partition, min_cut_cost)
     """
-    from brute_force_cut_comparison import (
-        brute_force_optimal_cut,
-        convert_qubit_partition_to_node_partition
-    )
+    # Extract qubits and create mapping
+    qubits = sorted(extract_qubits_from_hdh(hdh))
+    node_to_qubit = get_node_qubit_mapping(hdh)
+    n_qubits = len(qubits)
     
-    # Run qubit-level brute force
-    qubit_partition, min_cut = brute_force_optimal_cut(hdh, k, cap)
+    if n_qubits == 0:
+        return {}, 0
     
-    # Convert to node partition
-    node_partitions = convert_qubit_partition_to_node_partition(hdh, qubit_partition, k)
+    print(f"  Brute forcing {n_qubits} qubits into {k} partitions (cap={cap} qubits)...")
+    print(f"  Search space: {k**n_qubits:,} total partitions")
     
-    # Convert to dict format
-    node_partition = {}
-    for pid, nodes in enumerate(node_partitions):
-        for node in nodes:
-            node_partition[node] = pid
+    min_cut_cost = float('inf')
+    optimal_partition = None
+    evaluated = 0
+    valid_partitions = 0
     
-    return node_partition, min_cut
+    # Generate all possible qubit->partition assignments
+    total_partitions = k ** n_qubits
+    sample_rate = max(1, total_partitions // 10000)
+    
+    print(f"  Starting brute force search...")
+    with tqdm(total=total_partitions, desc="  🔍 Evaluating partitions", 
+              unit="partitions", unit_scale=True, leave=False,
+              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
+        for assignment in product(range(k), repeat=n_qubits):
+            evaluated += 1
+            
+            # Create qubit->partition mapping
+            qubit_to_partition = {qubits[i]: assignment[i] for i in range(n_qubits)}
+            
+            # Check capacity constraint: count qubits per partition
+            qubits_per_partition = [0] * k
+            for pid in assignment:
+                qubits_per_partition[pid] += 1
+            
+            if max(qubits_per_partition) > cap:
+                if evaluated % sample_rate == 0:
+                    pbar.update(sample_rate)
+                continue
+            
+            valid_partitions += 1
+            
+            # Convert qubit partition to node partition
+            node_partition = {}
+            for node in hdh.S:
+                if hdh.sigma[node] == 'q':
+                    # Assign quantum node based on its qubit
+                    if node in node_to_qubit:
+                        qubit_idx = node_to_qubit[node]
+                        if qubit_idx in qubit_to_partition:
+                            node_partition[node] = qubit_to_partition[qubit_idx]
+                else:
+                    # Classical nodes go to partition 0
+                    node_partition[node] = 0
+            
+            # Count cuts
+            cut_cost = count_cut_hyperedges(hdh, node_partition)
+            
+            if cut_cost < min_cut_cost:
+                min_cut_cost = cut_cost
+                optimal_partition = node_partition.copy()
+            
+            if evaluated % sample_rate == 0:
+                pbar.update(sample_rate)
+        
+        # Update for any remaining
+        pbar.update(total_partitions - pbar.n)
+    
+    print(f"  ✓ Search complete!")
+    print(f"    Total partitions: {evaluated:,}")
+    print(f"    Valid partitions: {valid_partitions:,} ({valid_partitions/evaluated*100:.1f}%)")
+    print(f"    Best cut cost found: {min_cut_cost}")
+    
+    return optimal_partition, min_cut_cost
 
 
 def convert_node_partition_to_sets(
@@ -294,8 +350,8 @@ def convert_node_partition_to_sets(
 
 def load_small_mqtbench_hdhs(
     pkl_dir: str,
-    max_qubits: int = 5,
-    max_nodes: int = 15
+    max_qubits: int = 10,
+    max_nodes: int = 100
 ) -> Dict[str, HDH]:
     """
     Load MQT Bench HDH files with size constraints.
@@ -361,18 +417,30 @@ def load_small_mqtbench_hdhs(
 
 # Analysis  =============================================================================
 
-def compute_capacity_from_overhead(num_qubits: int, overhead: float) -> int:
+def compute_capacity_from_overhead(num_qubits: int, overhead: float, k: int) -> int:
     """
-    Compute capacity per QPU given overhead parameter.
+    Compute capacity per QPU given overhead parameter for the ENTIRE NETWORK.
+    
+    The overhead applies to total network capacity, then divided among k QPUs.
+    This ensures that qubits MUST be distributed across multiple QPUs.
     
     Args:
         num_qubits: Total qubits in the circuit
         overhead: Overhead multiplier (1.0 = tight, 1.1 = 10% slack, etc.)
+        k: Number of QPUs
     
     Returns:
-        Capacity (qubits per QPU)
+        Capacity (qubits per QPU) - always an integer
+    
+    Example:
+        num_qubits=10, overhead=1.0, k=3:
+        - Total network capacity = 10 qubits
+        - Per QPU capacity = ceil(10/3) = 4 qubits
+        - This forces distribution since no single QPU can hold all 10 qubits
     """
-    return int(np.ceil(num_qubits * overhead))
+    total_network_capacity = int(np.ceil(num_qubits * overhead))
+    capacity_per_qpu = int(np.ceil(total_network_capacity / k))
+    return capacity_per_qpu
 
 
 def run_comparison_experiment(
@@ -415,7 +483,7 @@ def run_comparison_experiment(
         # Count feasible experiments for this circuit
         count = 0
         for overhead in overhead_values:
-            cap = compute_capacity_from_overhead(num_qubits, overhead)
+            cap = compute_capacity_from_overhead(num_qubits, overhead, k)
             if num_qubits <= k * cap:
                 count += 1
         
@@ -471,8 +539,8 @@ def run_comparison_experiment(
         circuit_exp_completed = 0
         
         for overhead_idx, overhead in enumerate(overhead_values, 1):
-            # Compute capacity based on overhead
-            cap = compute_capacity_from_overhead(num_qubits, overhead)
+            # Compute capacity based on overhead (network-wide, then divided by k)
+            cap = compute_capacity_from_overhead(num_qubits, overhead, k)
             
             # Check feasibility
             if num_qubits > k * cap:
@@ -481,8 +549,10 @@ def run_comparison_experiment(
                 continue
             
             # Overhead-level progress for this circuit
+            total_network_cap = k * cap
             print(f"\n  [{circuit_exp_completed+1}/{circuit_experiments} for this circuit] "
-                  f"Testing overhead={overhead:.2f} (cap={cap} qubits/QPU):")
+                  f"Testing overhead={overhead:.2f} (cap={cap} qubits/QPU, "
+                  f"total network={total_network_cap} qubits):")
             
             # Brute force optimal
             start_time = time.time()
@@ -515,7 +585,15 @@ def run_comparison_experiment(
             start_time = time.time()
             try:
                 heuristic_partitions, heuristic_edges = compute_cut(hdh, k=k, cap=cap)
-                heuristic_cost = cost(hdh, heuristic_partitions)
+                heuristic_cost_raw = cost(hdh, heuristic_partitions)
+                
+                # Extract numeric cost - handle tuple/scalar cases
+                if isinstance(heuristic_cost_raw, (tuple, list)):
+                    # If it's a tuple, sum the components (quantum + classical cuts)
+                    heuristic_cost = sum(heuristic_cost_raw)
+                else:
+                    heuristic_cost = float(heuristic_cost_raw)
+                
                 heuristic_time = time.time() - start_time
                 
                 # Get heuristic partition statistics
@@ -524,7 +602,7 @@ def run_comparison_experiment(
                     for pset in heuristic_partitions
                 ]
                 
-                print(f"    ✓ Heuristic: {heuristic_cost} cuts ({heuristic_time:.2f}s)")
+                print(f"    ✓ Heuristic: {heuristic_cost_raw} cuts ({heuristic_time:.2f}s)")
                 print(f"    Heuristic partition qubit counts: {heuristic_qubit_counts}")
                 
             except Exception as e:
@@ -534,12 +612,15 @@ def run_comparison_experiment(
                 heuristic_qubit_counts = None
             
             # Calculate ratio
-            if optimal_cost > 0:
+            if heuristic_cost is None:
+                ratio = float('nan')
+            elif optimal_cost > 0:
                 ratio = heuristic_cost / optimal_cost
             else:
                 ratio = 1.0 if heuristic_cost == 0 else float('inf')
             
-            print(f"    → Ratio (heuristic/optimal): {ratio:.3f}")
+            print(f"    → Ratio (heuristic/optimal): {ratio}")
+
             
             # Update progress counters
             completed_experiments += 1
@@ -589,133 +670,6 @@ def run_comparison_experiment(
     
     return df
 
-# Plotting =============================================================================
-
-def plot_comparison_results(df: pd.DataFrame, method: str = "NODE-LEVEL"):
-    """Plot comparison results with overhead analysis."""
-    if df is None or df.empty:
-        print("⚠ No data to plot")
-        return
-    
-    fig = plt.figure(figsize=(16, 10))
-    gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
-    
-    # Plot 1: Ratio vs Overhead
-    ax1 = fig.add_subplot(gs[0, :2])
-    
-    for circuit in df['circuit'].unique():
-        df_circuit = df[df['circuit'] == circuit]
-        ax1.plot(df_circuit['overhead'], df_circuit['ratio'], 'o-', 
-                label=circuit, linewidth=2, markersize=8, alpha=0.7)
-    
-    ax1.axhline(y=1.0, color='red', linestyle='--', linewidth=2, label='Optimal (ratio=1.0)')
-    ax1.set_xlabel('Network Overhead', fontsize=12, fontweight='bold')
-    ax1.set_ylabel('Heuristic/Optimal Cost Ratio', fontsize=12, fontweight='bold')
-    ax1.set_title(f'(a) Cut Cost Ratio vs Network Overhead ({method})', 
-                  fontsize=13, fontweight='bold')
-    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
-    ax1.grid(True, alpha=0.3)
-    
-    # Plot 2: Summary statistics
-    ax2 = fig.add_subplot(gs[0, 2])
-    summary_stats = (
-        f"Summary Statistics\n"
-        f"{'='*30}\n\n"
-        f"Method: {method}\n"
-        f"Circuits tested: {len(df['circuit'].unique())}\n"
-        f"QPUs (k): {df['k'].iloc[0]}\n"
-        f"Total experiments: {len(df)}\n\n"
-        f"Ratio Statistics:\n"
-        f"  Mean: {df['ratio'].mean():.3f}\n"
-        f"  Median: {df['ratio'].median():.3f}\n"
-        f"  Min: {df['ratio'].min():.3f}\n"
-        f"  Max: {df['ratio'].max():.3f}\n\n"
-        f"Optimal matches: {(df['ratio'] == 1.0).sum()}\n"
-        f"({(df['ratio'] == 1.0).sum() / len(df) * 100:.1f}%)"
-    )
-    ax2.text(0.5, 0.5, summary_stats, ha='center', va='center', fontsize=10,
-             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5),
-             family='monospace')
-    ax2.axis('off')
-    
-    # Plot 3: Absolute costs
-    ax3 = fig.add_subplot(gs[1, :])
-    
-    x = np.arange(len(df))
-    width = 0.35
-    
-    ax3.bar(x - width/2, df['optimal_cost'], width, label='Optimal (Brute Force)',
-            color='#2E86AB', alpha=0.8)
-    ax3.bar(x + width/2, df['heuristic_cost'], width, label='Heuristic',
-            color='#D4A574', alpha=0.8)
-    
-    # Add overhead labels on x-axis
-    labels = [f"{row['circuit'][:10]}\noh={row['overhead']:.1f}" 
-              for _, row in df.iterrows()]
-    ax3.set_xticks(x)
-    ax3.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
-    
-    ax3.set_ylabel('Number of Cut Hyperedges', fontsize=12, fontweight='bold')
-    ax3.set_title('(b) Absolute Cut Costs: Optimal vs Heuristic', fontsize=13, fontweight='bold')
-    ax3.legend()
-    ax3.grid(True, alpha=0.3, axis='y')
-    
-    # Plot 4: Ratio distribution by overhead
-    ax4 = fig.add_subplot(gs[2, 0])
-    
-    overhead_vals = sorted(df['overhead'].unique())
-    data_by_overhead = [df[df['overhead'] == oh]['ratio'].values for oh in overhead_vals]
-    bp = ax4.boxplot(data_by_overhead, labels=[f"{oh:.2f}" for oh in overhead_vals],
-                     patch_artist=True)
-    for patch in bp['boxes']:
-        patch.set_facecolor('#06A77D')
-        patch.set_alpha(0.7)
-    
-    ax4.axhline(y=1.0, color='red', linestyle='--', linewidth=1.5, alpha=0.5)
-    ax4.set_xlabel('Network Overhead', fontsize=12, fontweight='bold')
-    ax4.set_ylabel('Heuristic/Optimal Ratio', fontsize=12, fontweight='bold')
-    ax4.set_title('(c) Ratio Distribution by Overhead', fontsize=13, fontweight='bold')
-    ax4.grid(True, alpha=0.3, axis='y')
-    
-    # Plot 5: Capacity utilization
-    ax5 = fig.add_subplot(gs[2, 1])
-    
-    ax5.scatter(df['capacity'], df['ratio'], c=df['overhead'], 
-               cmap='viridis', alpha=0.6, s=100, edgecolors='black')
-    ax5.axhline(y=1.0, color='red', linestyle='--', linewidth=1.5, alpha=0.5)
-    ax5.set_xlabel('Capacity (qubits/QPU)', fontsize=12, fontweight='bold')
-    ax5.set_ylabel('Heuristic/Optimal Ratio', fontsize=12, fontweight='bold')
-    ax5.set_title('(d) Ratio vs Capacity', fontsize=13, fontweight='bold')
-    plt.colorbar(ax5.collections[0], ax=ax5, label='Overhead')
-    ax5.grid(True, alpha=0.3)
-    
-    # Plot 6: Computation time
-    ax6 = fig.add_subplot(gs[2, 2])
-    
-    ax6.scatter(df['brute_force_time'], df['heuristic_time'], alpha=0.6, s=100,
-               c=df['num_quantum_nodes'], cmap='plasma', edgecolors='black')
-    
-    max_time = max(df['brute_force_time'].max(), df['heuristic_time'].max())
-    ax6.plot([0, max_time], [0, max_time], 'k--', alpha=0.3, label='Equal time')
-    
-    ax6.set_xlabel('Brute Force Time (s)', fontsize=12, fontweight='bold')
-    ax6.set_ylabel('Heuristic Time (s)', fontsize=12, fontweight='bold')
-    ax6.set_title('(e) Computation Time', fontsize=13, fontweight='bold')
-    ax6.set_xscale('log')
-    ax6.set_yscale('log')
-    ax6.legend()
-    ax6.grid(True, alpha=0.3, which='both')
-    plt.colorbar(ax6.collections[0], ax=ax6, label='Q-nodes')
-    
-    plt.suptitle(f'Brute-Force Optimal vs Heuristic - {method} (k=3 QPUs)',
-                fontsize=16, fontweight='bold', y=0.995)
-    
-    plot_path = OUTPUT_DIR / f'comparison_{method.lower()}.png'
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    print(f"✓ Plot saved to: {plot_path}")
-
 # Main =============================================================================
 
 def main():
@@ -733,8 +687,8 @@ def main():
     parser.add_argument(
         '--max_qubits',
         type=int,
-        default=5,
-        help='Maximum qubits for circuits to test (default: 5)'
+        default=10,
+        help='Maximum qubits for circuits to test (default: 10)'
     )
     parser.add_argument(
         '--max_nodes',
@@ -820,32 +774,6 @@ def main():
         use_node_level=use_node_level,
         max_nodes_for_node_level=args.max_nodes
     )
-    
-    # Plot results
-    plot_comparison_results(df, method)
-    
-    total_elapsed = time.time() - total_start
-    
-    print("\n" + "="*70)
-    print("EXPERIMENT COMPLETE!")
-    print("="*70)
-    print(f"Total runtime: {total_elapsed:.1f}s ({total_elapsed/60:.1f} minutes)")
-    print(f"All results saved to: {OUTPUT_DIR.absolute()}")
-    print("="*70)
-    
-    # Print summary
-    print(f"\nSummary:")
-    print(f"  Method: {method}")
-    print(f"  Circuits tested: {len(df['circuit'].unique())}")
-    print(f"  Total experiments: {len(df)}")
-    print(f"  Average ratio: {df['ratio'].mean():.3f}")
-    print(f"  Optimal matches: {(df['ratio'] == 1.0).sum()} / {len(df)} "
-          f"({(df['ratio'] == 1.0).sum() / len(df) * 100:.1f}%)")
-    print(f"\nBy overhead:")
-    for oh in sorted(df['overhead'].unique()):
-        df_oh = df[df['overhead'] == oh]
-        print(f"  Overhead {oh:.2f}: mean ratio = {df_oh['ratio'].mean():.3f}, "
-              f"optimal rate = {(df_oh['ratio'] == 1.0).sum() / len(df_oh) * 100:.1f}%")
 
 
 if __name__ == '__main__':
