@@ -24,7 +24,7 @@ import warnings
 
 sys.path.insert(0, str(Path.cwd()))
 
-from hdh import HDH
+from hdh import HDH, hdh
 from hdh.passes.cut import compute_cut, cost
 
 # Set plotting style
@@ -32,7 +32,7 @@ sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
 plt.rcParams['font.size'] = 11
 
-OUTPUT_DIR = Path('experiment_outputs_mqtbench/brute_force_comparison')
+OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 print("✓ Imports successful")
@@ -218,7 +218,9 @@ def brute_force_node_level(
                     node_partition[node] = 0
             
             # Count cuts
-            cut_cost = count_cut_hyperedges(hdh, node_partition)
+            partition_sets = convert_node_partition_to_sets(node_partition, k)
+            cut_cost_raw = cost(hdh, partition_sets)
+            cut_cost = sum(cut_cost_raw) if isinstance(cut_cost_raw, tuple) else cut_cost_raw
             
             if cut_cost < min_cut_cost:
                 min_cut_cost = cut_cost
@@ -664,7 +666,7 @@ def run_comparison_experiment(
     df = pd.DataFrame(results)
     
     # Save results
-    csv_path = OUTPUT_DIR / f'comparison_results_{method.lower()}.csv'
+    csv_path = OUTPUT_DIR / f'comparison_results_10_{method.lower()}.csv'
     df.to_csv(csv_path, index=False)
     print(f"\n✓ Results saved to: {csv_path}")
     
@@ -687,14 +689,14 @@ def main():
     parser.add_argument(
         '--max_qubits',
         type=int,
-        default=10,
-        help='Maximum qubits for circuits to test (default: 10)'
+        default=12,
+        help='Maximum qubits for circuits to test (default: 12)'
     )
     parser.add_argument(
         '--max_nodes',
         type=int,
-        default=12,
-        help='Maximum quantum nodes for node-level brute force (default: 12)'
+        default=1000,
+        help='Maximum quantum nodes for node-level brute force (default: 200)'
     )
     parser.add_argument(
         '--k',

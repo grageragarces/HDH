@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Diagnostic script to identify issues with brute force comparison results.
+NOW WITH OPTIMALITY RATIO (optimal/heuristic) - shows how close to optimal we are!
 """
 
 import pandas as pd
@@ -8,7 +9,7 @@ import numpy as np
 from pathlib import Path
 from collections import defaultdict
 
-CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_qubit-level.csv')
+CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level.csv')
 
 def extract_algorithm_name(circuit_name: str) -> str:
     """Extract just the algorithm name."""
@@ -39,6 +40,13 @@ def analyze_data():
     
     # Add algorithm column
     df['algorithm'] = df['circuit'].apply(extract_algorithm_name)
+    
+    # RECALCULATE RATIO AS OPTIMALITY (optimal/heuristic)
+    df['optimality'] = np.where(
+        df['heuristic_cost'] > 0,
+        df['optimal_cost'] / df['heuristic_cost'],
+        np.where(df['optimal_cost'] == 0, 1.0, np.nan)
+    )
     
     # ===========================================
     # 1. TIMING ANALYSIS
@@ -75,8 +83,8 @@ def analyze_data():
     print("2. PERFORMANCE BY ALGORITHM - Who's destroying your stats?")
     print("="*80)
     
-    # Filter finite ratios
-    df_finite = df[np.isfinite(df['ratio'])].copy()
+    # Filter finite optimality values
+    df_finite = df[np.isfinite(df['optimality'])].copy()
     
     # Group by algorithm and calculate stats
     algo_stats = []
@@ -86,41 +94,45 @@ def analyze_data():
         algo_stats.append({
             'algorithm': algo,
             'count': len(df_algo),
-            'mean_ratio': df_algo['ratio'].mean(),
-            'median_ratio': df_algo['ratio'].median(),
-            'std_ratio': df_algo['ratio'].std(),
-            'min_ratio': df_algo['ratio'].min(),
-            'max_ratio': df_algo['ratio'].max(),
+            'mean_optimality': df_algo['optimality'].mean(),
+            'median_optimality': df_algo['optimality'].median(),
+            'std_optimality': df_algo['optimality'].std(),
+            'min_optimality': df_algo['optimality'].min(),
+            'max_optimality': df_algo['optimality'].max(),
             'mean_optimal_cost': df_algo['optimal_cost'].mean(),
             'mean_heuristic_cost': df_algo['heuristic_cost'].mean(),
         })
     
-    algo_df = pd.DataFrame(algo_stats).sort_values('mean_ratio', ascending=False)
+    algo_df = pd.DataFrame(algo_stats).sort_values('mean_optimality', ascending=True)  # Ascending = worst first
     
-    print(f"\n{'Algorithm':<20} {'Count':<7} {'Mean±Std Ratio':<20} {'Min-Max':<15} {'Avg Costs (O/H)':<20}")
-    print("-" * 90)
+    print(f"\n{'Algorithm':<20} {'Count':<7} {'Mean±Std Optimality':<22} {'Min-Max':<15} {'Avg Costs (O/H)':<20}")
+    print("-" * 95)
     
     for _, row in algo_df.iterrows():
-        ratio_str = f"{row['mean_ratio']:.3f}±{row['std_ratio']:.3f}"
-        range_str = f"{row['min_ratio']:.2f}-{row['max_ratio']:.2f}"
+        opt_pct = row['mean_optimality'] * 100
+        std_pct = row['std_optimality'] * 100
+        opt_str = f"{opt_pct:.1f}%±{std_pct:.1f}%"
+        range_str = f"{row['min_optimality']*100:.1f}%-{row['max_optimality']*100:.1f}%"
         costs_str = f"{row['mean_optimal_cost']:.1f}/{row['mean_heuristic_cost']:.1f}"
-        print(f"{row['algorithm']:<20} {row['count']:<7} {ratio_str:<20} {range_str:<15} {costs_str:<20}")
+        print(f"{row['algorithm']:<20} {row['count']:<7} {opt_str:<22} {range_str:<15} {costs_str:<20}")
     
     # Highlight worst performers
-    print(f"\n🚨 WORST PERFORMERS (mean ratio > 2.0):")
-    worst = algo_df[algo_df['mean_ratio'] > 2.0]
+    print(f"\n🚨 WORST PERFORMERS (optimality < 50%):")
+    worst = algo_df[algo_df['mean_optimality'] < 0.5]
     if len(worst) > 0:
         for _, row in worst.iterrows():
-            print(f"   • {row['algorithm']}: {row['mean_ratio']:.3f} (n={row['count']})")
+            opt_pct = row['mean_optimality'] * 100
+            print(f"   • {row['algorithm']}: {opt_pct:.1f}% optimal (n={row['count']})")
             
             # Show detailed breakdown
             df_worst = df_finite[df_finite['algorithm'] == row['algorithm']]
             print(f"     Overhead breakdown:")
             for oh in sorted(df_worst['overhead'].unique()):
                 df_oh = df_worst[df_worst['overhead'] == oh]
-                print(f"       OH={oh:.2f}: ratio={df_oh['ratio'].mean():.3f} (n={len(df_oh)})")
+                oh_pct = df_oh['optimality'].mean() * 100
+                print(f"       OH={oh:.2f}: {oh_pct:.1f}% optimal (n={len(df_oh)})")
     else:
-        print("   (none)")
+        print("   (none - all algorithms achieve >50% optimality)")
     
     # ===========================================
     # 3. OVERHEAD ANALYSIS
@@ -131,11 +143,17 @@ def analyze_data():
     
     for oh in sorted(df_finite['overhead'].unique()):
         df_oh = df_finite[df_finite['overhead'] == oh]
+        mean_pct = df_oh['optimality'].mean() * 100
+        std_pct = df_oh['optimality'].std() * 100
+        median_pct = df_oh['optimality'].median() * 100
+        min_pct = df_oh['optimality'].min() * 100
+        max_pct = df_oh['optimality'].max() * 100
+        
         print(f"\nOverhead {oh:.2f} (cap={int(df_oh['capacity'].iloc[0])} qubits/QPU):")
-        print(f"  Mean ratio: {df_oh['ratio'].mean():.4f} ± {df_oh['ratio'].std():.4f}")
-        print(f"  Median ratio: {df_oh['ratio'].median():.4f}")
-        print(f"  Range: [{df_oh['ratio'].min():.4f}, {df_oh['ratio'].max():.4f}]")
-        print(f"  Optimal=1.0: {(df_oh['ratio'] == 1.0).sum()}/{len(df_oh)} ({(df_oh['ratio'] == 1.0).sum()/len(df_oh)*100:.1f}%)")
+        print(f"  Mean optimality: {mean_pct:.1f}% ± {std_pct:.1f}%")
+        print(f"  Median optimality: {median_pct:.1f}%")
+        print(f"  Range: [{min_pct:.1f}%, {max_pct:.1f}%]")
+        print(f"  Perfect matches (100%): {(df_oh['optimality'] == 1.0).sum()}/{len(df_oh)} ({(df_oh['optimality'] == 1.0).sum()/len(df_oh)*100:.1f}%)")
     
     # ===========================================
     # 4. COST DISTRIBUTION ANALYSIS
@@ -154,7 +172,7 @@ def analyze_data():
     
     if zero_optimal > 0:
         print(f"\n  💡 When optimal=0, the entire circuit fits on one QPU (no cuts needed).")
-        print(f"     These are excluded from ratio statistics (would be inf or nan).")
+        print(f"     These cases have 100% optimality if heuristic also = 0.")
     
     print(f"\nCost distribution (all experiments):")
     print(f"  Optimal costs:   mean={df['optimal_cost'].mean():.2f}, median={df['optimal_cost'].median():.2f}")
@@ -176,16 +194,17 @@ def analyze_data():
     print("5. WHY ARE BOXES TIGHT? - Variance analysis")
     print("="*80)
     
-    print(f"\nOverall ratio variance:")
-    print(f"  Standard deviation: {df_finite['ratio'].std():.4f}")
-    print(f"  IQR (Q3-Q1):       {df_finite['ratio'].quantile(0.75) - df_finite['ratio'].quantile(0.25):.4f}")
-    print(f"  Range (max-min):   {df_finite['ratio'].max() - df_finite['ratio'].min():.4f}")
+    print(f"\nOverall optimality variance:")
+    print(f"  Standard deviation: {df_finite['optimality'].std():.4f} ({df_finite['optimality'].std()*100:.1f} percentage points)")
+    print(f"  IQR (Q3-Q1):       {df_finite['optimality'].quantile(0.75) - df_finite['optimality'].quantile(0.25):.4f}")
+    print(f"  Range (max-min):   {df_finite['optimality'].max() - df_finite['optimality'].min():.4f}")
     
     print(f"\nVariance by overhead:")
     for oh in sorted(df_finite['overhead'].unique()):
         df_oh = df_finite[df_finite['overhead'] == oh]
-        iqr = df_oh['ratio'].quantile(0.75) - df_oh['ratio'].quantile(0.25)
-        print(f"  OH={oh:.2f}: std={df_oh['ratio'].std():.4f}, IQR={iqr:.4f}")
+        iqr = df_oh['optimality'].quantile(0.75) - df_oh['optimality'].quantile(0.25)
+        std_pct = df_oh['optimality'].std() * 100
+        print(f"  OH={oh:.2f}: std={std_pct:.1f} pct points, IQR={iqr:.4f}")
     
     print(f"\n💡 Low IQR means data is clustered tightly (narrow boxes).")
     print(f"   This suggests most algorithms have similar performance at each overhead level.")
@@ -200,7 +219,8 @@ def analyze_data():
     print("\n📊 FINDINGS:")
     print("  1. Circuits are VERY small (max 5 qubits)")
     print("  2. Brute force checks <250 partitions (faster than heuristic overhead)")
-    print("  3. Some algorithms perform consistently poorly (ratio ~2-3x)")
+    overall_pct = df_finite['optimality'].mean() * 100
+    print(f"  3. Overall heuristic achieves {overall_pct:.1f}% optimality")
     
     print("\n🔧 SUGGESTED ACTIONS:")
     print("  1. Investigate worst-performing algorithms individually")
@@ -212,7 +232,7 @@ def analyze_data():
     print("\n" + "="*80 + "\n")
     
     # Save detailed per-algorithm stats
-    output_file = Path('experiment_outputs_mqtbench/brute_force_comparison/algorithm_performance.csv')
+    output_file = Path('experiment_outputs_mqtbench/algorithm_performance.csv')
     output_file.parent.mkdir(parents=True, exist_ok=True)
     algo_df.to_csv(output_file, index=False)
     print(f"✓ Detailed algorithm stats saved to: {output_file}\n")

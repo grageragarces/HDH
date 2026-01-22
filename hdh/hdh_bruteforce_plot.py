@@ -2,8 +2,11 @@
 """
 Plot Brute Force vs Heuristic Results for k=3 QPUs
 
-Reads from experiment_outputs_mqtbench/comparison_results_qubit-level.csv
-and creates a focused plot showing MEAN heuristic/optimal ratio vs network overhead.
+NOW SHOWING OPTIMALITY (optimal/heuristic) - how close to optimal are we?
+100% = perfect, 50% = heuristic uses 2x more cuts, etc.
+
+Reads from experiment_outputs_mqtbench/comparison_results_10_qubit-level.csv
+and creates a focused plot showing optimality percentage vs network overhead.
 Excludes any algorithms with "random" in the name.
 """
 
@@ -15,10 +18,10 @@ from pathlib import Path
 from collections import defaultdict
 
 # Configuration
-CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_qubit-level.csv')
-OUTPUT_DIR = Path('experiment_outputs_mqtbench/brute_force_comparison')
+CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level.csv')
+OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-PLOT_FILE = OUTPUT_DIR / 'ratio_vs_overhead_k3_mean.png'
+PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.png'
 
 # Plotting style
 sns.set_style("whitegrid")
@@ -66,6 +69,13 @@ def load_and_filter_data(csv_path: Path, k_filter: int = 3) -> pd.DataFrame:
     if df_filtered.empty:
         raise ValueError(f"No data remaining after filtering out 'random' algorithms!")
     
+    # RECALCULATE AS OPTIMALITY (optimal/heuristic)
+    df_filtered['optimality'] = np.where(
+        df_filtered['heuristic_cost'] > 0,
+        df_filtered['optimal_cost'] / df_filtered['heuristic_cost'],
+        np.where(df_filtered['optimal_cost'] == 0, 1.0, np.nan)
+    )
+    
     return df_filtered
 
 
@@ -100,43 +110,49 @@ def print_summary_statistics(df: pd.DataFrame, k: int):
         qubit_sizes = ', '.join(sorted(algo_dict[algo_name], key=lambda x: int(x) if x.isdigit() else 0))
         print(f"  {algo_name:<25} {qubit_sizes:<30}")
     
-    # Filter finite ratios for statistics
-    df_finite = df[np.isfinite(df['ratio'])].copy()
-    n_infinite = (df['ratio'] == float('inf')).sum()
-    n_nan = df['ratio'].isna().sum()
+    # Filter finite optimality values for statistics
+    df_finite = df[np.isfinite(df['optimality'])].copy()
+    n_infinite = (df['optimality'] == float('inf')).sum()
+    n_nan = df['optimality'].isna().sum()
     
-    print(f"\nRatio Distribution:")
-    print(f"  Finite ratios: {len(df_finite)}")
-    print(f"  Infinite ratios: {n_infinite}")
-    print(f"  NaN ratios: {n_nan}")
+    print(f"\nOptimality Distribution:")
+    print(f"  Finite values: {len(df_finite)}")
+    print(f"  Infinite values: {n_infinite}")
+    print(f"  NaN values: {n_nan}")
     
     if not df_finite.empty:
-        print(f"\nRatio Statistics (finite values only):")
-        print(f"  Mean:   {df_finite['ratio'].mean():.4f}")
-        print(f"  Median: {df_finite['ratio'].median():.4f}")
-        print(f"  Std:    {df_finite['ratio'].std():.4f}")
-        print(f"  Min:    {df_finite['ratio'].min():.4f}")
-        print(f"  Max:    {df_finite['ratio'].max():.4f}")
+        mean_pct = df_finite['optimality'].mean() * 100
+        median_pct = df_finite['optimality'].median() * 100
+        std_pct = df_finite['optimality'].std() * 100
+        min_pct = df_finite['optimality'].min() * 100
+        max_pct = df_finite['optimality'].max() * 100
         
-        # Count optimal matches
-        n_optimal = (df_finite['ratio'] == 1.0).sum()
-        print(f"\n  Optimal matches (ratio=1.0): {n_optimal}/{len(df_finite)} "
-              f"({n_optimal/len(df_finite)*100:.1f}%)")
+        print(f"\nOptimality Statistics (finite values only):")
+        print(f"  Mean:   {mean_pct:.1f}%")
+        print(f"  Median: {median_pct:.1f}%")
+        print(f"  Std:    {std_pct:.1f} percentage points")
+        print(f"  Min:    {min_pct:.1f}%")
+        print(f"  Max:    {max_pct:.1f}%")
+        
+        # Count perfect matches
+        n_perfect = (df_finite['optimality'] == 1.0).sum()
+        print(f"\n  Perfect matches (100% optimal): {n_perfect}/{len(df_finite)} "
+              f"({n_perfect/len(df_finite)*100:.1f}%)")
         
         # Statistics by overhead
         print(f"\nBreakdown by Overhead:")
-        print(f"  {'Overhead':<12} {'Count':<8} {'Mean Ratio':<12} {'Std Ratio':<12} {'Optimal %':<12}")
-        print(f"  {'-'*70}")
+        print(f"  {'Overhead':<12} {'Count':<8} {'Mean Optimality':<18} {'Std':<12} {'Perfect %':<12}")
+        print(f"  {'-'*75}")
         for oh in sorted(df['overhead'].unique()):
             df_oh = df_finite[df_finite['overhead'] == oh]
             if len(df_oh) > 0:
-                mean_ratio = df_oh['ratio'].mean()
-                std_ratio = df_oh['ratio'].std()
-                n_opt = (df_oh['ratio'] == 1.0).sum()
-                opt_pct = n_opt / len(df_oh) * 100
-                print(f"  {oh:<12.2f} {len(df_oh):<8} {mean_ratio:<12.4f} {std_ratio:<12.4f} {opt_pct:<12.1f}%")
+                mean_opt = df_oh['optimality'].mean() * 100
+                std_opt = df_oh['optimality'].std() * 100
+                n_perf = (df_oh['optimality'] == 1.0).sum()
+                perf_pct = n_perf / len(df_oh) * 100
+                print(f"  {oh:<12.2f} {len(df_oh):<8} {mean_opt:<18.1f}% {std_opt:<12.1f}pp {perf_pct:<12.1f}%")
     else:
-        print("\n  ⚠ No finite ratios found!")
+        print("\n  ⚠ No finite optimality values found!")
     
     # Cost statistics
     print(f"\nCost Statistics:")
@@ -161,29 +177,29 @@ def print_summary_statistics(df: pd.DataFrame, k: int):
 
 
 def create_plot(df: pd.DataFrame, output_path: Path, k: int):
-    """Create box & whisker plot showing ratio distribution by overhead."""
+    """Create box & whisker plot showing optimality distribution by overhead."""
     print(f"\nCreating plot...")
     
-    # Filter out infinite/nan ratios for plotting
-    df_finite = df[np.isfinite(df['ratio'])].copy()
+    # Filter out infinite/nan optimality values for plotting
+    df_finite = df[np.isfinite(df['optimality'])].copy()
     
     if df_finite.empty:
-        print("⚠ Warning: No finite ratios to plot!")
+        print("⚠ Warning: No finite optimality values to plot!")
         print("  All optimal costs were likely 0 (everything fit on one QPU)")
         return
     
     # Get overhead values sorted
     overhead_values = sorted(df_finite['overhead'].unique())
     
-    # Prepare data for box plot
-    data_by_overhead = [df_finite[df_finite['overhead'] == oh]['ratio'].values 
+    # Prepare data for box plot (convert to percentage)
+    data_by_overhead = [(df_finite[df_finite['overhead'] == oh]['optimality'] * 100).values 
                         for oh in overhead_values]
     
     # Print statistics for each overhead
-    print(f"\nRatio distribution by overhead:")
+    print(f"\nOptimality distribution by overhead:")
     for oh, data in zip(overhead_values, data_by_overhead):
-        print(f"  Overhead {oh:.2f}: median={np.median(data):.4f}, "
-              f"mean={np.mean(data):.4f}, n={len(data)}")
+        print(f"  Overhead {oh:.2f}: median={np.median(data):.1f}%, "
+              f"mean={np.mean(data):.1f}%, n={len(data)}")
     
     # Create figure
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -202,7 +218,9 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     
     # Labels and title
     ax.set_xlabel('Network Overhead', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Optimality Ratio', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Optimality (%)', fontsize=14, fontweight='bold')
+    ax.set_title('Heuristic Performance vs Network Overhead\n(100% = Optimal, Higher is Better)', 
+                 fontsize=14, fontweight='bold')
 
     # Set x-axis labels
     ax.set_xticks(overhead_values)
@@ -211,15 +229,26 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     # Grid
     ax.grid(True, alpha=0.3, linestyle='--', axis='y')
     
-    # Set y-axis to start slightly below minimum
-    y_min = max(0.9, df_finite['ratio'].min() - 0.1)
-    y_max = df_finite['ratio'].max() + 0.2
+    # Add horizontal line at 100% (perfect optimality)
+    ax.axhline(y=100, color='green', linestyle='--', linewidth=2, alpha=0.7, 
+               label='100% (Perfect)', zorder=10)
+    
+    # Add horizontal line at 50% (warning threshold)
+    ax.axhline(y=50, color='orange', linestyle='--', linewidth=1.5, alpha=0.5, 
+               label='50% (Poor)', zorder=10)
+    
+    # Set y-axis range
+    y_min = max(0, (df_finite['optimality'].min() * 100) - 5)
+    y_max = min(105, (df_finite['optimality'].max() * 100) + 5)
     
     x_min = min(overhead_values) - 0.05
     x_max = max(overhead_values) + 0.05
     
     ax.set_xlim([x_min, x_max])
     ax.set_ylim([y_min, y_max])
+    
+    # Legend
+    ax.legend(loc='lower left')
     
     # Save
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
@@ -232,6 +261,7 @@ def main():
     """Main execution."""
     print("\n" + "="*70)
     print("BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)")
+    print("OPTIMALITY VIEW: How close to optimal are we?")
     print("="*70 + "\n")
     
     # Check if file exists
