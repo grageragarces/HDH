@@ -22,6 +22,7 @@ CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level.c
 OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.png'
+SIZE_PLOT_FILE = OUTPUT_DIR / 'optimality_vs_circuit_size_overhead1.png'
 
 # Plotting style
 sns.set_style("whitegrid")
@@ -219,8 +220,8 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     # Labels and title
     ax.set_xlabel('Network Overhead', fontsize=14, fontweight='bold')
     ax.set_ylabel('Optimality (%)', fontsize=14, fontweight='bold')
-    ax.set_title('Heuristic Performance vs Network Overhead\n(100% = Optimal, Higher is Better)', 
-                 fontsize=14, fontweight='bold')
+    # ax.set_title('Heuristic Performance vs Network Overhead\n(100% = Optimal, Higher is Better)', 
+    #              fontsize=14, fontweight='bold')
 
     # Set x-axis labels
     ax.set_xticks(overhead_values)
@@ -257,6 +258,109 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     plt.close()
 
 
+def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhead_value: float = 1.0):
+    """Create scatter plot showing optimality vs circuit size for a specific overhead."""
+    print(f"\nCreating circuit size plot for overhead={overhead_value}...")
+    
+    # Filter for specific overhead
+    df_overhead = df[df['overhead'] == overhead_value].copy()
+    
+    if df_overhead.empty:
+        print(f"âš  Warning: No data found for overhead={overhead_value}")
+        return
+    
+    # Extract qubit counts
+    df_overhead['qubits'] = df_overhead['circuit'].apply(
+        lambda x: extract_algorithm_info(x)['qubits']
+    )
+    
+    # Convert qubits to integer (filter out 'unknown')
+    df_overhead['qubits_int'] = pd.to_numeric(df_overhead['qubits'], errors='coerce')
+    df_overhead = df_overhead.dropna(subset=['qubits_int'])
+    
+    # Filter out infinite/nan optimality values
+    df_plot = df_overhead[np.isfinite(df_overhead['optimality'])].copy()
+    
+    if df_plot.empty:
+        print(f"âš  Warning: No finite optimality values to plot for overhead={overhead_value}")
+        return
+    
+    # Convert optimality to percentage
+    df_plot['optimality_pct'] = df_plot['optimality'] * 100
+    
+    # Print statistics
+    print(f"\nCircuit size analysis for overhead={overhead_value}:")
+    print(f"  Total circuits: {len(df_plot)}")
+    print(f"  Qubit range: {int(df_plot['qubits_int'].min())} - {int(df_plot['qubits_int'].max())}")
+    print(f"  Mean optimality: {df_plot['optimality_pct'].mean():.1f}%")
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(10, 7))
+    
+    # Scatter plot
+    scatter = ax.scatter(df_plot['qubits_int'], 
+                        df_plot['optimality_pct'],
+                        alpha=0.6, 
+                        s=100,
+                        c=df_plot['optimality_pct'],
+                        cmap='RdYlGn',
+                        vmin=0,
+                        vmax=100,
+                        edgecolors='black',
+                        linewidth=0.5)
+    
+    # Add colorbar
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Optimality (%)', fontsize=12, fontweight='bold')
+    
+    # Calculate and plot trend line
+    z = np.polyfit(df_plot['qubits_int'], df_plot['optimality_pct'], 1)
+    p = np.poly1d(z)
+    x_trend = np.linspace(df_plot['qubits_int'].min(), df_plot['qubits_int'].max(), 100)
+    ax.plot(x_trend, p(x_trend), "b--", alpha=0.8, linewidth=2, label=f'Trend: y={z[0]:.2f}x+{z[1]:.1f}')
+    
+    # Add horizontal line at 100% (perfect optimality)
+    ax.axhline(y=100, color='green', linestyle='--', linewidth=2, alpha=0.7, 
+               label='100% (Perfect)')
+    
+    # Labels and title
+    ax.set_xlabel('Circuit Size (Number of Qubits)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Optimality (%)', fontsize=14, fontweight='bold')
+    # ax.set_title(f'Heuristic Optimality vs Circuit Size\n(Overhead = {overhead_value}, k = {k} QPUs)', 
+    #              fontsize=14, fontweight='bold')
+    
+    # Grid
+    ax.grid(True, alpha=0.3, linestyle='--')
+    
+    # Set axis limits with padding
+    x_padding = (df_plot['qubits_int'].max() - df_plot['qubits_int'].min()) * 0.05
+    y_padding = 5
+    
+    ax.set_xlim([df_plot['qubits_int'].min() - x_padding, 
+                 df_plot['qubits_int'].max() + x_padding])
+    ax.set_ylim([max(0, df_plot['optimality_pct'].min() - y_padding), 
+                 min(105, df_plot['optimality_pct'].max() + y_padding)])
+    
+    # Legend
+    ax.legend(loc='best')
+    
+    # Add statistics text box
+    stats_text = f'n = {len(df_plot)} circuits\n'
+    stats_text += f'Mean: {df_plot["optimality_pct"].mean():.1f}%\n'
+    stats_text += f'Median: {df_plot["optimality_pct"].median():.1f}%\n'
+    stats_text += f'Std: {df_plot["optimality_pct"].std():.1f}pp'
+    
+    ax.text(0.02, 0.02, stats_text,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment='bottom',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    # Save
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')    
+    plt.close()
+
+
 def main():
     """Main execution."""
     print("\n" + "="*70)
@@ -266,7 +370,7 @@ def main():
     
     # Check if file exists
     if not CSV_FILE.exists():
-        print(f"❌ Error: CSV file not found at {CSV_FILE}")
+        print(f" Error: CSV file not found at {CSV_FILE}")
         print(f"   Please run the brute force experiments first.")
         return
     
@@ -274,7 +378,7 @@ def main():
     try:
         df = load_and_filter_data(CSV_FILE, k_filter=3)
     except Exception as e:
-        print(f"❌ Error loading data: {e}")
+        print(f" Error loading data: {e}")
         return
     
     # Print statistics
@@ -284,12 +388,21 @@ def main():
     try:
         create_plot(df, PLOT_FILE, k=3)
     except Exception as e:
-        print(f"❌ Error creating plot: {e}")
+        print(f" Error creating plot: {e}")
         import traceback
         traceback.print_exc()
         return
     
-    print("\n✅ Analysis complete!\n")
+    # Create circuit size plot for overhead=1
+    try:
+        create_circuit_size_plot(df, SIZE_PLOT_FILE, k=3, overhead_value=1.0)
+    except Exception as e:
+        print(f" Error creating circuit size plot: {e}")
+        import traceback
+        traceback.print_exc()
+        return
+    
+    print("\n Analysis complete!\n")
 
 
 if __name__ == '__main__':

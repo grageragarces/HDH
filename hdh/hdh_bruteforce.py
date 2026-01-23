@@ -354,6 +354,7 @@ def convert_node_partition_to_sets(
 
 def load_small_mqtbench_hdhs(
     pkl_dir: str,
+    min_qubits: int = 1,
     max_qubits: int = 12,
     max_nodes: int = 1000
 ) -> Dict[str, HDH]:
@@ -362,6 +363,7 @@ def load_small_mqtbench_hdhs(
     
     Args:
         pkl_dir: Path to directory containing pickle files
+        min_qubits: Minimum number of qubits
         max_qubits: Maximum number of qubits
         max_nodes: Maximum number of quantum nodes (for node-level brute force)
     
@@ -380,6 +382,7 @@ def load_small_mqtbench_hdhs(
     
     print(f"\n{'='*70}")
     print(f"Loading small MQT Bench circuits")
+    print(f"  Min qubits: {min_qubits}")
     print(f"  Max qubits: {max_qubits}")
     print(f"  Max quantum nodes: {max_nodes}")
     print(f"  Searching in: {pkl_path}")
@@ -402,7 +405,7 @@ def load_small_mqtbench_hdhs(
             num_qubits = len(extract_qubits_from_hdh(hdh))
             num_qnodes = sum(1 for n in hdh.S if hdh.sigma[n] == 'q')
             
-            if num_qubits <= max_qubits and num_qnodes <= max_nodes and num_qubits > 0:
+            if min_qubits <= num_qubits <= max_qubits and num_qnodes <= max_nodes and num_qubits > 0:
                 hdhs[circuit_name] = hdh
                 print(f"  ✓ {circuit_name}: {num_qubits} qubits, {num_qnodes} q-nodes, "
                       f"{len(hdh.S)} total nodes")
@@ -689,16 +692,22 @@ def main():
         help='Directory containing MQT Bench pickle files'
     )
     parser.add_argument(
-        '--max_qubits',
+        '--min_qubits',
         type=int,
         default=12,
-        help='Maximum qubits for circuits to test (default: 12)'
+        help='Minimum qubits for circuits to test (default: 12)'
+    )
+    parser.add_argument(
+        '--max_qubits',
+        type=int,
+        default=20,
+        help='Maximum qubits for circuits to test (default: 20)'
     )
     parser.add_argument(
         '--max_nodes',
         type=int,
-        default=1000,
-        help='Maximum quantum nodes for node-level brute force (default: 200)'
+        default=5000,
+        help='Maximum quantum nodes for node-level brute force (default: 5000)'
     )
     parser.add_argument(
         '--k',
@@ -745,6 +754,7 @@ def main():
     print("\n" + "="*70)
     print(f"BRUTE-FORCE COMPARISON V2 ({method})")
     print("="*70)
+    print(f"Min qubits: {args.min_qubits}")
     print(f"Max qubits: {args.max_qubits}")
     print(f"Max quantum nodes (for node-level): {args.max_nodes}")
     print(f"k (QPUs): {args.k}")
@@ -762,6 +772,7 @@ def main():
     # Load small circuits
     hdhs = load_small_mqtbench_hdhs(
         args.pkl_dir,
+        args.min_qubits,
         args.max_qubits,
         args.max_nodes if use_node_level else 1000  # No limit for qubit-level
     )
@@ -782,3 +793,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
