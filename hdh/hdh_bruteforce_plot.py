@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""
-Plot Brute Force vs Heuristic Results for k=3 QPUs
-
-NOW SHOWING OPTIMALITY (optimal/heuristic) - how close to optimal are we?
-100% = perfect, 50% = heuristic uses 2x more cuts, etc.
-
-Reads from experiment_outputs_mqtbench/comparison_results_10_qubit-level.csv
-and creates a focused plot showing optimality percentage vs network overhead.
-Excludes any algorithms with "random" in the name.
-"""
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -244,7 +234,7 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     y_max = min(110, (df_finite['optimality'].max() * 100) + 5)
     
     x_min = min(overhead_values) - 0.05
-    x_max = max(overhead_values) + 0.05
+    x_max = 1.35 #max(overhead_values) + 0.05
     
     ax.set_xlim([x_min, x_max])
     ax.set_ylim([y_min, y_max])
@@ -343,7 +333,7 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
                  min(110, df_plot['optimality_pct'].max() + y_padding)])
     
     # Legend
-    ax.legend(loc='best')
+    #ax.legend(loc='best')
     
     ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     
