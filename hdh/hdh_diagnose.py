@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 from collections import defaultdict
 
-CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level.csv')
+CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level_weighted.csv')
 
 def extract_algorithm_name(circuit_name: str) -> str:
     """Extract just the algorithm name."""

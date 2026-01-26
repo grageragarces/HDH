@@ -18,7 +18,7 @@ from pathlib import Path
 from collections import defaultdict
 
 # Configuration
-CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level.csv')
+CSV_FILE = Path('experiment_outputs_mqtbench/comparison_results_10_qubit-level_weighted.csv')
 OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.png'
@@ -240,7 +240,7 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     
     # Set y-axis range
     y_min = max(0, (df_finite['optimality'].min() * 100) - 5)
-    y_max = min(100, (df_finite['optimality'].max() * 100) + 5)
+    y_max = min(110, (df_finite['optimality'].max() * 100) + 5)
     
     x_min = min(overhead_values) - 0.05
     x_max = max(overhead_values) + 0.05
@@ -339,7 +339,7 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     ax.set_xlim([df_plot['qubits_int'].min() - x_padding, 
                  df_plot['qubits_int'].max() + x_padding])
     ax.set_ylim([max(0, df_plot['optimality_pct'].min() - y_padding), 
-                 min(100, df_plot['optimality_pct'].max() + y_padding)])
+                 min(110, df_plot['optimality_pct'].max() + y_padding)])
     
     # Legend
     ax.legend(loc='best')
