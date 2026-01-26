@@ -700,7 +700,7 @@ def main():
     parser.add_argument(
         '--max_qubits',
         type=int,
-        default=20,
+        default=18,
         help='Maximum qubits for circuits to test (default: 20)'
     )
     parser.add_argument(
