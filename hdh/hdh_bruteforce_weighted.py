@@ -36,6 +36,10 @@ sys.path.insert(0, str(Path.cwd()))
 from hdh import HDH, hdh
 from hdh.passes.cut_weighted import compute_cut, cost, weighted_cost
 
+# Note: compute_cut is BOTH the partitioning function AND cost computation function
+# compute_cut(hdh, k, cap) returns (partitions, cost)
+# When given partitions directly, use cost() instead
+
 # Set plotting style
 sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
@@ -394,12 +398,20 @@ def run_comparison_experiment(
                 traceback.print_exc()
                 continue
             
-            # HEURISTIC
+            # HEURISTIC - Using compute_cut() from cut_weighted
             start_time = time.time()
+            heuristic_cost = None
+            heuristic_time = None
+            heuristic_qubit_counts = None
+            heuristic_classical_counts = None
             
             try:
-                heuristic_partitions = h.cut(k=k, overhead=overhead)
-                heuristic_cost_raw = compute_cut(h, heuristic_partitions)
+                # compute_cut returns (partitions, cost) directly
+                # It doesn't take overhead, it takes cap (which we already calculated)
+                heuristic_partitions, heuristic_cost_value = compute_cut(h, k, cap)
+                
+                # Get detailed cost breakdown using cost() function
+                heuristic_cost_raw = cost(h, heuristic_partitions)
                 
                 if isinstance(heuristic_cost_raw, (tuple, list)):
                     heuristic_cost = weighted_cost(heuristic_cost_raw)
@@ -418,17 +430,15 @@ def run_comparison_experiment(
                     for pset in heuristic_partitions
                 ]
                 
-                print(f"    ✓ Heuristic:")
+                print(f"    ✓ Heuristic (greedy temporal partitioning):")
                 print(f"      Raw costs: {heuristic_cost_raw} (quantum, classical)")
                 print(f"      Weighted cost: {heuristic_cost}")
                 print(f"      Time: {heuristic_time:.2f}s")
                 
             except Exception as e:
                 print(f"    ✗ Heuristic failed: {e}")
-                heuristic_cost = None
-                heuristic_time = None
-                heuristic_qubit_counts = None
-                heuristic_classical_counts = None
+                import traceback
+                traceback.print_exc()
             
             # Calculate ratio
             if heuristic_cost is None:
@@ -489,7 +499,7 @@ def run_comparison_experiment(
     
     df = pd.DataFrame(results)
     
-    csv_path = OUTPUT_DIR / f'comparison_results_timed_weighted_new.csv'
+    csv_path = OUTPUT_DIR / f'comparison_results_timed_weighted.csv'
     df.to_csv(csv_path, index=False)
     print(f"\n✓ Results saved to: {csv_path}")
     
