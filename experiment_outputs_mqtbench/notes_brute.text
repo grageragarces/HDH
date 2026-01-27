@@ -1,45 +1,58 @@
+(.venv) mariagragera@MacBook-Pro-516 ~/D/HDH (temp_branch)> python -m hdh.hdh_bruteforce_plot
+
+======================================================================
+BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)
+OPTIMALITY VIEW: How close to optimal are we?
+======================================================================
+
+Loading data from: experiment_outputs_mqtbench/comparison_results_10_qubit-level_weighted.csv
+Total rows loaded: 408
+Unique k values: [np.int64(3)]
+Rows with k=3: 408
+Filtered out 'random' algorithms: 72 rows removed
+Remaining rows: 336
+
 ======================================================================
 SUMMARY STATISTICS (k=3 QPUs)
 ======================================================================
 
 Dataset Overview:
-  Total experiments: 672
-  Unique circuits: 140
+  Total experiments: 336
+  Unique circuits: 56
   Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2), np.float64(1.3), np.float64(1.4), np.float64(1.5)]
 
 Algorithms Analyzed:
-  Total unique algorithms: 23
+  Total unique algorithms: 22
 
   Algorithm                 Qubit Sizes                   
   ------------------------------------------------------------
-  ae                        3, 4, 5, 6, 7, 8, 9, 10       
-  dj                        3, 4, 5, 6, 7, 8, 9, 10       
-  ghz                       3, 4, 5, 6, 7, 8, 9, 10       
-  graphstate                3, 4, 5, 6, 7, 8, 9, 10       
+  ae                        3, 4, 5                       
+  dj                        3, 4, 5                       
+  ghz                       3, 4, 5                       
+  graphstate                3, 4, 5                       
   groundstate               4                             
-  grover-noancilla          3, 4, 5, 6, 7                 
-  grover-v-chain            3, 4, 5, 7, 9                 
-  portfolioqaoa             3, 4, 5, 6, 7, 8, 9, 10       
-  portfoliovqe              3, 4, 5, 6, 7, 8, 9, 10       
-  pricingcall               5, 7, 9                       
-  pricingput                5, 7, 9                       
-  qaoa                      3, 4, 5, 6, 7, 8, 9, 10       
-  qft                       3, 4, 6, 7, 8, 9, 10          
-  qftentangled              3, 4, 5, 6, 7, 8, 9, 10       
-  qnn                       3, 4, 5, 6, 7, 8, 9, 10       
-  qpeexact                  3, 4, 5, 6, 7, 8, 9, 10       
-  qpeinexact                3, 4, 5, 6, 7, 8, 9, 10       
-  qwalk-noancilla           3, 4, 5, 6, 7                 
-  qwalk-v-chain             3, 5, 7, 9                    
-  routing                   6                             
-  tsp                       4, 9                          
-  vqe                       3, 4, 5, 6, 7, 8, 9, 10       
-  wstate                    3, 4, 5, 6, 7, 8, 9, 10       
+  grover-noancilla          3, 4, 5                       
+  grover-v-chain            3, 4, 5                       
+  portfolioqaoa             3, 4, 5                       
+  portfoliovqe              3, 4, 5                       
+  pricingcall               5                             
+  pricingput                5                             
+  qaoa                      3, 4, 5                       
+  qft                       3, 4                          
+  qftentangled              3, 4, 5                       
+  qnn                       3, 4, 5                       
+  qpeexact                  3, 4, 5                       
+  qpeinexact                3, 4, 5                       
+  qwalk-noancilla           3, 4, 5                       
+  qwalk-v-chain             3, 5                          
+  tsp                       4                             
+  vqe                       3, 4, 5                       
+  wstate                    3, 4, 5                       
 
 Optimality Distribution:
   Finite values: 336
   Infinite values: 0
-  NaN values: 336
+  NaN values: 0
 
 Optimality Statistics (finite values only):
   Mean:   39.1%
@@ -62,9 +75,9 @@ Breakdown by Overhead:
 
 Cost Statistics:
   Optimal costs:
-    Mean:   88.54
-    Median: 31.00
-    Min:    3.00
+    Mean:   123.84
+    Median: 60.00
+    Min:    10.00
     Max:    1860.00
 
   Heuristic costs:
@@ -74,8 +87,8 @@ Cost Statistics:
     Max:    5262.00
 
 Timing (seconds):
-  Brute force average: 1.3857s
-  Heuristic average:   0.0066s
+  Brute force average: 1.7620s
+  Heuristic average:   0.0132s
 ======================================================================
 
 
@@ -96,7 +109,120 @@ Circuit size analysis for overhead=1.0:
   Total circuits: 56
   Qubit range: 3 - 5
   Mean optimality: 63.4%
-/Users/mariagragera/Desktop/HDH/hdh/hdh_bruteforce_plot.py:346: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
-  ax.legend(loc='best')
+
+ Analysis complete!
+
+(.venv) mariagragera@MacBook-Pro-516 ~/D/HDH (temp_branch)> python -m hdh.hdh_bruteforce_plot
+
+======================================================================
+BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)
+OPTIMALITY VIEW: How close to optimal are we?
+======================================================================
+
+Loading data from: experiment_outputs_mqtbench/results.csv
+Total rows loaded: 848
+Unique k values: [np.int64(3)]
+Rows with k=3: 848
+Filtered out 'random' algorithms: 152 rows removed
+Remaining rows: 696
+
+======================================================================
+SUMMARY STATISTICS (k=3 QPUs)
+======================================================================
+
+Dataset Overview:
+  Total experiments: 696
+  Unique circuits: 146
+  Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2), np.float64(1.3), np.float64(1.4), np.float64(1.5)]
+
+Algorithms Analyzed:
+  Total unique algorithms: 23
+
+  Algorithm                 Qubit Sizes                   
+  ------------------------------------------------------------
+  ae                        3, 4, 5, 6, 7, 8, 9, 10       
+  dj                        3, 4, 5, 6, 7, 8, 9, 10       
+  ghz                       3, 4, 5, 6, 7, 8, 9, 10       
+  graphstate                3, 4, 5, 6, 7, 8, 9, 10       
+  groundstate               4                             
+  grover-noancilla          3, 4, 5, 6, 7, 8, 9, 10       
+  grover-v-chain            3, 4, 5, 7, 9                 
+  portfolioqaoa             3, 4, 5, 6, 7, 8, 9, 10       
+  portfoliovqe              3, 4, 5, 6, 7, 8, 9, 10       
+  pricingcall               5, 7, 9                       
+  pricingput                5, 7, 9                       
+  qaoa                      3, 4, 5, 6, 7, 8, 9, 10       
+  qft                       3, 4, 6, 7, 8, 9, 10          
+  qftentangled              3, 4, 5, 6, 7, 8, 9, 10       
+  qnn                       3, 4, 5, 6, 7, 8, 9, 10       
+  qpeexact                  3, 4, 5, 6, 7, 8, 9, 10       
+  qpeinexact                3, 4, 5, 6, 7, 8, 9, 10       
+  qwalk-noancilla           3, 4, 5, 6, 7, 8, 9, 10       
+  qwalk-v-chain             3, 5, 7, 9                    
+  routing                   6                             
+  tsp                       4, 9                          
+  vqe                       3, 4, 5, 6, 7, 8, 9, 10       
+  wstate                    3, 4, 5, 6, 7, 8, 9, 10       
+
+Optimality Distribution:
+  Finite values: 696
+  Infinite values: 0
+  NaN values: 0
+
+Optimality Statistics (finite values only):
+  Mean:   22.5%
+  Median: 13.5%
+  Std:    22.3 percentage points
+  Min:    2.0%
+  Max:    98.4%
+
+  Perfect matches (100% optimal): 0/696 (0.0%)
+
+Breakdown by Overhead:
+  Overhead     Count    Mean Optimality    Std          Perfect %   
+  ---------------------------------------------------------------------------
+  1.00         146      30.0              % 31.8        pp 0.0         %
+  1.10         146      19.8              % 20.9        pp 0.0         %
+  1.20         146      19.3              % 21.2        pp 0.0         %
+  1.30         146      14.8              % 14.2        pp 0.0         %
+  1.40         56       30.3              % 11.4        pp 0.0         %
+  1.50         56       30.3              % 11.4        pp 0.0         %
+
+Cost Statistics:
+  Optimal costs:
+    Mean:   239.53
+    Median: 33.50
+    Min:    3.00
+    Max:    11447.00
+
+  Heuristic costs:
+    Mean:   5327.13
+    Median: 212.00
+    Min:    21.00
+    Max:    325176.00
+
+Timing (seconds):
+  Brute force average: 9.7096s
+  Heuristic average:   50.9589s
+======================================================================
+
+
+Creating plot...
+
+Optimality distribution by overhead:
+  Overhead 1.00: median=13.0%, mean=30.0%, n=146
+  Overhead 1.10: median=9.7%, mean=19.8%, n=146
+  Overhead 1.20: median=8.3%, mean=19.3%, n=146
+  Overhead 1.30: median=6.6%, mean=14.8%, n=146
+  Overhead 1.40: median=28.8%, mean=30.3%, n=56
+  Overhead 1.50: median=28.8%, mean=30.3%, n=56
+✓ Plot saved to: experiment_outputs_mqtbench/optimality_vs_overhead_k3.png
+
+Creating circuit size plot for overhead=1.0...
+
+Circuit size analysis for overhead=1.0:
+  Total circuits: 146
+  Qubit range: 3 - 10
+  Mean optimality: 30.0%
 
  Analysis complete!
