@@ -662,7 +662,7 @@ def run_comparison_experiment(
     
     df = pd.DataFrame(results)
     
-    csv_path = OUTPUT_DIR / f'results_node_level_fixed.csv'
+    csv_path = OUTPUT_DIR / f'results_node_level_fixed_over10.csv'
     df.to_csv(csv_path, index=False)
     print(f"\n✓ Results saved to: {csv_path}")
     

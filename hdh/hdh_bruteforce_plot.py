@@ -305,10 +305,10 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     cbar.set_label('Optimality (%)', fontsize=12, fontweight='bold')
     
     # # Calculate and plot trend line
-    # z = np.polyfit(df_plot['qubits_int'], df_plot['optimality_pct'], 1)
-    # p = np.poly1d(z)
-    # x_trend = np.linspace(df_plot['qubits_int'].min(), df_plot['qubits_int'].max(), 100)
-    # ax.plot(x_trend, p(x_trend), "b--", alpha=0.8, linewidth=2, label=f'Trend: y={z[0]:.2f}x+{z[1]:.1f}')
+    z = np.polyfit(df_plot['qubits_int'], df_plot['optimality_pct'], 1)
+    p = np.poly1d(z)
+    x_trend = np.linspace(df_plot['qubits_int'].min(), df_plot['qubits_int'].max(), 100)
+    ax.plot(x_trend, p(x_trend), "b--", alpha=0.8, linewidth=2, label=f'Trend: y={z[0]:.2f}x+{z[1]:.1f}')
     
     # Add horizontal line at 100% (perfect optimality)
     # ax.axhline(y=100, color='green', linestyle='--', linewidth=2, alpha=0.7, 

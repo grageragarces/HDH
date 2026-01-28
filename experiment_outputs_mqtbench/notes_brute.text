@@ -1,25 +1,23 @@
-(.venv) mariagragera@MacBook-Pro-516 ~/D/HDH (temp_branch)> python -m hdh.hdh_bruteforce_plot
-
 ======================================================================
 BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)
 OPTIMALITY VIEW: How close to optimal are we?
 ======================================================================
 
-Loading data from: experiment_outputs_mqtbench/comparison_results_10_qubit-level_weighted.csv
-Total rows loaded: 408
+Loading data from: experiment_outputs_mqtbench/results_node_level_fixed.csv
+Total rows loaded: 272
 Unique k values: [np.int64(3)]
-Rows with k=3: 408
-Filtered out 'random' algorithms: 72 rows removed
-Remaining rows: 336
+Rows with k=3: 272
+Filtered out 'random' algorithms: 48 rows removed
+Remaining rows: 224
 
 ======================================================================
 SUMMARY STATISTICS (k=3 QPUs)
 ======================================================================
 
 Dataset Overview:
-  Total experiments: 336
+  Total experiments: 224
   Unique circuits: 56
-  Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2), np.float64(1.3), np.float64(1.4), np.float64(1.5)]
+  Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2), np.float64(1.3)]
 
 Algorithms Analyzed:
   Total unique algorithms: 22
@@ -50,57 +48,53 @@ Algorithms Analyzed:
   wstate                    3, 4, 5                       
 
 Optimality Distribution:
-  Finite values: 336
+  Finite values: 224
   Infinite values: 0
   NaN values: 0
 
 Optimality Statistics (finite values only):
-  Mean:   39.1%
-  Median: 33.8%
-  Std:    22.0 percentage points
-  Min:    12.9%
-  Max:    98.4%
+  Mean:   89.8%
+  Median: 84.6%
+  Std:    36.0 percentage points
+  Min:    33.3%
+  Max:    216.2%
 
-  Perfect matches (100% optimal): 0/336 (0.0%)
+  Perfect matches (100% optimal): 53/224 (23.7%)
 
 Breakdown by Overhead:
   Overhead     Count    Mean Optimality    Std          Perfect %   
   ---------------------------------------------------------------------------
-  1.00         56       63.4              % 28.2        pp 0.0         %
-  1.10         56       40.1              % 21.4        pp 0.0         %
-  1.20         56       40.1              % 21.4        pp 0.0         %
-  1.30         56       30.3              % 11.4        pp 0.0         %
-  1.40         56       30.3              % 11.4        pp 0.0         %
-  1.50         56       30.3              % 11.4        pp 0.0         %
+  1.00         56       98.6              % 34.3        pp 50.0        %
+  1.10         56       89.2              % 38.1        pp 17.9        %
+  1.20         56       89.2              % 38.1        pp 17.9        %
+  1.30         56       82.4              % 32.2        pp 8.9         %
 
 Cost Statistics:
   Optimal costs:
-    Mean:   123.84
+    Mean:   160.49
     Median: 60.00
     Min:    10.00
-    Max:    1860.00
+    Max:    1990.00
 
   Heuristic costs:
-    Mean:   325.31
-    Median: 143.00
-    Min:    21.00
-    Max:    5262.00
+    Mean:   141.16
+    Median: 60.00
+    Min:    20.00
+    Max:    1870.00
 
 Timing (seconds):
-  Brute force average: 1.7620s
-  Heuristic average:   0.0132s
+  Brute force average: 244.7723s
+  Heuristic average:   0.0078s
 ======================================================================
 
 
 Creating plot...
 
 Optimality distribution by overhead:
-  Overhead 1.00: median=55.9%, mean=63.4%, n=56
-  Overhead 1.10: median=34.0%, mean=40.1%, n=56
-  Overhead 1.20: median=34.0%, mean=40.1%, n=56
-  Overhead 1.30: median=28.8%, mean=30.3%, n=56
-  Overhead 1.40: median=28.8%, mean=30.3%, n=56
-  Overhead 1.50: median=28.8%, mean=30.3%, n=56
+  Overhead 1.00: median=100.0%, mean=98.6%, n=56
+  Overhead 1.10: median=76.2%, mean=89.2%, n=56
+  Overhead 1.20: median=76.2%, mean=89.2%, n=56
+  Overhead 1.30: median=73.9%, mean=82.4%, n=56
 ✓ Plot saved to: experiment_outputs_mqtbench/optimality_vs_overhead_k3.png
 
 Creating circuit size plot for overhead=1.0...
@@ -108,121 +102,6 @@ Creating circuit size plot for overhead=1.0...
 Circuit size analysis for overhead=1.0:
   Total circuits: 56
   Qubit range: 3 - 5
-  Mean optimality: 63.4%
-
- Analysis complete!
-
-(.venv) mariagragera@MacBook-Pro-516 ~/D/HDH (temp_branch)> python -m hdh.hdh_bruteforce_plot
-
-======================================================================
-BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)
-OPTIMALITY VIEW: How close to optimal are we?
-======================================================================
-
-Loading data from: experiment_outputs_mqtbench/results.csv
-Total rows loaded: 848
-Unique k values: [np.int64(3)]
-Rows with k=3: 848
-Filtered out 'random' algorithms: 152 rows removed
-Remaining rows: 696
-
-======================================================================
-SUMMARY STATISTICS (k=3 QPUs)
-======================================================================
-
-Dataset Overview:
-  Total experiments: 696
-  Unique circuits: 146
-  Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2), np.float64(1.3), np.float64(1.4), np.float64(1.5)]
-
-Algorithms Analyzed:
-  Total unique algorithms: 23
-
-  Algorithm                 Qubit Sizes                   
-  ------------------------------------------------------------
-  ae                        3, 4, 5, 6, 7, 8, 9, 10       
-  dj                        3, 4, 5, 6, 7, 8, 9, 10       
-  ghz                       3, 4, 5, 6, 7, 8, 9, 10       
-  graphstate                3, 4, 5, 6, 7, 8, 9, 10       
-  groundstate               4                             
-  grover-noancilla          3, 4, 5, 6, 7, 8, 9, 10       
-  grover-v-chain            3, 4, 5, 7, 9                 
-  portfolioqaoa             3, 4, 5, 6, 7, 8, 9, 10       
-  portfoliovqe              3, 4, 5, 6, 7, 8, 9, 10       
-  pricingcall               5, 7, 9                       
-  pricingput                5, 7, 9                       
-  qaoa                      3, 4, 5, 6, 7, 8, 9, 10       
-  qft                       3, 4, 6, 7, 8, 9, 10          
-  qftentangled              3, 4, 5, 6, 7, 8, 9, 10       
-  qnn                       3, 4, 5, 6, 7, 8, 9, 10       
-  qpeexact                  3, 4, 5, 6, 7, 8, 9, 10       
-  qpeinexact                3, 4, 5, 6, 7, 8, 9, 10       
-  qwalk-noancilla           3, 4, 5, 6, 7, 8, 9, 10       
-  qwalk-v-chain             3, 5, 7, 9                    
-  routing                   6                             
-  tsp                       4, 9                          
-  vqe                       3, 4, 5, 6, 7, 8, 9, 10       
-  wstate                    3, 4, 5, 6, 7, 8, 9, 10       
-
-Optimality Distribution:
-  Finite values: 696
-  Infinite values: 0
-  NaN values: 0
-
-Optimality Statistics (finite values only):
-  Mean:   22.5%
-  Median: 13.5%
-  Std:    22.3 percentage points
-  Min:    2.0%
-  Max:    98.4%
-
-  Perfect matches (100% optimal): 0/696 (0.0%)
-
-Breakdown by Overhead:
-  Overhead     Count    Mean Optimality    Std          Perfect %   
-  ---------------------------------------------------------------------------
-  1.00         146      30.0              % 31.8        pp 0.0         %
-  1.10         146      19.8              % 20.9        pp 0.0         %
-  1.20         146      19.3              % 21.2        pp 0.0         %
-  1.30         146      14.8              % 14.2        pp 0.0         %
-  1.40         56       30.3              % 11.4        pp 0.0         %
-  1.50         56       30.3              % 11.4        pp 0.0         %
-
-Cost Statistics:
-  Optimal costs:
-    Mean:   239.53
-    Median: 33.50
-    Min:    3.00
-    Max:    11447.00
-
-  Heuristic costs:
-    Mean:   5327.13
-    Median: 212.00
-    Min:    21.00
-    Max:    325176.00
-
-Timing (seconds):
-  Brute force average: 9.7096s
-  Heuristic average:   50.9589s
-======================================================================
-
-
-Creating plot...
-
-Optimality distribution by overhead:
-  Overhead 1.00: median=13.0%, mean=30.0%, n=146
-  Overhead 1.10: median=9.7%, mean=19.8%, n=146
-  Overhead 1.20: median=8.3%, mean=19.3%, n=146
-  Overhead 1.30: median=6.6%, mean=14.8%, n=146
-  Overhead 1.40: median=28.8%, mean=30.3%, n=56
-  Overhead 1.50: median=28.8%, mean=30.3%, n=56
-✓ Plot saved to: experiment_outputs_mqtbench/optimality_vs_overhead_k3.png
-
-Creating circuit size plot for overhead=1.0...
-
-Circuit size analysis for overhead=1.0:
-  Total circuits: 146
-  Qubit range: 3 - 10
-  Mean optimality: 30.0%
+  Mean optimality: 98.6%
 
  Analysis complete!
