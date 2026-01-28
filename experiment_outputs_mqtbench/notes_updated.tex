@@ -1,0 +1,109 @@
+(.venv) mariagragera@MacBook-Pro-516 ~/D/HDH (temp_branch)> python -m hdh.hdh_bruteforce_plot
+
+======================================================================
+BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)
+OPTIMALITY VIEW: How close to optimal are we?
+======================================================================
+
+Loading data from: experiment_outputs_mqtbench/results_updated.csv
+Total rows loaded: 272
+Unique k values: [np.int64(3)]
+Rows with k=3: 272
+Filtered out 'random' algorithms: 48 rows removed
+Remaining rows: 224
+
+======================================================================
+SUMMARY STATISTICS (k=3 QPUs)
+======================================================================
+
+Dataset Overview:
+  Total experiments: 224
+  Unique circuits: 56
+  Overhead values tested: [np.float64(1.0), np.float64(1.1), np.float64(1.2), np.float64(1.3)]
+
+Algorithms Analyzed:
+  Total unique algorithms: 22
+
+  Algorithm                 Qubit Sizes                   
+  ------------------------------------------------------------
+  ae                        3, 4, 5                       
+  dj                        3, 4, 5                       
+  ghz                       3, 4, 5                       
+  graphstate                3, 4, 5                       
+  groundstate               4                             
+  grover-noancilla          3, 4, 5                       
+  grover-v-chain            3, 4, 5                       
+  portfolioqaoa             3, 4, 5                       
+  portfoliovqe              3, 4, 5                       
+  pricingcall               5                             
+  pricingput                5                             
+  qaoa                      3, 4, 5                       
+  qft                       3, 4                          
+  qftentangled              3, 4, 5                       
+  qnn                       3, 4, 5                       
+  qpeexact                  3, 4, 5                       
+  qpeinexact                3, 4, 5                       
+  qwalk-noancilla           3, 4, 5                       
+  qwalk-v-chain             3, 5                          
+  tsp                       4                             
+  vqe                       3, 4, 5                       
+  wstate                    3, 4, 5                       
+
+Optimality Distribution:
+  Finite values: 224
+  Infinite values: 0
+  NaN values: 0
+
+Optimality Statistics (finite values only):
+  Mean:   87.7%
+  Median: 76.2%
+  Std:    35.8 percentage points
+  Min:    37.9%
+  Max:    226.0%
+
+  Perfect matches (100% optimal): 0/224 (0.0%)
+
+Breakdown by Overhead:
+  Overhead     Count    Mean Optimality    Std          Perfect %   
+  ---------------------------------------------------------------------------
+  1.00         56       100.9             % 35.8        pp 0.0         %
+  1.10         56       89.6              % 39.5        pp 0.0         %
+  1.20         56       89.6              % 39.5        pp 0.0         %
+  1.30         56       70.5              % 17.0        pp 0.0         %
+
+Cost Statistics:
+  Optimal costs:
+    Mean:   133.71
+    Median: 61.00
+    Min:    10.00
+    Max:    1863.00
+
+  Heuristic costs:
+    Mean:   141.16
+    Median: 60.00
+    Min:    20.00
+    Max:    1870.00
+
+Timing (seconds):
+  Brute force average: 0.0060s
+  Heuristic average:   0.0081s
+======================================================================
+
+
+Creating plot...
+
+Optimality distribution by overhead:
+  Overhead 1.00: median=103.3%, mean=100.9%, n=56
+  Overhead 1.10: median=76.2%, mean=89.6%, n=56
+  Overhead 1.20: median=76.2%, mean=89.6%, n=56
+  Overhead 1.30: median=70.2%, mean=70.5%, n=56
+✓ Plot saved to: experiment_outputs_mqtbench/optimality_vs_overhead_k3.png
+
+Creating circuit size plot for overhead=1.0...
+
+Circuit size analysis for overhead=1.0:
+  Total circuits: 56
+  Qubit range: 3 - 5
+  Mean optimality: 100.9%
+
+ Analysis complete!

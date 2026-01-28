@@ -9,7 +9,7 @@ from collections import defaultdict
 import matplotlib.ticker as ticker
 
 # Configuration
-CSV_FILE = Path('experiment_outputs_mqtbench/results.csv') #/comparison_results_10_qubit-level_weighted.csv')
+CSV_FILE = Path('experiment_outputs_mqtbench/results_node_level_fixed.csv') 
 OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.png'

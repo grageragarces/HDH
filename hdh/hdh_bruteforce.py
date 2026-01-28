@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """
-Brute Force Cut Optimization Comparison - V2
+TIMED Brute Force Cut Optimization Comparison - V4_TIMED_WEIGHTED
 
-This version supports:
-1. TRUE node-level partitioning (allowing qubit temporal splitting)
-2. Network overhead parameter for capacity testing
-3. Fixed k=3 QPUs
+CHANGES FROM V3:
+- Removed partition size limits - no longer stops at 9.99 × 10^72
+- Implements 30-minute time limit per hypergraph
+- Returns best solution found within time limit
+- Better progress tracking with time remaining
+
+WEIGHTED COST SCHEME:
+- Quantum hyperedge cut cost = 10
+- Classical hyperedge cut cost = 1
+- Total cost = 10 * quantum_cuts + 1 * classical_cuts
 """
 
 import sys
@@ -21,11 +27,18 @@ from itertools import product
 from tqdm.auto import tqdm
 import time
 import warnings
+from multiprocessing import Pool, cpu_count, Manager
+from functools import partial
+import os
 
 sys.path.insert(0, str(Path.cwd()))
 
 from hdh import HDH, hdh
-from hdh.passes.cut import compute_cut, cost
+from hdh.passes.cut_weighted_bad import compute_cut, cost, weighted_cost
+
+# Note: compute_cut is BOTH the partitioning function AND cost computation function
+# compute_cut(hdh, k, cap) returns (partitions, cost)
+# When given partitions directly, use cost() instead
 
 # Set plotting style
 sns.set_style("whitegrid")
@@ -37,6 +50,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 print("✓ Imports successful")
 print(f"✓ Output directory: {OUTPUT_DIR.absolute()}")
+print(f"✓ Available CPU cores: {cpu_count()}")
 
 def extract_qubits_from_hdh(hdh: HDH) -> Set[int]:
     """Extract all qubit indices from an HDH."""
@@ -47,7 +61,8 @@ def extract_qubits_from_hdh(hdh: HDH) -> Set[int]:
                 base = node_id.split('_')[0]
                 idx = int(base[1:])
                 qubits.add(idx)
-            except:
+            except (ValueError, IndexError) as e:
+                warnings.warn(f"Could not parse qubit index from node '{node_id}': {e}")
                 continue
     return qubits
 
@@ -55,28 +70,30 @@ def extract_qubits_from_hdh(hdh: HDH) -> Set[int]:
 def get_node_qubit_mapping(hdh: HDH) -> Dict[str, int]:
     """Map each quantum node to its qubit index."""
     node_to_qubit = {}
+    unparsed_nodes = []
+    
     for node_id in hdh.S:
         if hdh.sigma[node_id] == 'q':
             try:
                 base = node_id.split('_')[0]
                 idx = int(base[1:])
                 node_to_qubit[node_id] = idx
-            except:
+            except (ValueError, IndexError) as e:
+                unparsed_nodes.append((node_id, str(e)))
                 continue
+    
+    if unparsed_nodes:
+        warnings.warn(
+            f"WARNING: {len(unparsed_nodes)} quantum nodes could not be parsed! "
+            f"This may lead to incorrect cost calculations. "
+            f"First few unparsed nodes: {unparsed_nodes[:3]}"
+        )
+    
     return node_to_qubit
 
 
 def get_partition_qubit_count(nodes: Set[str], node_to_qubit: Dict[str, int]) -> int:
-    """
-    Count unique qubits in a partition.
-    
-    Args:
-        nodes: Set of node IDs in the partition
-        node_to_qubit: Mapping from node ID to qubit index
-    
-    Returns:
-        Number of unique qubits
-    """
+    """Count unique qubits in a partition."""
     qubits = set()
     for node in nodes:
         if node in node_to_qubit:
@@ -85,538 +102,363 @@ def get_partition_qubit_count(nodes: Set[str], node_to_qubit: Dict[str, int]) ->
 
 
 def count_cut_hyperedges(hdh: HDH, node_partition: Dict[str, int]) -> int:
-    """
-    Count the number of cut hyperedges given a node partition.
-    
-    Args:
-        hdh: The HDH object
-        node_partition: Dict mapping node_id -> partition_id
-    
-    Returns:
-        Number of hyperedges that span multiple partitions
-    """
+    """Count the number of cut hyperedges given a node partition."""
     cut_count = 0
     
     for edge in hdh.C:
-        # Find which partitions this hyperedge touches
         partitions_touched = set()
         for node in edge:
             if node in node_partition:
                 partitions_touched.add(node_partition[node])
         
-        # If the hyperedge touches more than one partition, it's cut
         if len(partitions_touched) > 1:
             cut_count += 1
     
     return cut_count
 
 
-def is_partition_valid(partition_sets: List[Set[str]], cap: int, node_to_qubit: Dict[str, int]) -> bool:
-    """
-    Check if a partition respects capacity constraints.
-    
-    Args:
-        partition_sets: List of sets, each containing node IDs
-        cap: Maximum unique qubits per partition
-        node_to_qubit: Mapping from node ID to qubit index
-    
-    Returns:
-        True if all partitions respect capacity constraint
-    """
-    for partition in partition_sets:
-        qubit_count = get_partition_qubit_count(partition, node_to_qubit)
-        if qubit_count > cap:
-            return False
-    return True
-
-
-def brute_force_node_level(
-    hdh: HDH, 
-    k: int, 
-    cap: int,
-    max_nodes: int = 1000
-) -> Tuple[Dict[str, int], int]:
-    """
-    Brute force search at NODE level (allows temporal qubit splitting).
-    
-    WARNING: This is exponential in the number of nodes (k^N).
-    Only feasible for very small circuits.
-    
-    Args:
-        hdh: The HDH object
-        k: Number of partitions (QPUs)
-        cap: Maximum unique qubits per partition
-        max_nodes: Safety limit on number of nodes
-    
-    Returns:
-        (optimal_partition, min_cut_cost)
-        optimal_partition: Dict mapping node_id -> partition_id
-        min_cut_cost: Number of cut hyperedges in optimal partition
-    """
-    # Only consider quantum nodes for partitioning
-    quantum_nodes = [n for n in hdh.S if hdh.sigma[n] == 'q']
-    n = len(quantum_nodes)
-    
-    if n == 0:
-        return {}, 0
-    
-    if n > max_nodes:
-        raise ValueError(
-            f"Too many nodes ({n}) for brute force node-level search. "
-            f"Max is {max_nodes}. Use qubit-level instead or increase max_nodes."
-        )
-    
-    node_to_qubit = get_node_qubit_mapping(hdh)
-    
-    print(f"  Brute forcing {n} nodes into {k} partitions (cap={cap} qubits)...")
-    print(f"  Search space: {k**n:,} total partitions")
-    
-    if k**n > 10_000_000:
-        warnings.warn(
-            f"Very large search space ({k**n:,} partitions). This may take a long time!",
-            RuntimeWarning
-        )
-        print(f"  ⚠ WARNING: This will take a while! Consider reducing max_nodes or using --qubit-level")
-    
-    min_cut_cost = float('inf')
-    optimal_partition = None
-    evaluated = 0
-    valid_partitions = 0
-    
-    # Generate all possible assignments: k choices for each of n nodes
-    total_partitions = k ** n
-    
-    # Use tqdm with a sample rate to avoid slowdown
-    sample_rate = max(1, total_partitions // 10000)  # Update progress ~10k times max
-    
-    print(f"  Starting brute force search...")
-    with tqdm(total=total_partitions, desc="  🔍 Evaluating partitions", 
-              unit="partitions", unit_scale=True, leave=False,
-              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
-        for assignment in product(range(k), repeat=n):
-            evaluated += 1
-            
-            # Create partition sets
-            partition_sets = [set() for _ in range(k)]
-            node_partition = {}
-            
-            for node, pid in zip(quantum_nodes, assignment):
-                partition_sets[pid].add(node)
-                node_partition[node] = pid
-            
-            # Check capacity constraint
-            if not is_partition_valid(partition_sets, cap, node_to_qubit):
-                if evaluated % sample_rate == 0:
-                    pbar.update(sample_rate)
-                continue
-            
-            valid_partitions += 1
-            
-            # Add classical nodes to partition 0
-            for node in hdh.S:
-                if hdh.sigma[node] == 'c':
-                    node_partition[node] = 0
-            
-            # Count cuts
-            partition_sets = convert_node_partition_to_sets(node_partition, k)
-            cut_cost_raw = cost(hdh, partition_sets)
-            cut_cost = sum(cut_cost_raw) if isinstance(cut_cost_raw, tuple) else cut_cost_raw
-            
-            if cut_cost < min_cut_cost:
-                min_cut_cost = cut_cost
-                optimal_partition = node_partition.copy()
-            
-            if evaluated % sample_rate == 0:
-                pbar.update(sample_rate)
-        
-        # Update for any remaining
-        pbar.update(total_partitions - pbar.n)
-    
-    print(f"  ✓ Search complete!")
-    print(f"    Total partitions: {evaluated:,}")
-    print(f"    Valid partitions: {valid_partitions:,} ({valid_partitions/evaluated*100:.1f}%)")
-    print(f"    Best cut cost found: {min_cut_cost}")
-    
-    if optimal_partition is None:
-        raise ValueError("No valid partition found! Check capacity constraints.")
-    
-    return optimal_partition, min_cut_cost
-
-
-def brute_force_qubit_level(
+def brute_force_qubit_level_timed(
     hdh: HDH,
     k: int,
-    cap: int
-) -> Tuple[Dict[str, int], int]:
+    cap: int,
+    time_limit_seconds: int = 1800,  # 30 minutes = 1800 seconds
+    progress_interval: int = 10  # Report progress every 10 seconds
+) -> Tuple[Dict[str, int], float, int, bool]:
     """
-    Brute force search at QUBIT level (all nodes of a qubit stay together).
+    TIMED: Brute force at QUBIT level with time limit.
     
-    This is faster than node-level but cannot discover temporal splitting benefits.
+    Optimizes for WEIGHTED cost (quantum cuts = 10, classical cuts = 1).
+    
+    Instead of stopping at large partition counts, runs for a fixed time
+    and returns the best solution found within that time.
     
     Args:
         hdh: The HDH object
         k: Number of partitions (QPUs)
         cap: Maximum unique qubits per partition
+        time_limit_seconds: Maximum time to search (default: 1800s = 30min)
+        progress_interval: How often to report progress (seconds)
     
     Returns:
-        (optimal_partition, min_cut_cost)
+        (best_partition, best_weighted_cost, partitions_checked, completed)
+        - best_weighted_cost: 10*quantum_cuts + 1*classical_cuts
+        - completed: True if exhausted search space, False if stopped due to time
     """
-    # Extract qubits and create mapping
     qubits = sorted(extract_qubits_from_hdh(hdh))
-    node_to_qubit = get_node_qubit_mapping(hdh)
     n_qubits = len(qubits)
     
     if n_qubits == 0:
-        return {}, 0
+        return {}, 0, 0, True
     
-    print(f"  Brute forcing {n_qubits} qubits into {k} partitions (cap={cap} qubits)...")
-    print(f"  Search space: {k**n_qubits:,} total partitions")
-    
-    min_cut_cost = float('inf')
-    optimal_partition = None
-    evaluated = 0
-    valid_partitions = 0
-    
-    # Generate all possible qubit->partition assignments
     total_partitions = k ** n_qubits
-    sample_rate = max(1, total_partitions // 10000)
+    print(f"  Timed qubit-level brute force: {n_qubits} qubits into {k} partitions (cap={cap})")
+    print(f"  Total search space: {total_partitions:,} partitions")
+    print(f"  Time limit: {time_limit_seconds}s ({time_limit_seconds/60:.1f} min)")
     
-    print(f"  Starting brute force search...")
-    with tqdm(total=total_partitions, desc="  🔍 Evaluating partitions", 
-              unit="partitions", unit_scale=True, leave=False,
-              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]') as pbar:
-        for assignment in product(range(k), repeat=n_qubits):
-            evaluated += 1
-            
-            # Create qubit->partition mapping
-            qubit_to_partition = {qubits[i]: assignment[i] for i in range(n_qubits)}
-            
-            # Check capacity constraint: count qubits per partition
-            qubits_per_partition = [0] * k
-            for pid in assignment:
-                qubits_per_partition[pid] += 1
-            
-            if max(qubits_per_partition) > cap:
-                if evaluated % sample_rate == 0:
-                    pbar.update(sample_rate)
-                continue
-            
-            valid_partitions += 1
-            
-            # Convert qubit partition to node partition
-            node_partition = {}
-            for node in hdh.S:
-                if hdh.sigma[node] == 'q':
-                    # Assign quantum node based on its qubit
-                    if node in node_to_qubit:
-                        qubit_idx = node_to_qubit[node]
-                        if qubit_idx in qubit_to_partition:
-                            node_partition[node] = qubit_to_partition[qubit_idx]
-                else:
-                    # Classical nodes go to partition 0
-                    node_partition[node] = 0
-            
-            # Count cuts
-            partition_sets = convert_node_partition_to_sets(node_partition, k)
-            cut_cost_raw = cost(hdh, partition_sets)
-            cut_cost = sum(cut_cost_raw) if isinstance(cut_cost_raw, tuple) else cut_cost_raw
-            
-            if cut_cost < min_cut_cost:
-                min_cut_cost = cut_cost
-                optimal_partition = node_partition.copy()
-            
-            if evaluated % sample_rate == 0:
-                pbar.update(sample_rate)
+    node_to_qubit = get_node_qubit_mapping(hdh)
+    qubit_to_nodes = defaultdict(set)
+    for node, qbit in node_to_qubit.items():
+        qubit_to_nodes[qbit].add(node)
+    
+    # Add classical nodes (they go with first partition by default)
+    classical_nodes = [n for n in hdh.S if hdh.sigma[n] == 'c']
+    
+    min_cut = float('inf')
+    best_partition = None
+    
+    # Generate qubit assignments
+    assignments = product(range(k), repeat=n_qubits)
+    
+    # Timing setup
+    start_time = time.time()
+    last_progress_time = start_time
+    partitions_checked = 0
+    completed = False
+    
+    print(f"  Starting search at {time.strftime('%H:%M:%S')}")
+    print(f"  Will stop at {time.strftime('%H:%M:%S', time.localtime(start_time + time_limit_seconds))}")
+    
+    for assignment in assignments:
+        # Check time limit
+        current_time = time.time()
+        elapsed = current_time - start_time
         
-        # Update for any remaining
-        pbar.update(total_partitions - pbar.n)
+        if elapsed > time_limit_seconds:
+            print(f"\n  ⏱️  TIME LIMIT REACHED ({time_limit_seconds}s)")
+            break
+        
+        # Progress update at intervals
+        if current_time - last_progress_time >= progress_interval:
+            rate = partitions_checked / elapsed if elapsed > 0 else 0
+            pct_complete = (partitions_checked / total_partitions * 100) if total_partitions > 0 else 0
+            remaining_time = time_limit_seconds - elapsed
+            
+            print(f"  ⏳ {int(elapsed)}s elapsed | "
+                  f"{partitions_checked:,} checked ({pct_complete:.2f}%) | "
+                  f"Rate: {rate:.0f}/s | "
+                  f"Best weighted cost: {min_cut if min_cut != float('inf') else 'N/A'} | "
+                  f"Time left: {int(remaining_time)}s")
+            last_progress_time = current_time
+        
+        # Check capacity
+        partition_qubits = [set() for _ in range(k)]
+        for i, qbit in enumerate(qubits):
+            partition_qubits[assignment[i]].add(qbit)
+        
+        # Skip if any partition exceeds capacity
+        if any(len(pq) > cap for pq in partition_qubits):
+            partitions_checked += 1
+            continue
+        
+        # Build node partition
+        node_partition = {}
+        for i, qbit in enumerate(qubits):
+            partition_id = assignment[i]
+            for node in qubit_to_nodes[qbit]:
+                node_partition[node] = partition_id
+        
+        # Classical nodes to partition 0
+        for node in classical_nodes:
+            node_partition[node] = 0
+        
+        # Compute WEIGHTED cost (not just unweighted cut count)
+        # Convert node_partition dict to partition sets for cost() function
+        temp_partition_sets = [set() for _ in range(k)]
+        for node, part_id in node_partition.items():
+            temp_partition_sets[part_id].add(node)
+        
+        cost_raw = cost(hdh, temp_partition_sets)
+        if isinstance(cost_raw, (tuple, list)):
+            cuts = weighted_cost(cost_raw)
+        else:
+            cuts = float(cost_raw)
+        
+        if cuts < min_cut:
+            min_cut = cuts
+            best_partition = node_partition.copy()
+            elapsed_now = time.time() - start_time
+            print(f"  🎯 NEW BEST: {min_cut} weighted cost (found at {int(elapsed_now)}s, {partitions_checked:,} checked)")
+            
+            # Early termination if optimal
+            if min_cut == 0:
+                print(f"  ✨ Found optimal solution (0 cuts)! Stopping early.")
+                completed = True
+                break
+        
+        partitions_checked += 1
+    else:
+        # Loop completed naturally (exhausted search space)
+        completed = True
+        print(f"  ✅ COMPLETED full search space ({partitions_checked:,} partitions)")
     
-    print(f"  ✓ Search complete!")
-    print(f"    Total partitions: {evaluated:,}")
-    print(f"    Valid partitions: {valid_partitions:,} ({valid_partitions/evaluated*100:.1f}%)")
-    print(f"    Best cut cost found: {min_cut_cost}")
+    total_elapsed = time.time() - start_time
+    print(f"  Final: {min_cut if min_cut != float('inf') else 'N/A'} cuts | "
+          f"{partitions_checked:,} checked | "
+          f"{total_elapsed:.1f}s elapsed | "
+          f"{'COMPLETE' if completed else 'TIME-LIMITED'}")
     
-    return optimal_partition, min_cut_cost
+    return (best_partition if best_partition else {}, 
+            int(min_cut) if min_cut != float('inf') else 0,
+            partitions_checked,
+            completed)
 
 
-def convert_node_partition_to_sets(
-    node_partition: Dict[str, int],
-    k: int
-) -> List[Set[str]]:
-    """Convert node partition dict to list of sets."""
-    partition_sets = [set() for _ in range(k)]
-    for node, pid in node_partition.items():
-        partition_sets[pid].add(node)
-    return partition_sets
-
-
-# MQT Bench Loading =============================================================================
-
-def load_small_mqtbench_hdhs(
-    pkl_dir: str,
-    min_qubits: int = 1,
-    max_qubits: int = 12,
-    max_nodes: int = 1000
-) -> Dict[str, HDH]:
+# IMPORT MISSING FUNCTION FROM ORIGINAL
+def load_small_mqtbench_hdhs(pkl_dir: str, min_qubits: int, max_qubits: int, max_nodes: int = None) -> Dict:
     """
-    Load MQT Bench HDH files with size constraints.
-    
-    Args:
-        pkl_dir: Path to directory containing pickle files
-        min_qubits: Minimum number of qubits
-        max_qubits: Maximum number of qubits
-        max_nodes: Maximum number of quantum nodes (for node-level brute force)
-    
-    Returns:
-        Dictionary mapping circuit name to HDH object
+    Load HDH circuits from MQT Bench pickle files.
+    Now accepts any size circuit since we use time limits instead of partition count limits.
     """
     pkl_path = Path(pkl_dir)
-    
     if not pkl_path.exists():
-        raise FileNotFoundError(f"MQT Bench pickle directory not found: {pkl_path}")
+        print(f"✗ Path does not exist: {pkl_path}")
+        return {}
     
-    pkl_files = list(pkl_path.glob("*.pkl"))
+    pkl_files = list(pkl_path.glob('*.pkl'))
+    print(f"✓ Found {len(pkl_files)} pickle files in {pkl_path}")
     
-    if not pkl_files:
-        raise ValueError(f"No pickle files found in {pkl_path}")
-    
-    print(f"\n{'='*70}")
-    print(f"Loading small MQT Bench circuits")
-    print(f"  Min qubits: {min_qubits}")
-    print(f"  Max qubits: {max_qubits}")
-    print(f"  Max quantum nodes: {max_nodes}")
-    print(f"  Searching in: {pkl_path}")
-    print(f"{'='*70}\n")
-    
-    hdhs = {}
-    failed = []
-    skipped = []
-    
-    for pkl_file in tqdm(pkl_files, desc="Scanning pickle files"):
-        circuit_name = pkl_file.stem
+    loaded = {}
+    for pkl_file in pkl_files:
         try:
             with open(pkl_file, 'rb') as f:
-                hdh = pickle.load(f)
+                h = pickle.load(f)
             
-            if not isinstance(hdh, HDH):
-                raise TypeError(f"Expected HDH object, got {type(hdh)}")
+            # Extract circuit info
+            num_qubits = len(extract_qubits_from_hdh(h))
+            num_nodes = len(h.S)
             
-            # Check constraints
-            num_qubits = len(extract_qubits_from_hdh(hdh))
-            num_qnodes = sum(1 for n in hdh.S if hdh.sigma[n] == 'q')
+            # Check qubit range
+            if num_qubits < min_qubits or num_qubits > max_qubits:
+                continue
             
-            if min_qubits <= num_qubits <= max_qubits and num_qnodes <= max_nodes and num_qubits > 0:
-                hdhs[circuit_name] = hdh
-                print(f"  ✓ {circuit_name}: {num_qubits} qubits, {num_qnodes} q-nodes, "
-                      f"{len(hdh.S)} total nodes")
-            else:
-                skipped.append((circuit_name, num_qubits, num_qnodes))
-                
+            # Check node count if specified (but not strictly enforced)
+            if max_nodes and num_nodes > max_nodes:
+                print(f"  Note: {pkl_file.stem} has {num_nodes} nodes (>{max_nodes}), but will try anyway with time limit")
+            
+            circuit_name = pkl_file.stem
+            loaded[circuit_name] = h
+            
+            num_qnodes = sum(1 for n in h.S if h.sigma[n] == 'q')
+            num_cnodes = sum(1 for n in h.S if h.sigma[n] == 'c')
+            num_edges = len(h.C)
+            
+            print(f"  ✓ Loaded: {circuit_name}")
+            print(f"      Qubits: {num_qubits}, Nodes: {num_nodes} (Q: {num_qnodes}, C: {num_cnodes}), Edges: {num_edges}")
+            
         except Exception as e:
-            failed.append((circuit_name, str(e)))
+            print(f"  ✗ Failed to load {pkl_file.name}: {e}")
     
-    print(f"\n✓ Successfully loaded {len(hdhs)} small circuits")
-    print(f"⊘ Skipped {len(skipped)} circuits (too large)")
-    if failed:
-        print(f"⚠ Failed to load {len(failed)} circuits")
-    
-    return hdhs
-
-# Analysis  =============================================================================
-
-def compute_capacity_from_overhead(num_qubits: int, overhead: float, k: int) -> int:
-    """
-    Compute capacity per QPU given overhead parameter for the ENTIRE NETWORK.
-    
-    The overhead applies to total network capacity, then divided among k QPUs.
-    This ensures that qubits MUST be distributed across multiple QPUs.
-    
-    Args:
-        num_qubits: Total qubits in the circuit
-        overhead: Overhead multiplier (1.0 = tight, 1.1 = 10% slack, etc.)
-        k: Number of QPUs
-    
-    Returns:
-        Capacity (qubits per QPU) - always an integer
-    
-    Example:
-        num_qubits=10, overhead=1.0, k=3:
-        - Total network capacity = 12 qubits
-        - Per QPU capacity = ceil(10/3) = 4 qubits
-        - This forces distribution since no single QPU can hold all 10 qubits
-    """
-    total_network_capacity = int(np.ceil(num_qubits * overhead))
-    capacity_per_qpu = int(np.ceil(total_network_capacity / k))
-    return capacity_per_qpu
+    print(f"\n✓ Successfully loaded {len(loaded)} circuits")
+    return loaded
 
 
 def run_comparison_experiment(
     hdhs: Dict[str, HDH],
-    k: int = 3,
-    overhead_values: List[float] = [1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3],
-    use_node_level: bool = False,
-    max_nodes_for_node_level: int = 12
+    k: int,
+    overhead_values: List[float],
+    time_limit_per_graph: int = 1800,  # 30 minutes
+    progress_interval: int = 10
 ) -> pd.DataFrame:
     """
-    Run brute force vs heuristic comparison experiments.
+    Run timed comparison experiments.
     
     Args:
         hdhs: Dictionary of circuit_name -> HDH
-        k: Number of QPUs (fixed at 3)
-        overhead_values: List of overhead multipliers to test
-        use_node_level: If True, use node-level brute force (allows temporal splitting)
-        max_nodes_for_node_level: Max quantum nodes for node-level search
-    
-    Returns:
-        DataFrame with results
+        k: Number of QPUs
+        overhead_values: List of overhead multipliers
+        time_limit_per_graph: Time limit per hypergraph in seconds
+        progress_interval: Progress reporting interval in seconds
     """
     results = []
     
-    method = "NODE-LEVEL" if use_node_level else "QUBIT-LEVEL"
-    
-    # Pre-calculate total experiments for progress tracking
-    total_experiments = 0
-    circuit_experiment_counts = {}
-    
-    for circuit_name, hdh in hdhs.items():
-        num_qubits = len(extract_qubits_from_hdh(hdh))
-        num_qnodes = sum(1 for n in hdh.S if hdh.sigma[n] == 'q')
-        
-        # Skip if too large for node-level
-        if use_node_level and num_qnodes > max_nodes_for_node_level:
-            circuit_experiment_counts[circuit_name] = 0
-            continue
-        
-        # Count feasible experiments for this circuit
-        count = 0
-        for overhead in overhead_values:
-            cap = compute_capacity_from_overhead(num_qubits, overhead, k)
-            if num_qubits <= k * cap:
-                count += 1
-        
-        circuit_experiment_counts[circuit_name] = count
-        total_experiments += count
-    
-    print(f"\n{'='*70}")
-    print(f"Running Comparison Experiments ({method})")
-    print(f"Circuits loaded: {len(hdhs)}")
-    print(f"k (QPUs): {k}")
-    print(f"Overhead values: {overhead_values}")
-    print(f"Total experiments planned: {total_experiments}")
-    print(f"{'='*70}\n")
-    
+    total_experiments = len(hdhs) * len(overhead_values)
     completed_experiments = 0
+    
     overall_start_time = time.time()
     
-    for circuit_idx, (circuit_name, hdh) in enumerate(hdhs.items(), 1):
-        num_qubits = len(extract_qubits_from_hdh(hdh))
-        num_nodes = len(hdh.S)
-        num_qnodes = sum(1 for n in hdh.S if hdh.sigma[n] == 'q')
-        num_edges = len(hdh.C)
+    print(f"\n{'='*70}")
+    print(f"STARTING TIMED COMPARISON EXPERIMENTS")
+    print(f"{'='*70}")
+    print(f"Total circuits: {len(hdhs)}")
+    print(f"Overhead values: {overhead_values}")
+    print(f"Total experiments: {total_experiments}")
+    print(f"Time limit per hypergraph: {time_limit_per_graph}s ({time_limit_per_graph/60:.1f} min)")
+    print(f"{'='*70}\n")
+    
+    for circuit_idx, (circuit_name, h) in enumerate(hdhs.items(), 1):
+        num_qubits = len(extract_qubits_from_hdh(h))
+        num_nodes = len(h.S)
+        num_qnodes = sum(1 for n in h.S if h.sigma[n] == 'q')
+        num_cnodes = sum(1 for n in h.S if h.sigma[n] == 'c')
+        num_edges = len(h.C)
         
-        # Circuit-level progress
-        circuit_progress = (circuit_idx / len(hdhs)) * 100
-        elapsed_time = time.time() - overall_start_time
-        
-        if completed_experiments > 0:
-            avg_time_per_exp = elapsed_time / completed_experiments
-            remaining_exp = total_experiments - completed_experiments
-            eta_seconds = avg_time_per_exp * remaining_exp
-            eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s"
-        else:
-            eta_str = "calculating..."
+        node_to_qubit = get_node_qubit_mapping(h)
         
         print(f"\n{'='*70}")
-        print(f"[Circuit {circuit_idx}/{len(hdhs)} - {circuit_progress:.1f}% of circuits]")
-        print(f"[Experiments: {completed_experiments}/{total_experiments} - "
-              f"{(completed_experiments/total_experiments*100):.1f}% complete]")
-        print(f"[Elapsed: {int(elapsed_time//60)}m {int(elapsed_time%60)}s | ETA: {eta_str}]")
+        print(f"CIRCUIT {circuit_idx}/{len(hdhs)}: {circuit_name}")
         print(f"{'='*70}")
-        print(f"Circuit: {circuit_name}")
-        print(f"  Qubits: {num_qubits}, Quantum nodes: {num_qnodes}, "
-              f"Total nodes: {num_nodes}, Edges: {num_edges}")
+        print(f"  Qubits: {num_qubits}")
+        print(f"  Nodes: {num_nodes} (Quantum: {num_qnodes}, Classical: {num_cnodes})")
+        print(f"  Hyperedges: {num_edges}")
         
-        # Skip if too large for node-level
-        if use_node_level and num_qnodes > max_nodes_for_node_level:
-            print(f"  ⊘ Skipping: too many quantum nodes ({num_qnodes} > {max_nodes_for_node_level})")
-            continue
-        
-        # Get number of feasible experiments for this circuit
-        circuit_experiments = circuit_experiment_counts.get(circuit_name, 0)
         circuit_exp_completed = 0
         
-        for overhead_idx, overhead in enumerate(overhead_values, 1):
-            # Compute capacity based on overhead (network-wide, then divided by k)
-            cap = compute_capacity_from_overhead(num_qubits, overhead, k)
+        for overhead in overhead_values:
+            cap = int(np.ceil(num_qubits / k * overhead))
             
-            # Check feasibility
-            if num_qubits > k * cap:
-                print(f"  ⊘ Skipping overhead={overhead:.2f} (cap={cap}): "
-                      f"infeasible ({num_qubits} > {k}*{cap})")
-                continue
+            print(f"\n  --- Overhead: {overhead} (cap={cap}) ---")
             
-            # Overhead-level progress for this circuit
-            total_network_cap = k * cap
-            print(f"\n  [{circuit_exp_completed+1}/{circuit_experiments} for this circuit] "
-                  f"Testing overhead={overhead:.2f} (cap={cap} qubits/QPU, "
-                  f"total network={total_network_cap} qubits):")
-            
-            # Brute force optimal
+            # TIMED BRUTE FORCE
+            print(f"  🔍 Running TIMED brute force...")
             start_time = time.time()
+            
             try:
-                if use_node_level:
-                    optimal_partition, optimal_cost = brute_force_node_level(
-                        hdh, k, cap, max_nodes=max_nodes_for_node_level
-                    )
-                else:
-                    optimal_partition, optimal_cost = brute_force_qubit_level(
-                        hdh, k, cap
-                    )
-                brute_force_time = time.time() - start_time
-                print(f"    ✓ Brute force ({method}): {optimal_cost} cuts ({brute_force_time:.2f}s)")
+                best_partition, optimal_cost, partitions_checked, completed = brute_force_qubit_level_timed(
+                    h, k, cap,
+                    time_limit_seconds=time_limit_per_graph,
+                    progress_interval=progress_interval
+                )
                 
-                # Get partition statistics
-                partition_sets = convert_node_partition_to_sets(optimal_partition, k)
-                node_to_qubit = get_node_qubit_mapping(hdh)
+                brute_force_time = time.time() - start_time
+                
+                # Convert to partition sets for analysis
+                partition_sets = [set() for _ in range(k)]
+                for node, part_id in best_partition.items():
+                    partition_sets[part_id].add(node)
+                
                 partition_qubit_counts = [
-                    get_partition_qubit_count(pset, node_to_qubit) 
+                    get_partition_qubit_count(pset, node_to_qubit)
                     for pset in partition_sets
                 ]
-                print(f"    Optimal partition qubit counts: {partition_qubit_counts}")
+                
+                partition_classical_counts = [
+                    sum(1 for n in pset if h.sigma.get(n) == 'c')
+                    for pset in partition_sets
+                ]
+                
+                # CRITICAL FIX: Apply weighted cost to optimal partition (same as heuristic)
+                optimal_cost_raw = cost(h, partition_sets)
+                if isinstance(optimal_cost_raw, (tuple, list)):
+                    optimal_cost = weighted_cost(optimal_cost_raw)
+                else:
+                    optimal_cost = float(optimal_cost_raw)
+                
+                status = "COMPLETE" if completed else "TIME-LIMITED"
+                
+                print(f"    ✓ Timed brute force ({status}):")
+                print(f"      Raw costs: {optimal_cost_raw} (quantum, classical)")
+                print(f"      Weighted cost: {optimal_cost}")
+                print(f"      Partitions checked: {partitions_checked:,}")
+                print(f"      Time: {brute_force_time:.2f}s")
+                print(f"      Qubit counts: {partition_qubit_counts}")
                 
             except Exception as e:
-                print(f"    ✗ Brute force failed: {e}")
+                print(f"    ✗ Timed brute force failed: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
             
-            # Heuristic cut
+            # HEURISTIC - Using compute_cut() from cut_weighted
             start_time = time.time()
+            heuristic_cost = None
+            heuristic_time = None
+            heuristic_qubit_counts = None
+            heuristic_classical_counts = None
+            
             try:
-                heuristic_partitions, heuristic_edges = compute_cut(hdh, k=k, cap=cap)
-                heuristic_cost_raw = cost(hdh, heuristic_partitions)
+                # compute_cut returns (partitions, cost) directly
+                # It doesn't take overhead, it takes cap (which we already calculated)
+                heuristic_partitions, heuristic_cost_value = compute_cut(h, k, cap)
                 
-                # Extract numeric cost - handle tuple/scalar cases
+                # Get detailed cost breakdown using cost() function
+                heuristic_cost_raw = cost(h, heuristic_partitions)
+                
                 if isinstance(heuristic_cost_raw, (tuple, list)):
-                    # If it's a tuple, sum the components (quantum + classical cuts)
-                    heuristic_cost = sum(heuristic_cost_raw)
+                    heuristic_cost = weighted_cost(heuristic_cost_raw)
                 else:
                     heuristic_cost = float(heuristic_cost_raw)
                 
                 heuristic_time = time.time() - start_time
                 
-                # Get heuristic partition statistics
                 heuristic_qubit_counts = [
                     get_partition_qubit_count(pset, node_to_qubit)
                     for pset in heuristic_partitions
                 ]
                 
-                print(f"    ✓ Heuristic: {heuristic_cost_raw} cuts ({heuristic_time:.2f}s)")
-                print(f"    Heuristic partition qubit counts: {heuristic_qubit_counts}")
+                heuristic_classical_counts = [
+                    sum(1 for n in pset if h.sigma.get(n) == 'c')
+                    for pset in heuristic_partitions
+                ]
+                
+                print(f"    ✓ Heuristic (greedy temporal partitioning):")
+                print(f"      Raw costs: {heuristic_cost_raw} (quantum, classical)")
+                print(f"      Weighted cost: {heuristic_cost}")
+                print(f"      Time: {heuristic_time:.2f}s")
                 
             except Exception as e:
                 print(f"    ✗ Heuristic failed: {e}")
-                heuristic_cost = None
-                heuristic_time = None
-                heuristic_qubit_counts = None
+                import traceback
+                traceback.print_exc()
             
             # Calculate ratio
             if heuristic_cost is None:
@@ -626,14 +468,16 @@ def run_comparison_experiment(
             else:
                 ratio = 1.0 if heuristic_cost == 0 else float('inf')
             
-            print(f"    → Ratio (heuristic/optimal): {ratio}")
-
+            print(f"    → Ratio (heuristic/optimal): {ratio:.4f}")
             
-            # Update progress counters
+            if ratio < 1.0 and completed:
+                print(f"    ⚠️  WARNING: Heuristic beat optimal! This should not happen!")
+            elif ratio < 1.0 and not completed:
+                print(f"    ℹ️  Note: Heuristic better than time-limited search (not full optimal)")
+            
             completed_experiments += 1
             circuit_exp_completed += 1
             
-            # Show overall progress after each experiment
             overall_pct = (completed_experiments / total_experiments) * 100
             print(f"    📊 Overall progress: {completed_experiments}/{total_experiments} ({overall_pct:.1f}%)")
             
@@ -642,6 +486,7 @@ def run_comparison_experiment(
                 'num_qubits': num_qubits,
                 'num_nodes': num_nodes,
                 'num_quantum_nodes': num_qnodes,
+                'num_classical_nodes': num_cnodes,
                 'num_edges': num_edges,
                 'k': k,
                 'overhead': overhead,
@@ -651,9 +496,13 @@ def run_comparison_experiment(
                 'ratio': ratio,
                 'brute_force_time': brute_force_time,
                 'heuristic_time': heuristic_time if heuristic_time else 0,
-                'method': method,
+                'method': 'TIMED-QUBIT-LEVEL',
+                'partitions_checked': partitions_checked,
+                'search_completed': completed,
                 'optimal_qubit_counts': str(partition_qubit_counts),
                 'heuristic_qubit_counts': str(heuristic_qubit_counts) if heuristic_qubit_counts else None,
+                'optimal_classical_counts': str(partition_classical_counts),
+                'heuristic_classical_counts': str(heuristic_classical_counts) if heuristic_classical_counts else None,
             })
     
     # Final summary
@@ -663,27 +512,25 @@ def run_comparison_experiment(
     print(f"{'='*70}")
     print(f"Total experiments completed: {completed_experiments}/{total_experiments}")
     print(f"Completion rate: {(completed_experiments/total_experiments*100):.1f}%")
-    print(f"Total time elapsed: {int(total_elapsed//60)}m {int(total_elapsed%60)}s")
+    print(f"Total time elapsed: {int(total_elapsed//3600)}h {int((total_elapsed%3600)//60)}m {int(total_elapsed%60)}s")
     if completed_experiments > 0:
         print(f"Average time per experiment: {total_elapsed/completed_experiments:.1f}s")
     print(f"{'='*70}\n")
     
     df = pd.DataFrame(results)
     
-    # Save results
-    csv_path = OUTPUT_DIR / f'comparison_results_10_{method.lower()}.csv'
+    csv_path = OUTPUT_DIR / f'results_updated.csv'
     df.to_csv(csv_path, index=False)
     print(f"\n✓ Results saved to: {csv_path}")
     
     return df
 
-# Main =============================================================================
 
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description='Brute-force optimal vs heuristic cut comparison (V2 - with node-level and overhead)'
+        description='TIMED Brute-force optimal vs heuristic cut comparison'
     )
     parser.add_argument(
         '--pkl_dir',
@@ -694,91 +541,67 @@ def main():
     parser.add_argument(
         '--min_qubits',
         type=int,
-        default=12,
-        help='Minimum qubits for circuits to test (default: 12)'
+        default=6,
+        help='Minimum qubits for circuits to test'
     )
     parser.add_argument(
         '--max_qubits',
         type=int,
-        default=18,
-        help='Maximum qubits for circuits to test (default: 20)'
-    )
-    parser.add_argument(
-        '--max_nodes',
-        type=int,
-        default=5000,
-        help='Maximum quantum nodes for node-level brute force (default: 5000)'
+        default=10,
+        help='Maximum qubits for circuits to test'
     )
     parser.add_argument(
         '--k',
         type=int,
         default=3,
-        help='Number of QPUs (default: 3)'
+        help='Number of QPUs'
     )
     parser.add_argument(
         '--overhead',
         type=str,
-        default='1.0,1.1,1.2',
-        help='Comma-separated overhead values (default: 1.0,1.1,1.2)'
+        default='1.0,1.1,1.2,1.3',
+        help='Comma-separated overhead values'
     )
     parser.add_argument(
-        '--node-level',
-        action='store_true',
-        help='Use node-level brute force (allows temporal qubit splitting)'
+        '--time_limit',
+        type=int,
+        default=1800,
+        help='Time limit per hypergraph in seconds (default: 1800 = 30 min)'
     )
     parser.add_argument(
-        '--qubit-level',
-        action='store_true',
-        help='Use qubit-level brute force (faster, no temporal splitting)'
+        '--progress_interval',
+        type=int,
+        default=10,
+        help='Progress report interval in seconds (default: 10)'
     )
     
     args = parser.parse_args()
     
     overhead_values = [float(x) for x in args.overhead.split(',')]
     
-    # Determine which method to use
-    if args.node_level and args.qubit_level:
-        print("Error: Cannot use both --node-level and --qubit-level. Choose one.")
-        return
-    elif args.node_level:
-        use_node_level = True
-    elif args.qubit_level:
-        use_node_level = False
-    else:
-        # Default to qubit-level (safer/faster)
-        use_node_level = False
-        print("Note: Defaulting to qubit-level brute force. Use --node-level for temporal splitting.")
-    
-    method = "NODE-LEVEL" if use_node_level else "QUBIT-LEVEL"
-    
     print("\n" + "="*70)
-    print(f"BRUTE-FORCE COMPARISON V2 ({method})")
+    print(f"TIMED BRUTE-FORCE COMPARISON")
     print("="*70)
     print(f"Min qubits: {args.min_qubits}")
     print(f"Max qubits: {args.max_qubits}")
-    print(f"Max quantum nodes (for node-level): {args.max_nodes}")
     print(f"k (QPUs): {args.k}")
     print(f"Overhead values: {overhead_values}")
-    print(f"Method: {method}")
+    print(f"Time limit per hypergraph: {args.time_limit}s ({args.time_limit/60:.1f} min)")
+    print(f"Progress interval: {args.progress_interval}s")
     print("="*70)
-    
-    if use_node_level:
-        print("\n⚠ WARNING: Node-level brute force is VERY expensive!")
-        print(f"   Only feasible for circuits with ≤{args.max_nodes} quantum nodes.")
-        print("   For larger circuits, use --qubit-level instead.\n")
     
     total_start = time.time()
     
-    # Load small circuits
+    # Load circuits (no strict max_nodes limit since we use time limits)
     hdhs = load_small_mqtbench_hdhs(
         args.pkl_dir,
         args.min_qubits,
         args.max_qubits,
-        args.max_nodes if use_node_level else 1000  # No limit for qubit-level
+        max_nodes=None  # Allow any size
     )
     
     if not hdhs:
-        print(" No suitable circuits loaded.")
+        print("✗ No suitable circuits loaded.")
         return
     
     # Run comparison
@@ -786,11 +609,17 @@ def main():
         hdhs,
         k=args.k,
         overhead_values=overhead_values,
-        use_node_level=use_node_level,
-        max_nodes_for_node_level=args.max_nodes
+        time_limit_per_graph=args.time_limit,
+        progress_interval=args.progress_interval
     )
 
 
 if __name__ == '__main__':
     main()
-    
+
+# python -m hdh.hdh_bruteforce \
+#        --pkl_dir database/HDHs/Circuit/MQTBench/pkl \
+#        --min_qubits 3 \
+#        --max_qubits 5 \
+#        --time_limit 600 \
+#        --progress_interval 10
