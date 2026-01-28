@@ -427,8 +427,8 @@ class _HDHState:
         if q is None:
             return True
         if q in self.qubit_bin:
-            return self.qubit_bin[q] == b  # already anchored elsewhere? only ok if same bin
-        return self.qubit_load(b) < self.bin_capacity(b)
+            return (self.qubit_bin[q] == b)
+        return (self.qubit_load(b) < self.bin_capacity(b))
 
 def _delta_cost_hdh(v:str, b:int, st:_HDHState, inc, pins, w) -> int:
     d = 0
@@ -548,43 +548,35 @@ def _get_qubit_to_nodes(hdh) -> Dict[int, List[str]]:
 
 def _build_temporal_incidence(hdh) -> Tuple[Dict[str, List[Tuple[frozenset, int]]], Dict[frozenset, Set[str]]]:
     """
-    Build temporal incidence structure for the HDH.
+    Build temporal incidence structure for HDH.
     
     Returns:
-        inc[node] -> list of (hyperedge, time) tuples sorted by time
-        pins[edge] -> set of nodes in the hyperedge
+        inc: {node -> [(hyperedge, edge_time), ...]}
+        pins: {hyperedge -> {nodes}}
     """
-    # Build basic incidence and pins
-    pins: Dict[frozenset, Set[str]] = {e: set(e) for e in hdh.C}
-    inc_raw: Dict[str, List[frozenset]] = defaultdict(list)
+    pins = {e: set(e) for e in hdh.C}
+    inc = defaultdict(list)
     
-    for e in hdh.C:
-        for node in e:
-            inc_raw[node].append(e)
-    
-    # Add temporal information
-    inc: Dict[str, List[Tuple[frozenset, int]]] = {}
-    for node, edges in inc_raw.items():
-        # Sort edges by their earliest timestep
-        edge_times = []
-        for e in edges:
-            # Find the earliest timestep of any node in this edge
-            min_time = min(hdh.time_map.get(n, 0) for n in e)
-            edge_times.append((e, min_time))
-        # Sort by time
-        edge_times.sort(key=lambda x: x[1])
-        inc[node] = edge_times
+    for edge in hdh.C:
+        # Compute edge time as max of node times
+        edge_times = [hdh.time_map.get(node, 0) for node in edge]
+        edge_time = max(edge_times) if edge_times else 0
+        
+        for node in edge:
+            inc[node].append((edge, edge_time))
     
     return inc, pins
 
 
 def _push_next_valid_neighbors(hdh, node: str, frontier: List[Tuple[int, int, str]], 
-                                unassigned: Set[str], inc: Dict[str, List[Tuple[frozenset, int]]],
-                                pins: Dict[frozenset, Set[str]], counter: List[int]):
+                                unassigned: Set[str], 
+                                inc: Dict[str, List[Tuple[frozenset, int]]],
+                                pins: Dict[frozenset, Set[str]], 
+                                counter: List[int]):
     """
-    Push unassigned neighbors of `node` to the frontier priority queue.
+    Push unassigned neighbors of node to the frontier priority queue.
     
-    Frontier is a min-heap of (earliest_connection_time, tie_breaker, neighbor_node).
+    Frontier is ordered by earliest valid connection time (temporal greedy).
     The counter provides unique tie-breakers for deterministic ordering.
     """
     node_time = hdh.time_map.get(node, 0)
@@ -606,6 +598,125 @@ def _push_next_valid_neighbors(hdh, node: str, frontier: List[Tuple[int, int, st
                 # Push to heap with unique counter for deterministic tie-breaking
                 heapq.heappush(frontier, (earliest_time, counter[0], neighbor))
                 counter[0] += 1
+
+
+def _compute_delta_cost_simple(node: str, 
+                                bin_idx: int, 
+                                partitions: List[Set[str]],
+                                inc: Dict[str, List[Tuple[frozenset, int]]],
+                                pins: Dict[frozenset, Set[str]]) -> int:
+    """
+    Compute delta cost of adding node to bin_idx.
+    
+    Delta cost measures how many hyperedge cuts would be created (positive)
+    or eliminated (negative) by adding this node to this bin.
+    
+    Returns:
+        Negative = reduces cuts (good)
+        Positive = increases cuts (bad)
+        Zero = neutral
+    """
+    delta = 0
+    
+    for edge, _ in inc.get(node, []):
+        # Current state: which partitions does this edge touch?
+        current_parts = set()
+        for n in pins[edge]:
+            for p_idx, p_nodes in enumerate(partitions):
+                if n in p_nodes:
+                    current_parts.add(p_idx)
+                    break
+        
+        # Future state: add node to bin_idx
+        future_parts = current_parts.copy()
+        future_parts.add(bin_idx)
+        
+        was_cut = len(current_parts) > 1
+        will_be_cut = len(future_parts) > 1
+        
+        # If adding this node creates a new cut, that's bad
+        if not was_cut and will_be_cut:
+            delta += 1
+        # If this completes an edge within one partition, that's good
+        elif was_cut and not will_be_cut:
+            delta -= 1
+    
+    return delta
+
+
+def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]], 
+                                              unassigned: Set[str],
+                                              rejected: Set[str],
+                                              bin_idx: int,
+                                              partitions: List[Set[str]],
+                                              inc: Dict[str, List[Tuple[frozenset, int]]],
+                                              pins: Dict[frozenset, Set[str]],
+                                              beam_k: int = 3) -> Optional[str]:
+    """
+    Select next node from frontier using delta cost awareness, excluding rejected nodes.
+    
+    Instead of just taking the earliest node, consider top beam_k candidates
+    and pick the one with best (most negative) delta cost.
+    
+    Args:
+        rejected: Set of nodes that have been rejected for this bin (e.g., due to capacity)
+    
+    Returns:
+        Best node to add, or None if frontier is empty
+    """
+    if not frontier:
+        return None
+    
+    candidates = []
+    examined = []
+    
+    # Extract top beam_k earliest VALID (unassigned and not rejected) nodes
+    while frontier and len(candidates) < beam_k:
+        item = heapq.heappop(frontier)
+        time, counter, node = item
+        examined.append(item)
+        
+        if node in unassigned and node not in rejected:
+            candidates.append(node)
+    
+    # Put back only the nodes we examined but didn't select as candidates
+    for item in examined:
+        _, _, node = item
+        if node not in candidates and node in unassigned and node not in rejected:
+            heapq.heappush(frontier, item)
+    
+    if not candidates:
+        return None
+    
+    # Score each candidate by delta cost
+    scored = []
+    for node in candidates:
+        delta = _compute_delta_cost_simple(node, bin_idx, partitions, inc, pins)
+        # Prioritize: low delta cost (negative is best)
+        scored.append((delta, node))
+    
+    scored.sort()
+    best_node = scored[0][1]
+    
+    # Put back the candidates we didn't select
+    for item in examined:
+        _, _, node = item
+        if node != best_node and node in unassigned and node not in rejected:
+            heapq.heappush(frontier, item)
+    
+    return best_node
+
+
+def _select_best_from_frontier(frontier: List[Tuple[int, int, str]], 
+                                unassigned: Set[str],
+                                bin_idx: int,
+                                partitions: List[Set[str]],
+                                inc: Dict[str, List[Tuple[frozenset, int]]],
+                                pins: Dict[frozenset, Set[str]],
+                                beam_k: int = 3) -> Optional[str]:
+    """Wrapper for _select_best_from_frontier_with_rejected with empty rejected set."""
+    return _select_best_from_frontier_with_rejected(frontier, unassigned, set(), 
+                                                     bin_idx, partitions, inc, pins, beam_k)
 
 
 def _pop_earliest_valid(frontier: List[Tuple[int, int, str]], 
@@ -654,10 +765,9 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     """
     Capacity-aware temporal greedy partitioner for HDH graphs.
     
-    Implements the algorithm from the paper:
-    - Greedy bin filling via temporal expansion (earliest connection time)
-    - Sequential bin construction
-    - Residual round-robin assignment
+    Implements the algorithm from the paper with cost-aware improvements:
+    - Cost-aware greedy frontier selection using delta cost evaluation
+    - Best-fit residual round-robin placement
     
     Works directly on the HDH hypergraph structure:
     - Partitions at the NODE level (nodes like "q0_t1", "q1_t2", etc.)
@@ -665,14 +775,16 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     - Respects capacity by counting unique QUBITS per partition
     - Allows teledata cuts (same qubit in different partitions)
     - Priority queue selects earliest-time unassigned neighbors
+    - Delta cost guides selection among top-k frontier candidates
         
     Args:
         hdh_graph: HDH object with .S (nodes), .C (hyperedges), .time_map
         k: Number of partitions (QPUs)
         cap: Capacity per partition (max unique qubits, not nodes)
+        beam_k: Beam width for frontier selection (default 3)
         
         The following parameters are accepted for compatibility but currently not used:
-        beam_k, backtrack_window, polish_1swap_budget, restarts, 
+        backtrack_window, polish_1swap_budget, restarts, 
         reserve_frac, predictive_reject, seed
     
     Returns:
@@ -694,7 +806,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     # QPU order (for now, just sequential; could be topology-aware)
     qpu_order = list(range(k))
     
-    # Phase 1 & 2: Greedy bin filling with sequential construction
+    # Phase 1 & 2: Greedy bin filling with cost-aware frontier selection
     for i in range(k):
         bin_idx = qpu_order[i]
         
@@ -702,14 +814,14 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
             break
         
         # Select seed: lowest-index unassigned node
-        seed = min(unassigned, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
+        seed_node = min(unassigned, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
         
-        # Initialize bin with seed
-        current_bin = {seed}
-        unassigned.remove(seed)
+        # Initialize bin with seed - update partitions immediately
+        partitions[bin_idx].add(seed_node)
+        unassigned.remove(seed_node)
         
         # Track qubits in this bin
-        seed_qubit = _extract_qubit_id(seed)
+        seed_qubit = _extract_qubit_id(seed_node)
         if seed_qubit is not None:
             partition_qubits[bin_idx].add(seed_qubit)
             used[bin_idx] = len(partition_qubits[bin_idx])
@@ -717,12 +829,14 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         # Initialize frontier with seed's neighbors
         frontier = []  # Min-heap of (time, counter, node)
         counter = [0]  # Counter for tie-breaking
-        _push_next_valid_neighbors(hdh_graph, seed, frontier, unassigned, inc, pins, counter)
+        rejected = set()  # Nodes rejected due to capacity in this bin
+        _push_next_valid_neighbors(hdh_graph, seed_node, frontier, unassigned, inc, pins, counter)
         
-        # Greedy temporal expansion
+        # Greedy temporal expansion with cost-aware selection
         while used[bin_idx] < cap:
-            # Pop earliest valid neighbor
-            next_node = _pop_earliest_valid(frontier, unassigned)
+            # Select best node from frontier using delta cost (excluding rejected)
+            next_node = _select_best_from_frontier_with_rejected(frontier, unassigned, rejected,
+                                                                  bin_idx, partitions, inc, pins, beam_k)
             
             if next_node is None:
                 break  # No more valid neighbors
@@ -733,11 +847,12 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
                 # Would this introduce a new qubit?
                 if next_qubit not in partition_qubits[bin_idx]:
                     if used[bin_idx] + 1 > cap:
-                        # Would exceed capacity, skip this node
+                        # Would exceed capacity, reject and try next candidate
+                        rejected.add(next_node)
                         continue
             
-            # Add node to current bin
-            current_bin.add(next_node)
+            # Add node to partition immediately (not just to local variable)
+            partitions[bin_idx].add(next_node)
             unassigned.remove(next_node)
             
             # Update qubit tracking
@@ -747,98 +862,60 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
             
             # Push this node's neighbors to frontier
             _push_next_valid_neighbors(hdh_graph, next_node, frontier, unassigned, inc, pins, counter)
-        
-        # Finalize this bin
-        partitions[bin_idx] = current_bin
     
-    # Phase 3: Residual round-robin assignment under hard capacity
-    r = 0
-    stuck_count = 0  # Track how many consecutive bins couldn't take the current node
-    unplaceable_nodes = set()  # Track nodes that can't be placed anywhere
-    
-    # DEBUG
-    debug = False  # Set to True to enable debug output
-    if debug:
-        print(f"\n=== ROUND-ROBIN PHASE ===")
-        print(f"Unassigned: {len(unassigned)} nodes")
-        print(f"partition_qubits: {partition_qubits}")
-        print(f"used: {used}")
+    # Phase 3: Residual best-fit placement with delta cost
+    unplaceable_nodes = set()
     
     while unassigned:
-        bin_idx = qpu_order[r % k]
-        
-        # Find the lowest-index unassigned node that's not in unplaceable_nodes
+        # Find the next unassigned node
         remaining = unassigned - unplaceable_nodes
         if not remaining:
             break  # All remaining nodes are unplaceable
+        
         node = min(remaining, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
-        
-        # Check if we can add this node without exceeding capacity
         node_qubit = _extract_qubit_id(node)
-        can_add = True
         
-        if debug:
-            print(f"\nIteration {r}: node={node}, qubit={node_qubit}, bin={bin_idx}")
-            print(f"  Bin {bin_idx} qubits: {partition_qubits[bin_idx]}, used: {used[bin_idx]}")
+        # Compute delta cost for each bin and find best fit
+        best_bin = None
+        best_delta = float('inf')
         
-        if node_qubit is not None:
-            # If this qubit is NOT already in this bin, check capacity
-            if node_qubit not in partition_qubits[bin_idx]:
-                if used[bin_idx] >= cap:
-                    can_add = False
-                    if debug:
-                        print(f"  Can't add: new qubit but bin at capacity")
-            # If qubit IS already in this bin, we can always add (teledata cut)
-            else:
-                if debug:
-                    print(f"  Can add: qubit already in bin (teledata)")
+        for bin_idx in range(k):
+            # Check capacity constraint
+            can_add = True
+            if node_qubit is not None:
+                if node_qubit not in partition_qubits[bin_idx]:
+                    if used[bin_idx] >= cap:
+                        can_add = False
+            
+            if can_add:
+                delta = _compute_delta_cost_simple(node, bin_idx, partitions, inc, pins)
+                if delta < best_delta:
+                    best_delta = delta
+                    best_bin = bin_idx
         
-        if can_add:
-            partitions[bin_idx].add(node)
+        # Place node in best bin
+        if best_bin is not None:
+            partitions[best_bin].add(node)
             unassigned.remove(node)
             
             # Update qubit tracking only if this is a new qubit for this bin
-            if node_qubit is not None and node_qubit not in partition_qubits[bin_idx]:
-                partition_qubits[bin_idx].add(node_qubit)
-                used[bin_idx] = len(partition_qubits[bin_idx])
-            
-            if debug:
-                print(f"  ADDED. New used[{bin_idx}] = {used[bin_idx]}")
-            
-            stuck_count = 0  # Reset stuck counter when we successfully add a node
+            if node_qubit is not None and node_qubit not in partition_qubits[best_bin]:
+                partition_qubits[best_bin].add(node_qubit)
+                used[best_bin] = len(partition_qubits[best_bin])
         else:
-            stuck_count += 1
-            if debug:
-                print(f"  SKIPPED. stuck_count = {stuck_count}")
-            # If we've tried all bins and none can take this node, it's unplaceable
-            if stuck_count >= k:
-                if debug:
-                    print(f"  Stuck count >= k, trying teledata fallback...")
-                # Try to find a bin where this node's qubit already exists (teledata cut)
-                placed = False
-                if node_qubit is not None:
-                    for b in range(k):
-                        if node_qubit in partition_qubits[b]:
-                            if debug:
-                                print(f"    Found qubit {node_qubit} in bin {b}, adding there")
-                            partitions[b].add(node)
-                            unassigned.remove(node)
-                            placed = True
-                            stuck_count = 0
-                            break
-                
-                if not placed:
-                    # Node is unplaceable with current partitions, mark it and try next node
-                    if debug:
-                        print(f"    No bin has qubit {node_qubit}, marking as unplaceable")
-                    unplaceable_nodes.add(node)
-                    stuck_count = 0  # Reset to try the next node
-        
-        r += 1
-        
-        if debug and r > 50:
-            print(f"\n  Breaking after 50 iterations for safety")
-            break
+            # Try teledata fallback: find a bin where this qubit already exists
+            placed = False
+            if node_qubit is not None:
+                for b in range(k):
+                    if node_qubit in partition_qubits[b]:
+                        partitions[b].add(node)
+                        unassigned.remove(node)
+                        placed = True
+                        break
+            
+            if not placed:
+                # Node is truly unplaceable, mark it and try next node
+                unplaceable_nodes.add(node)
     
     # Compute cost (count cut hyperedges)
     node_assignment = {}
@@ -849,6 +926,124 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     cost = _compute_cut_cost(hdh_graph, node_assignment)
     
     return partitions, cost
+
+# ------------------------------- Cost Evaluation Functions -------------------------------
+
+def cost(hdh_graph, partitions) -> Tuple[float, float]:
+    """
+    Calculate the cost of a given partitioning of the HDH graph.
+    
+    Args:
+        hdh_graph: HDH graph object
+        partitions: List of sets, where each set contains node IDs in that partition
+    
+    Returns:
+        Tuple[float, float]: (cost_q, cost_c) - quantum and classical cut costs
+            cost_q: number of quantum hyperedges that span multiple partitions
+            cost_c: number of classical hyperedges that span multiple partitions
+    """
+    if not partitions or not hasattr(hdh_graph, 'C'):
+        return 0.0, 0.0
+    
+    # Create mapping from node to partition index
+    node_to_partition = {}
+    for i, partition in enumerate(partitions):
+        for node in partition:
+            node_to_partition[node] = i
+    
+    # Count hyperedges that cross partitions (separated by type)
+    cost_q = 0  # Quantum cost
+    cost_c = 0  # Classical cost
+    
+    for edge in hdh_graph.C:
+        # Get partitions of all nodes in this hyperedge
+        edge_partitions = set()
+        for node in edge:
+            if node in node_to_partition:
+                edge_partitions.add(node_to_partition[node])
+        
+        # If hyperedge spans multiple partitions, it contributes to cost
+        if len(edge_partitions) > 1:
+            # Get edge weight if available
+            edge_weight = 1
+            if hasattr(hdh_graph, 'edge_weight'):
+                edge_weight = hdh_graph.edge_weight.get(edge, 1)
+            
+            # Determine if edge is quantum or classical
+            edge_type = 'q'  # Default to quantum
+            if hasattr(hdh_graph, 'tau'):
+                edge_type = hdh_graph.tau.get(edge, 'q')
+            
+            if edge_type == 'q':
+                cost_q += edge_weight
+            else:
+                cost_c += edge_weight
+    
+    return float(cost_q), float(cost_c)
+
+
+def weighted_cost(cost_tuple: Tuple[float, float]) -> float:
+    """
+    Apply weighting to cost tuple: quantum cuts cost 10x more than classical.
+    
+    Weighting scheme:
+        - Quantum hyperedge cut cost = 10
+        - Classical hyperedge cut cost = 1
+    
+    Args:
+        cost_tuple: (cost_q, cost_c) from cost() function
+    
+    Returns:
+        Weighted total cost: 10 * cost_q + 1 * cost_c
+    """
+    cost_q, cost_c = cost_tuple
+    return 10.0 * cost_q + 1.0 * cost_c
+
+
+def partition_size(partitions) -> List[int]:
+    """
+    Calculate the sizes (number of nodes) of each partition.
+    
+    Args:
+        partitions: List of sets, where each set contains node IDs in that partition
+    
+    Returns:
+        List[int]: Size of each partition
+    """
+    if not partitions:
+        return []
+    
+    return [len(partition) for partition in partitions]
+
+
+def partition_logical_qubit_size(partitions) -> List[int]:
+    """Return the number of *unique logical qubits* used in each partition.
+
+    Notes
+    -----
+    - HDH node IDs are time-expanded (e.g., ``q7_t16``), so counting nodes vastly
+      overestimates resource usage.
+    - In this codebase, capacity ``cap`` is defined in *logical qubits*.
+
+    Args:
+        partitions: List[set[str]]; each set contains HDH node IDs.
+
+    Returns:
+        List[int]: unique logical-qubit count per partition.
+    """
+    if not partitions:
+        return []
+
+    sizes: List[int] = []
+    for part in partitions:
+        qubits = set()
+        for nid in part:
+            m = _Q_RE.match(str(nid))
+            if m:
+                qubits.add(int(m.group(1)))
+        sizes.append(len(qubits))
+    return sizes
+
 
 # ------------------------------- METIS telegate -------------------------------
 
@@ -998,153 +1193,27 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
     try:
         import nxmetis  # type: ignore
         used_metis = True
+        _, qubit_parts = nxmetis.partition(G, partitions)
     except Exception:
-        used_metis = False
+        qubit_parts = _kl_fallback_partition(G, partitions)
 
-    n = G.number_of_nodes()
-    if partitions <= 0 or capacities <= 0:
-        empty = [set() for _ in range(max(0, partitions))]
-        return empty, 0, False, "error"
-    if n == 0:
-        empty = [set() for _ in range(partitions)]
-        return empty, 0, True, "metis" if used_metis else "kl"
-    if partitions * capacities < n:
-        return [], 0, False, "metis" if used_metis else "kl"
-
-    nx.set_node_attributes(G, {n: 1 for n in G.nodes}, name="weight")
-
-    if used_metis:
-        target = capacities / float(n)
-        tpwgts = [target] * partitions
-        ubvec = [1.001]
-        try:
-            import nxmetis
-            _, parts = nxmetis.partition(
-                G, partitions,
-                node_weight="weight", edge_weight="weight",
-                tpwgts=tpwgts, ubvec=ubvec
-            )
-        except TypeError:
-            _, parts = nxmetis.partition(G, partitions, node_weight="weight", edge_weight="weight")
-        bins = _bins_from_parts(parts)
-        method = "metis"
-    else:
-        parts = _kl_fallback_partition(G, partitions)
-        bins = _bins_from_parts(parts)
-        method = "kl"
-
+    bins = _bins_from_parts(qubit_parts)
     bins = _repair_overflow(G, bins, capacities)
-    cost = _cut_edges_unweighted(G, bins)
-    respects = all(len(b) <= capacities for b in bins)
-    return bins, cost, respects, method
 
-
-# ------------------------------- Public API Functions -------------------------------
-
-def cost(hdh_graph, partitions) -> Tuple[float, float]:
-    """
-    Calculate the cost of a given partitioning of the HDH graph.
-    
-    Args:
-        hdh_graph: HDH graph object
-        partitions: List of sets, where each set contains node IDs in that partition
-    
-    Returns:
-        Tuple[float, float]: (cost_q, cost_c) - quantum and classical cut costs
-            cost_q: number of quantum hyperedges that span multiple partitions
-            cost_c: number of classical hyperedges that span multiple partitions
-    """
-    if not partitions or not hasattr(hdh_graph, 'C'):
-        return 0.0, 0.0
-    
-    # Create mapping from node to partition index
-    node_to_partition = {}
-    for i, partition in enumerate(partitions):
-        for node in partition:
-            node_to_partition[node] = i
-    
-    # Count hyperedges that cross partitions (separated by type)
-    cost_q = 0  # Quantum cost
-    cost_c = 0  # Classical cost
-    
-    for edge in hdh_graph.C:
-        # Get partitions of all nodes in this hyperedge
-        edge_partitions = set()
-        for node in edge:
-            if node in node_to_partition:
-                edge_partitions.add(node_to_partition[node])
-        
-        # If hyperedge spans multiple partitions, it contributes to cost
-        if len(edge_partitions) > 1:
-            # Get edge weight if available
-            edge_weight = 1
-            if hasattr(hdh_graph, 'edge_weight'):
-                edge_weight = hdh_graph.edge_weight.get(edge, 1)
-            
-            # Determine if edge is quantum or classical
-            edge_type = 'q'  # Default to quantum
-            if hasattr(hdh_graph, 'tau'):
-                edge_type = hdh_graph.tau.get(edge, 'q')
-            
-            if edge_type == 'q':
-                cost_q += edge_weight
-            else:
-                cost_c += edge_weight
-    
-    return float(cost_q), float(cost_c)
-
-
-def partition_size(partitions) -> List[int]:
-    """
-    Calculate the sizes (number of nodes) of each partition.
-    
-    Args:
-        partitions: List of sets, where each set contains node IDs in that partition
-    
-    Returns:
-        List[int]: Size of each partition
-    """
-    if not partitions:
-        return []
-    
-    return [len(partition) for partition in partitions]
-
-
-def partition_logical_qubit_size(partitions) -> List[int]:
-    """Return the number of *unique logical qubits* used in each partition.
-
-    Notes
-    -----
-    - HDH node IDs are time-expanded (e.g., ``q7_t16``), so counting nodes vastly
-      overestimates resource usage.
-    - In this codebase, capacity ``cap`` is defined in *logical qubits*.
-
-    Args:
-        partitions: List[set[str]]; each set contains HDH node IDs.
-
-    Returns:
-        List[int]: unique logical-qubit count per partition.
-    """
-    if not partitions:
-        return []
-
-    sizes: List[int] = []
-    for part in partitions:
-        qubits = set()
-        for nid in part:
-            m = _Q_RE.match(str(nid))
-            if m:
-                qubits.add(int(m.group(1)))
-        sizes.append(len(qubits))
-    return sizes
+    cut_cost = _cut_edges_unweighted(G, bins)
+    sizes = _sizes(bins)
+    respects_capacity = all(s <= capacities for s in sizes)
+    method = "metis" if used_metis else "kl"
+    return bins, cut_cost, respects_capacity, method
 
 
 def participation(hdh_graph, partitions) -> Dict[str, float]:
     """
-    Compute partition participation metrics based on temporal analysis.
+    Count how many partitions have any activity at each timestep.
     
-    This measures how many partitions have any activity (nodes or edges) at each timestep,
-    providing an overview of temporal participation but not true concurrent work.
+    This metric measures temporal participation, not true concurrency.
+    It answers: "How many QPUs are doing *something* at each timestep?"
+    but doesn't measure actual concurrent work.
     
     Args:
         hdh_graph: HDH graph object with temporal structure
@@ -1169,34 +1238,28 @@ def participation(hdh_graph, partitions) -> Dict[str, float]:
         for node in partition:
             node_to_partition[node] = i
     
-    # Analyze participation at each time step
+    # Count active partitions per timestep
     timestep_participation = []
-    total_active_partitions = 0
-    
     for t in sorted(hdh_graph.T):
-        # Find which partitions have any nodes at time t
         active_partitions = set()
-        
-        for node in hdh_graph.S:
-            if hdh_graph.time_map.get(node) == t and node in node_to_partition:
+        for node, time in hdh_graph.time_map.items():
+            if time == t and node in node_to_partition:
                 active_partitions.add(node_to_partition[node])
-        
-        participation = len(active_partitions)
-        timestep_participation.append(participation)
-        total_active_partitions += participation
+        timestep_participation.append(len(active_partitions))
     
     # Calculate metrics
     num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
     max_participation = max(timestep_participation) if timestep_participation else 0
     avg_participation = sum(timestep_participation) / num_timesteps if num_timesteps > 0 else 0
     
-    # Temporal efficiency: how well we utilize available time steps
-    total_possible_work = len(partitions) * num_timesteps
-    actual_work = total_active_partitions
-    temporal_efficiency = actual_work / total_possible_work if total_possible_work > 0 else 0
+    # Temporal efficiency: average participation as fraction of total partitions
+    temporal_efficiency = avg_participation / len(partitions) if partitions else 0
     
-    # Partition utilization: average fraction of partitions active per timestep
-    partition_utilization = avg_participation / len(partitions) if partitions else 0
+    # Partition utilization: how many partitions are used at all
+    used_partitions = set()
+    for node, partition_idx in node_to_partition.items():
+        used_partitions.add(partition_idx)
+    partition_utilization = len(used_partitions) / len(partitions) if partitions else 0
     
     return {
         'max_participation': float(max_participation),
