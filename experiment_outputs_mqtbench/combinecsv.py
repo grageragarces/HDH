@@ -11,10 +11,10 @@ output_columns = [
 ]
 
 # Read the first CSV file
-df1 = pd.read_csv('comparison_results_10_qubit-level_weighted.csv')
+df1 = pd.read_csv('results_node_level_fixed_over10.csv')
 
 # Read the second CSV file
-df2 = pd.read_csv('comparison_results_timed_weighted.csv')
+df2 = pd.read_csv('results_node_level_fixed.csv')
 
 # Select only the desired columns from both dataframes
 df1_filtered = df1[output_columns]
@@ -25,7 +25,3 @@ combined_df = pd.concat([df1_filtered, df2_filtered], ignore_index=True)
 
 # Save to results.csv
 combined_df.to_csv('results.csv', index=False)
-
-print(f"Successfully combined {len(df1)} rows from comparison_results_10_qubit-level_weighted.csv")
-print(f"and {len(df2)} rows from comparison_results_timed_weighted.csv")
-print(f"Total rows in results.csv: {len(combined_df)}")

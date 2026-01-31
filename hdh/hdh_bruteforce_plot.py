@@ -7,7 +7,7 @@ from collections import defaultdict
 import matplotlib.ticker as ticker
 
 # Configuration
-CSV_FILE = Path('experiment_outputs_mqtbench/results_node_level_fixed.csv') 
+CSV_FILE = Path('experiment_outputs_mqtbench/results.csv') 
 OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.png'
@@ -281,14 +281,15 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     print(f"\nCircuit size analysis for overhead={overhead_value}:")
     print(f"  Total circuits: {len(df_plot)}")
     print(f"  Qubit range: {int(df_plot['qubits_int'].min())} - {int(df_plot['qubits_int'].max())}")
+    print(f"  Mean heuristic cost: {df_plot['heuristic_cost'].mean():.1f}")
     print(f"  Mean optimality: {df_plot['optimality_pct'].mean():.1f}%")
     
     # Create figure
     fig, ax = plt.subplots(figsize=(10, 7))
     
-    # Scatter plot
+    # Scatter plot - y-axis is heuristic_cost, color is optimality
     scatter = ax.scatter(df_plot['qubits_int'], 
-                        df_plot['optimality_pct'],
+                        df_plot['heuristic_cost'],
                         alpha=0.6, 
                         s=100,
                         c=df_plot['optimality_pct'],
@@ -300,21 +301,17 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     
     # Add colorbar
     cbar = plt.colorbar(scatter, ax=ax)
-    cbar.set_label('Optimality (%)', fontsize=12, fontweight='bold')
+    cbar.set_label('Solution Quality (%)', fontsize=12, fontweight='bold')
     
-    # # Calculate and plot trend line
-    z = np.polyfit(df_plot['qubits_int'], df_plot['optimality_pct'], 1)
-    p = np.poly1d(z)
-    x_trend = np.linspace(df_plot['qubits_int'].min(), df_plot['qubits_int'].max(), 100)
-    ax.plot(x_trend, p(x_trend), "b--", alpha=0.8, linewidth=2, label=f'Trend: y={z[0]:.2f}x+{z[1]:.1f}')
-    
-    # Add horizontal line at 100% (perfect optimality)
-    # ax.axhline(y=100, color='green', linestyle='--', linewidth=2, alpha=0.7, 
-    #            label='100% (Perfect)')
+    # Calculate and plot trend line for heuristic_cost
+    # z = np.polyfit(df_plot['qubits_int'], df_plot['heuristic_cost'], 1)
+    # p = np.poly1d(z)
+    # x_trend = np.linspace(df_plot['qubits_int'].min(), df_plot['qubits_int'].max(), 100)
+    # ax.plot(x_trend, p(x_trend), "b--", alpha=0.8, linewidth=2, label=f'Trend: y={z[0]:.2f}x+{z[1]:.1f}')
     
     # Labels and title
     ax.set_xlabel('Circuit Size (Number of Qubits)', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Optimality (%)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Heuristic Cut Cost', fontsize=14, fontweight='bold')
     # ax.set_title(f'Heuristic Optimality vs Circuit Size\n(Overhead = {overhead_value}, k = {k} QPUs)', 
     #              fontsize=14, fontweight='bold')
     
@@ -323,12 +320,21 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     
     # Set axis limits with padding
     x_padding = (df_plot['qubits_int'].max() - df_plot['qubits_int'].min()) * 0.05
-    y_padding = 5
+    
+    # Use 95th percentile for y-axis upper limit to avoid outliers dominating the plot
+    y_upper = df_plot['heuristic_cost'].quantile(0.95)
+    y_lower = df_plot['heuristic_cost'].min()
+    y_padding = (y_upper - y_lower) * 0.1
     
     ax.set_xlim([df_plot['qubits_int'].min() - x_padding, 
                  df_plot['qubits_int'].max() + x_padding])
-    ax.set_ylim([max(0, df_plot['optimality_pct'].min() - y_padding), 
-                 min(110, df_plot['optimality_pct'].max() + y_padding)])
+    ax.set_ylim([max(0, y_lower - y_padding), 
+                 y_upper + y_padding])
+    
+    # Count how many points are outside the visible range
+    n_outliers = (df_plot['heuristic_cost'] > y_upper + y_padding).sum()
+    if n_outliers > 0:
+        print(f"  Note: {n_outliers} outlier(s) exceed y-axis limit (max cost: {df_plot['heuristic_cost'].max():.1f})")
     
     # Legend
     #ax.legend(loc='best')
@@ -336,16 +342,15 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
     
     # Add statistics text box
-    stats_text = f'n = {len(df_plot)} circuits\n'
-    stats_text += f'Mean: {df_plot["optimality_pct"].mean():.1f}%\n'
-    stats_text += f'Median: {df_plot["optimality_pct"].median():.1f}%\n'
-    stats_text += f'Std: {df_plot["optimality_pct"].std():.1f}pp'
+    # stats_text = f'n = {len(df_plot)} circuits\n'
+    # stats_text += f'Median cost: {df_plot["heuristic_cost"].median():.1f}\n'
+    # stats_text += f'Mean optimality: {df_plot["optimality_pct"].mean():.1f}%'
     
-    ax.text(0.02, 0.02, stats_text,
-            transform=ax.transAxes,
-            fontsize=10,
-            verticalalignment='bottom',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    # ax.text(0.02, 0.02, stats_text,
+    #         transform=ax.transAxes,
+    #         fontsize=10,
+    #         verticalalignment='bottom',
+    #         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     # Save
     plt.savefig(output_path, dpi=300, bbox_inches='tight')    
