@@ -91,8 +91,8 @@ def plot_cut_cost(df):
     
     ax.set_xlabel('Number of Qubits', fontsize=13, fontweight='bold')
     ax.set_ylabel('Cut Cost (Number of Cut Hyperedges)', fontsize=13, fontweight='bold')
-    ax.set_title('HDH Cutting Performance: Cut Cost vs Workload Size', 
-                 fontsize=15, fontweight='bold', pad=20)
+    # ax.set_title('HDH Cutting Performance: Cut Cost vs Workload Size', 
+    #              fontsize=15, fontweight='bold', pad=20)
     ax.legend(title='Model', fontsize=11, title_fontsize=12)
     ax.grid(True, alpha=0.3)
     
@@ -141,8 +141,8 @@ def plot_heuristic_time(df):
     
     ax.set_xlabel('Number of Qubits', fontsize=13, fontweight='bold')
     ax.set_ylabel('Heuristic Time (seconds)', fontsize=13, fontweight='bold')
-    ax.set_title('HDH Cutting Performance: Computation Time vs Workload Size', 
-                 fontsize=15, fontweight='bold', pad=20)
+    # ax.set_title('HDH Cutting Performance: Computation Time vs Workload Size', 
+    #              fontsize=15, fontweight='bold', pad=20)
     ax.legend(title='Model', fontsize=11, title_fontsize=12)
     ax.grid(True, alpha=0.3)
     
