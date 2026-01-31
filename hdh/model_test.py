@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # ========================= CONFIGURATION =========================
     
     # Workload sizes to test
-    QUBIT_SIZES = list(range(2, 201, 10))  # 2, 12, 22, ..., 192
+    QUBIT_SIZES = list(range(2, 1001, 10))  # 2, 12, 22, ..., 192
     
     # Number of random workloads per size
     WORKLOADS_PER_SIZE = 5
