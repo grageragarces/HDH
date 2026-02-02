@@ -19,7 +19,9 @@ The database is organized into two main directories:
 * **`Database/`**: Contains the actual database files (HDHs and workloads)
 * **`Database_generator/`**: Contains scripts, converters, and utilities for generating and extending the database
 
-### Database Directory Structure
+---
+
+## Database Directory Structure
 
 ```
 Database/
@@ -39,28 +41,72 @@ Database/
             ├── scripts          # Helper scripts for database operations
 ```
 
+
 where:
-* **Model** = computational model (e.g., Circuit, MBQC, QW, QCA)
-* **Origin** = source of the workload (e.g., benchmark suite, custom circuit, artificial circuit)
 
-### Database_generator Directory
+* **Model** = computational model (e.g., Circuit, MBQC, QW, QCA)  
+* **Origin** = source of the workload (e.g., benchmark suite, custom circuit)
 
-The `Database_generator/` folder contains:
-* Utilities for batch processing (`run_partition_tests.py`)
-* A file to decompress the `partitions.csv.gz` compressed database (`decompress_data.py`)
-* Leadeboard generators (`generate_leaderboards.py`)
-* A data querying file which can be used to "ask" specific questions (`query_results.py`). By calling things like:
-```python
-  # Compare two methods
-  python query_results.py --database-root ./Database \\
-    compare --method-a greedy_hdh --method-b metis_telegate
-```
-All the possible query commands can be found in the documents comments. They include finding the best method (meaning partitioner strategy) for a workload, method comparison, method statistics, etc.
+---
+
+## The Mapping Problem %HERE
+
+Partitioning an HDH is fundamentally a **mapping problem**.  
+
+We want to assign ** qubits** (and therefore all corresponding HDH **state nodes across time**) onto a fixed number of QPUs, connected by some underlying network topology.  
+The goal is to distribute the workload while minimizing inter-QPU communication.
+
+More formally:
+
+* **Inputs**:  
+  * an HDH workload with time-labelled state nodes and dependency hyperedges  
+  * a QPU network graph, where nodes have finite **qubit capacities** and edges represent physical connectivity  
+
+* **Output**:  
+  * an assignment of qubits into `k` bins (QPUs), defining where computation is executed  
+
+A valid mapping typically needs to satisfy:
+
+* **Capacity constraints**: each bin can host at most `capacity` unique qubits  
+* **Communication minimization**: hyperedges spanning multiple bins induce cuts (and thus communication)  
+* **Temporal structure preservation**: assignments should respect the time-ordered dependency structure of the HDH  
+
+---
+
+### When capacity constraints cannot be guaranteed
+
+Some partitioning techniques cannot ensure that strict QPU capacities are always respected.  
+
+For example, general-purpose hypergraph partitioners (such as **KaHyPar** or **hMETIS**) are designed to produce *balanced* partitions, but they cannot guarantee that a partition will remain below an exact hardware qubit limit in all cases.  
+
+In these settings, the partition result should be treated as *not capacity-safe*, and we record:
+
+* `respects_capacity = False`
+
+This directly affects downstream processing:  
+
+when a partition does not reliably satisfy capacity constraints, we may disable automatic completion of missing assignments, meaning:
+
+* `respects_capacity = False`
+
+so that the database reflects the *raw mapping outcome* rather than an artificially forced valid embedding.
+
+---
+
+### Communication cost model 
+
+Cut hyperedges induce inter-QPU communication, and different communication types carry different costs.  
+
+In the current implementation we use:
+
+* **quantum communication cost = 10**  
+* **classical communication cost = 1**
+
+These weights define the objective optimized by our greedy cut heuristic and are configurable depending on the target hardware assumptions.
 
 
-The database currently contains:
+---
 
-* HDHs derived from the [Munich Quantum Benchmarking Dataset](https://www.cda.cit.tum.de/mqtbench/)
 
 ## File Formats
 
@@ -68,397 +114,153 @@ The database currently contains:
 * QASM files representing the quantum workloads
 
 ### HDHs Directory
-* **`.pkl`**: Python-pickled `HDH` objects for programmatic use
-* **`.txt`** / **`.csv`**: Human-readable text files with annotated metadata
-  * `__edge_members.csv`: Edge-node relationships (edge_index, node_id)
-  * `__edges.csv`: Edge information (edge_index, type, realisation, gate_name, role, edge_args, edge_metadata)
-  * `__nodes.csv`: Node information (node_id, type, time, realisation)
-
-### Partitions Directory
-* **`partitions.csv.gz`**: Partitioning results (aka the dabase)
-
-## Partitioning Performance Metrics
-
-Thanks to the recent additions in PR #24, the library now provides comprehensive metrics for evaluating partitioning quality. These metrics can be computed and added to the database to build a performance baseline.
-
-### Available Metrics (from `hdh.passes`)
-
-#### 1. **`cost(hdh_graph, partitions)`** → `Tuple[float, float]`
-Returns `(cost_q, cost_c)` - the quantum and classical cut costs:
-* `cost_q`: Number of quantum hyperedges that span multiple partitions
-* `cost_c`: Number of classical hyperedges that span multiple partitions
-
-This is the **primary metric** for comparing partitioning methods.
-
-#### 2. **`partition_size(partitions)`** → `List[int]`
-Returns the size (number of nodes) of each partition.
-Useful for checking balance constraints.
-
-#### 3. **`participation(hdh_graph, partitions)`** → `Dict[str, float]`
-Measures temporal participation (which partitions have activity at each timestep).
-**Note**: This measures presence, not true computational parallelism.
-
-Returns:
-* `max_participation`: Peak number of active partitions
-* `average_participation`: Mean active partitions per timestep
-* `temporal_efficiency`: How well time is utilized
-* `partition_utilization`: Average fraction of partitions active
-* `timesteps`: Total timesteps
-* `num_partitions`: Number of partitions
-
-#### 4. **`parallelism(hdh_graph, partitions)`** → `Dict[str, float]`
-Measures **true parallelism** by counting concurrent τ-edges (operations) per timestep.
-This represents actual computational work that can execute simultaneously.
-
-Returns:
-* `max_parallelism`: Peak concurrent operations
-* `average_parallelism`: Mean operations per timestep
-* `total_operations`: Total operation count
-* `timesteps`: Total timesteps
-* `num_partitions`: Number of partitions
-
-#### 5. **`fair_parallelism(hdh_graph, partitions, capacities)`** → `Dict[str, float]`
-Implements **Jean's fairness principle** - normalizes parallelism by partition capacity to detect workload imbalances.
-
-Returns:
-* `max_fair_parallelism`: Peak fair parallelism
-* `average_fair_parallelism`: Mean fair parallelism
-* `fairness_ratio`: Distribution fairness (1.0 = perfectly fair)
-* `total_operations`: Total operation count
-* `timesteps`: Total timesteps
-* `num_partitions`: Number of partitions
-
-### Usage Example
-
-```python
-from hdh.passes import (
-    cost, partition_size, 
-    participation, parallelism, fair_parallelism
-)
-
-# After running your partitioning method
-bins, _, _, _ = your_partitioning_method(hdh_graph, k=3)
-
-# Evaluate the partition
-cost_q, cost_c = cost(hdh_graph, bins)
-sizes = partition_size(bins)
-participation_metrics = participation(hdh_graph, bins)
-parallelism_metrics = parallelism(hdh_graph, bins)
-fair_metrics = fair_parallelism(hdh_graph, bins, capacities=[10, 10, 10])
-
-print(f"Quantum cut cost: {cost_q}")
-print(f"Classical cut cost: {cost_c}")
-print(f"Partition sizes: {sizes}")
-print(f"Average parallelism: {parallelism_metrics['average_parallelism']}")
-print(f"Fairness ratio: {fair_metrics['fairness_ratio']}")
-```
-
-## Extending the Dataset
-
-We encourage users to:
-
-* Add new workloads (QASM or [other supported formats](models.md))
-* Generate corresponding HDHs
-* Run partitioning methods and contribute results
-* Propose and document new metrics
-
-Pull requests that expand the benchmark set or enrich metadata are very welcome!
-
-There are two ways to contribute:
+* **`.pkl`**: Python-pickled `HDH` objects
+* **`.csv`**: Human-readable HDH structure:
+  * `__nodes.csv`: node_id, type, time, realisation  
+  * `__edges.csv`: edge_index, type, metadata  
+  * `__edge_members.csv`: edge-node incidence list  
 
 ---
 
-### 1) Add New Workloads + HDHs
+## Partitions Directory
 
-#### Step 1: Place Workloads
-Put your workload origin files under:  
-```
-Database/Workloads/<Model>/<Origin>/
-```
-
-This could be anything from a QASM file to circuit generation code.
-
-If the HDH is not generated from functions within the library, we request you add a `README.md` to your origin folder explaining how the HDHs were generated.
-
-Example:  
-```
-Database/Workloads/Circuits/MQTBench/qft_8.qasm
-```
-
-#### Step 2: Run the Converter
-Convert the files (QASM strings, Qiskit circuits, etc.) to HDHs.
-
-The converter will create:
-```
-Database/HDHs/<Model>/<Origin>/pkl/<filename>.pkl
-Database/HDHs/<Model>/<Origin>/text/<filename>__nodes.csv
-Database/HDHs/<Model>/<Origin>/text/<filename>__edges.csv
-Database/HDHs/<Model>/<Origin>/text/<filename>__edge_members.csv
-```
-
-##### Converter Script (QASM → HDH → {pkl,csv})
-
-The converter script is available in `Database_generator/` folder. Requirements: tqdm, the HDH library available on PYTHONPATH, and your QASM converter (`hdh.converters.from_qasm`).
-
-```python
-#!/usr/bin/env python3
-import sys
-import os
-import csv
-import json
-import pickle
-from pathlib import Path
-from tqdm import tqdm
-import argparse
-
-# Repo import path (adjust as needed)
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hdh.converters import from_qasm
-
-BASE_DIR = Path(__file__).resolve().parent
-
-def ensure_dir(p: Path):
-    p.mkdir(parents=True, exist_ok=True)
-
-def save_pkl(hdh_graph, out_base: Path):
-    p = out_base.with_suffix(".pkl")
-    with open(p, "wb") as f:
-        pickle.dump(hdh_graph, f)
-    return p
-
-def save_nodes_csv(hdh_graph, out_path: Path):
-    with open(out_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["node_id", "type", "time", "realisation"])
-        for nid in sorted(hdh_graph.S):
-            w.writerow([
-                nid,
-                hdh_graph.sigma.get(nid, ""),
-                getattr(hdh_graph, "time_map", {}).get(nid, ""),
-                hdh_graph.upsilon.get(nid, "")
-            ])
-
-def save_edges_csvs(hdh_graph, edges_path: Path, members_path: Path):
-    edges_sorted = sorted(hdh_graph.C, key=lambda e: tuple(sorted(e)))
-    
-    # edges table
-    with open(edges_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow([
-            "edge_index", "type", "realisation", "gate_name",
-            "role", "edge_args", "edge_metadata"
-        ])
-        for idx, e in enumerate(edges_sorted):
-            w.writerow([
-                idx,
-                hdh_graph.tau.get(e, ""),
-                hdh_graph.phi.get(e, ""),
-                getattr(hdh_graph, "gate_name", {}).get(e, ""),
-                getattr(hdh_graph, "edge_role", {}).get(e, ""),
-                json.dumps(getattr(hdh_graph, "edge_args", {}).get(e, None)) if e in getattr(hdh_graph, "edge_args", {}) else "",
-                json.dumps(getattr(hdh_graph, "edge_metadata", {}).get(e, None)) if e in getattr(hdh_graph, "edge_metadata", {}) else ""
-            ])
-    
-    # edge_members table
-    with open(members_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["edge_index", "node_id"])
-        for idx, e in enumerate(edges_sorted):
-            for nid in sorted(e):
-                w.writerow([idx, nid])
-
-def main():
-    ap = argparse.ArgumentParser(description="Convert QASM workloads to HDH artifacts")
-    ap.add_argument("--model", default="Circuits", help="Model folder")
-    ap.add_argument("--origin", default="MQTBench", help="Origin folder")
-    ap.add_argument("--limit", type=int, default=None, help="Max files to convert")
-    ap.add_argument("--src-root", default=None, help="Override source root")
-    args = ap.parse_args()
-
-    SRC_DIR = Path(args.src_root) if args.src_root else BASE_DIR / "Database" / "Workloads" / args.model / args.origin
-    DST_ROOT = BASE_DIR / "Database" / "HDHs" / args.model / args.origin
-    PKL_ROOT = DST_ROOT / "pkl"
-    TXT_ROOT = DST_ROOT / "text"
-    IMG_ROOT = DST_ROOT / "images"
-
-    if not SRC_DIR.exists():
-        print(f"[error] Source directory not found: {SRC_DIR}")
-        sys.exit(1)
-
-    for d in (PKL_ROOT, TXT_ROOT, IMG_ROOT):
-        ensure_dir(d)
-
-    qasm_files = sorted(SRC_DIR.rglob("*.qasm"))
-    if not qasm_files:
-        print(f"[info] No .qasm files found under {SRC_DIR}")
-        return
-
-    if args.limit is not None:
-        qasm_files = qasm_files[:args.limit]
-
-    ok = fail = 0
-    with tqdm(total=len(qasm_files), desc="Converting QASM → HDH", unit="file") as pbar:
-        for qf in qasm_files:
-            rel = qf.relative_to(SRC_DIR)
-            stem = rel.stem
-            pkl_dir = PKL_ROOT / rel.parent
-            txt_dir = TXT_ROOT / rel.parent
-            for d in (pkl_dir, txt_dir):
-                ensure_dir(d)
-            pbar.set_postfix_str(str(rel))
-            try:
-                hdh_graph = from_qasm("file", str(qf))
-                save_pkl(hdh_graph, pkl_dir / stem)
-                save_nodes_csv(hdh_graph, txt_dir / f"{stem}__nodes.csv")
-                save_edges_csvs(hdh_graph, txt_dir / f"{stem}__edges.csv", txt_dir / f"{stem}__edge_members.csv")
-                ok += 1
-            except Exception as e:
-                tqdm.write(f"[fail] {qf}: {e}")
-                fail += 1
-            finally:
-                pbar.update(1)
-    
-    print(f"[done] Converted: {ok} | Failed: {fail}")
-
-if __name__ == "__main__":
-    main()
-```
-
-#### Step 3: Verify & Inspect
-Please open at least one of the `text/*.csv` files and load at least one of the `pkl/*.pkl` objects in Python to verify everything works.
-
-```python
-import pickle
-import pandas as pd
-
-# Load pickled HDH
-with open("Database/HDHs/Circuits/MQTBench/pkl/qft_8.pkl", "rb") as f:
-    hdh = pickle.load(f)
-
-# Load CSV files
-nodes_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/text/qft_8__nodes.csv")
-edges_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/text/qft_8__edges.csv")
-members_df = pd.read_csv("Database/HDHs/Circuits/MQTBench/text/qft_8__edge_members.csv")
-```
-
-#### Step 4: Submit a PR
-If all went smoothly, submit a PR with your workloads and HDHs back to the `main` branch.
-
-**Note**: Database files might be too large to directly upload. Use [Git LFS](https://docs.github.com/en/repositories/working-with-files/managing-large-files/configuring-git-large-file-storage):
-
-**macOS:**
-```bash
-brew install git-lfs
-git lfs install
-```
-
-**Debian/Ubuntu:**
-```bash
-sudo apt-get update
-sudo apt-get install git-lfs
-git lfs install
-```
-
-**Windows:**
-```bash
-winget install Git.GitLFS
-git lfs install
-```
-
-From repo root:
-```bash
-git lfs track "*.csv"
-git lfs track "*.pkl"
-git add .gitattributes
-git commit -m "Adding <Origin> HDHs to database"
-git push -u origin main
-```
+* **`partitions.csv.gz`**: Main partitioning performance database
 
 ---
 
-## 2) Add Partitioning Method Results
+## CSV Schema (Matches run_partition_tests.py)
 
-If you want to share **partitioning method results**, add them to:
+The partition results file is written directly by `run_partition_tests.py`.
+
+The column schema is fixed by the internal `fieldnames = [...]` list:
+
+#### Mandatory Columns
+
+Each row represents:
+
+**(workload, k, capacity, method, config)**
+
+The database columns are:
+
+* **`workload_file`**
+* **`model`**
+* **`origin`**
+* **`n_qubits`**
+* **`k_partitions`**
+* **`capacity`**
+
+* **`method_name`**
+* **`method_version`**
+* **`config_hash`**
+
+* **`bins`** (JSON list of partitions)
+* **`cost`**
+* **`respects_capacity`**
+* **`method_metadata`**
+
+* **`time_seconds`**
+* **`memory_mb`**
+
+* **`date_run`**
+* **`library_version`**
+* **`contributor`**
+* **`notes`**
+
+These match exactly the schema produced by:
+
+```python
+fieldnames = [
+    'workload_file', 'model', 'origin', 'n_qubits', 'k_partitions', 'capacity',
+    'method_name', 'method_version', 'config_hash',
+    'bins', 'cost', 'respects_capacity', 'method_metadata',
+    'time_seconds', 'memory_mb',
+    'date_run', 'library_version', 'contributor', 'notes'
+]
 ```
-Database/HDHs/<Model>/<Origin>/Partitions/partitions.csv.gz
-```
-
-### CSV Format for Partitioning Results
-
-The `partitions.csv.gz` file tracks performance metrics across different partitioning methods.
-The `.gz` decorator comes from compression (necessary to mantain this database on GitHub).
-
-#### Mandatory Columns #TOUPDATE
-
-* **`file`**: Name of the origin file
-* **`n_qubits`**: Number of qubits in workload
-* **`k_partitions`**: Number of partitions (e.g., 2 if cut once)
-* **`<method>_bins`**: Sets of qubits per partition (JSON format)
-* **`<method>_cost`**: Quantum communication cost (number of quantum hyperedges cut)
-* **`best`**: Name of the method with the lowest cost
-
-#### Optional Columns (Method-Specific) #TOUPDATE
-
-* **`<method>_cost_q`**: Quantum cut cost (if separating q/c)
-* **`<method>_cost_c`**: Classical cut cost
-* **`<method>_partition_sizes`**: List of partition sizes
-* **`<method>_avg_parallelism`**: Average parallelism metric
-* **`<method>_fairness_ratio`**: Fairness ratio from fair_parallelism
-* **`<method>_fails`**: Boolean indicating if method failed capacity constraints
-* **`<method>_method`**: Sub-method used (e.g., for METIS: 'kl', 'recursive')
-* **`contributor`**: GitHub username of the person who added this result
-
-### Example CSV #TOUPDATE
+### Example CSV
 
 ```csv
-file,n_qubits,k_partitions,greedy_bins,greedy_cost,metis_bins,metis_cost,metis_fails,metis_method,greedytg_bins,greedytg_cost,best,contributor
-ae_indep_qiskit_10.qasm,10,2,"[[""q0"",""q1"",""q2"",""q3"",""q8""],[""q4"",""q5"",""q6"",""q7"",""q9""]]",30,"[[""q1"",""q3"",""q5"",""q6"",""q7""],[""q0"",""q2"",""q4"",""q8"",""q9""]]",25,False,kl,"[[""q0"",""q1"",""q2"",""q3"",""q9""],[""q4"",""q5"",""q6"",""q7"",""q8""]]",30,metis,alice_researcher
-ae_indep_qiskit_10.qasm,10,3,"[[""q0"",""q1"",""q2"",""q8""],[""q3"",""q4"",""q6"",""q7""],[""q5"",""q9""]]",40,"[[""q3"",""q5"",""q6"",""q7""],[""q0"",""q2""],[""q1"",""q4"",""q8"",""q9""]]",32,False,kl,"[[""q0"",""q1"",""q2"",""q9""],[""q3"",""q4"",""q5"",""q6""],[""q7"",""q8""]]",38,metis,alice_researcher
+workload_file,model,origin,n_qubits,k_partitions,capacity,method_name,method_version,config_hash,bins,cost,respects_capacity,method_metadata,time_seconds,memory_mb,date_run,library_version,contributor,notes
+qft_8.qasm,Circuits,MQTBench,8,2,4,metis_telegate,2026-02-02,default,"[["q0","q1","q2","q3"],["q4","q5","q6","q7"]]",12,true,"{"metis_method":"metis","failed":false}",0.031200,28.40,2026-02-02,0.0.0,alice_researcher,
+qft_8.qasm,Circuits,MQTBench,8,2,4,greedy_hdh,2026-02-02,9f12a3c4,"[["q0_t0","q1_t0"],["q2_t0","q3_t0"]]",18,true,"{"beam_k":3,"reserve_frac":0.08,"restarts":1,"seed":0}",0.084500,31.10,2026-02-02,0.0.0,alice_researcher,"example row; node-level bins"
 ```
 
+Notes:
+* `config_hash` is produced automatically from the JSON passed via `--config`.  
+* Some methods output **qubit-level bins** (e.g., `metis_telegate`), while others output **node-level bins** (e.g., `greedy_hdh`).  
+  The stored `bins` column reflects whatever the method returns; use `method_metadata` to record interpretation if needed.
 ### Standard Partitioning Methods
 
-Here are the standard partitioning methods currently in the database:
+Here are the standard partitioning methods currently supported by `run_partition_tests.py` (and therefore represented in the results database).
 
-#### **Greedy (HDH)**
-Partitions directly on the HDH hypergraph where each hyperedge captures one operation's dependency set.
-We fill bins sequentially: order qubits by heuristic (e.g., incident cut weight, then degree), and place each into the earliest bin that (i) respects the logical-qubit capacity and (ii) gives the smallest marginal cut increase.
-If nothing fits, open the next bin up to k.
+#### Cut (HDH temporal greedy partitioning) — `compute_cut`
 
-**Cost**: Sum of weights of hyperedges spanning >1 bin (default weight 1 per op; domain weights optional).
+This is the **greedy heuristic proposed in the paper**.  
+Implementation: `hdh.passes.cut.compute_cut` (called by `run_partition_tests.py` as `run_greedy_hdh`).
 
-#### **METIS (Telegate graph)** #TOUPDATE: true? I don't think so this is graph based
-Converts the workload into a telegate qubit-interaction graph (nodes = logical qubits; edge weights = interaction pressure indicating a non-local gate would require a "telegate" communication if cut).
-Uses the [METIS library](https://pypi.org/project/metis/) to compute a k-way partition with balance constraints and minimal cut on this graph.
-Partitions are then re-evaluated on the HDH cost for apples-to-apples comparison.
+Key properties:
 
-**Cost**: Re-evaluated on HDH hypergraph cut metric.
+* **Works directly on the HDH hypergraph** (uses HDH nodes and HDH hyperedges)
+* **Partitions at node level** (bins contain node IDs like `q0_t1`, `q3_t7`, etc.)
+* **Capacity is enforced on unique qubits per bin**, not on node count  
+  (each node `q<i>_t<j>` contributes to qubit `i`)
+* **Allows teledata-style cuts**  
+  (different time-nodes of the same qubit may appear in different bins, which corresponds to teleporting state across QPUs)
 
-#### **Greedy-TG (Telegate graph)** #TOUPDATE - I don't think this is true anymore
-Same fill-first policy as Greedy (HDH), but decisions are made on the telegate graph.
-Nodes are qubits; edge weights reflect how costly it is to separate two qubits (expected telegate load).
-Each qubit goes to the earliest feasible bin that minimizes marginal cut on the telegate graph.
+Algorithm sketch (as implemented):
 
-**Cost**: Re-evaluated on HDH hypergraph cut metric.
+1. **Temporal incidence build**: construct an incidence structure from HDH hyperedges that preserves time adjacency.  
+2. **Greedy fill for each bin** (up to `k` bins):
+   * pick the earliest-time unassigned node as a **seed**  
+   * expand a **frontier** of temporally adjacent unassigned neighbors (min-heap by time)  
+   * repeatedly select the best next node from the frontier using **delta cut-cost** evaluation  
+     (among the top `beam_k` frontier candidates)
+   * if adding a node would introduce a new qubit and exceed `cap`, **reject** it for this bin and try the next candidate
+3. **Residual placement**: for any remaining nodes, attempt a best-fit placement using delta cost across bins.  
+   Nodes that cannot be placed without violating capacity are treated as **unplaceable** (this is where `respects_capacity` may become false).
+
+**Cost**: the returned `cost` is the number of HDH hyperedges that span more than one bin (unweighted cut count).  
+Recommended metadata: store parameters like `beam_k`, and (if applicable) a `respects_capacity` flag in `method_metadata`.
+
+#### **METIS (telegate graph)**
+
+Builds a **qubit interaction graph** (nodes = qubits; edges represent cross-qubit interaction pressure derived from two-qubit gates).  
+It then runs **METIS** via `nxmetis` when available, and falls back to a **Kernighan–Lin** style bisection otherwise.
+
+**Capacity**: enforced on *qubits per bin*, with a post-check stored as `respects_capacity`.
+
+**Cost**: the returned `cost` is the **unweighted cut size** of the telegate graph (number of graph edges crossing partitions).  
+`method_metadata["metis_method"]` records whether `metis` or the fallback was used.
+
+#### **KaHyPar (hypergraph baseline)**
+
+Runs a KaHyPar-based hypergraph partitioner (when available) on a qubit-level abstraction.
+
+**Capacity**: enforced on *qubits per bin* (post-check stored as `respects_capacity=false` if violated).
+
+**Cost**: whatever objective value the KaHyPar configuration reports.  
+Record the solver configuration path and important options in `method_metadata` for reproducibility.
 
 ### Adding Your Results
 
-#### Step 1: Update partitions.csv #TOUPDATE
 
-Add your results to the existing CSV file:
+#### Step 1: Update `Partitions/results/partitions.csv`
 
-```python
-import pandas as pd
+The main results file is:
 
-# Load existing results
-df = pd.read_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv")
-
-# Add your new column(s) if they don't exist
-# Update or append your row
-# Recalculate 'best' column
-
-df.to_csv("Database/HDHs/Circuits/MQTBench/Partitions/partitions.csv", index=False)
 ```
+Database/Partitions/results/partitions.csv
+```
+
+The recommended way to populate it is to use `Database_generator/run_partition_tests.py`, which will:
+* discover HDHs under `Database/HDHs/<Model>/<Origin>/pkl/`
+* run one or more methods for each `k`
+* compute a `config_hash` automatically
+* append (or overwrite) matching rows in the CSV
+
+If you prefer to add a row manually, treat the CSV as **append-only long-format** (one row per method run).  
+At minimum, include the mandatory columns listed above, and serialize `bins` and `method_metadata` as JSON strings.
+
 
 #### Step 2: Document Your Method 
 
@@ -488,53 +290,43 @@ Input your code or/and detailed explanation...
 - Works best for: ...
 ```
 
-#### Step 3: Capacity Constraints and Failure States #TOUPDATE - maybe this should be within 1? or within the readme: specific oh its not assured , maybe both?
+#### Step 3: Capacity Constraints and Failure States
 
-**Capacity** = Total qubits ÷ number of partitions (rounded up)
+`capacity` is stored **explicitly per row** and is defined as the maximum number of *qubits* allowed in each bin.
 
-If your partitioner cannot respect this capacity:
-* Log a failure status in a `<method>_fails` column
-* Set to `True` if capacity was violated
-* Exclude from `best` evaluation if failed
+In `run_partition_tests.py`, the default capacity is:
 
-**Important**: Document in the Partitions README whether your method:
-* Always respects capacity constraints
-* May violate constraints (and how failures are handled)
-* Requires specific capacity settings
+* `capacity = ceil(n_qubits / k_partitions)`, optionally scaled by an `overhead` factor.
 
-#### Step 4: Recalculate Best #TOUPDATE - this will basically jsut be running 'generate_leaderboards.py'
+Each row records whether the returned partition respects the constraint via:
 
-The `best` column should identify the method with the **lowest quantum cost** among methods that:
-1. Did not fail capacity constraints (where `<method>_fails` is False or not present)
-2. Successfully completed partitioning
+* **`respects_capacity`**: `true/false`
 
-```python
-# Example: Recalculate best
-cost_columns = [col for col in df.columns if col.endswith('_cost') and not col.endswith('_cost_c')]
-methods = [col.replace('_cost', '') for col in cost_columns]
+If your method can fail in other ways (timeout, solver crash, infeasible config), record that in:
 
-def get_best_method(row):
-    valid_methods = []
-    for method in methods:
-        fails_col = f'{method}_fails'
-        cost_col = f'{method}_cost'
-        
-        # Check if method failed
-        if fails_col in row and row[fails_col] == True:
-            continue
-        
-        # Check if cost is valid
-        if pd.notna(row[cost_col]):
-            valid_methods.append((method, row[cost_col]))
-    
-    if not valid_methods:
-        return None
-    
-    # Return method with minimum cost
-    return min(valid_methods, key=lambda x: x[1])[0]
+* **`notes`** (human-readable), and/or  
+* **`method_metadata`** (structured JSON)
 
-df['best'] = df.apply(get_best_method, axis=1)
+This keeps the core schema stable while still preserving failure details for later analysis.
+
+
+#### Step 4: Generate leaderboards / “best” views
+
+The raw results file is long-format and does **not** store a `best` column.  
+Instead, “best method” views should be computed by aggregating `Partitions/results/partitions.csv`, typically grouping by:
+
+* `(workload_file, model, origin, k_partitions, capacity)`  
+
+and selecting the minimum `cost` among rows with `respects_capacity=true`.
+
+If your repository includes `generate_leaderboards.py`, use that script to regenerate the pre-computed leaderboard views under:
+
 ```
+Database/Partitions/leaderboards/
+```
+
+(If you implement your own leaderboard logic, keep the rules explicit: which `cost` definition you compare, how you handle `respects_capacity=false`, and how ties are broken.)
+
 
 #### Step 5: Re-compress your csv file
 Make sure to re-compress the csv file as `partitions.csv.gz` before you attempt to push (it won't otherwise due to size).

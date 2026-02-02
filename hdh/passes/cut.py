@@ -42,18 +42,7 @@ def kahypar_cutter(
     config_path: Optional[str] = None,
     suppress_output: bool = True,
 ):
-    """Partition an HDH using the `kahypar` Python package.
-
-    What this does (as requested):
-    - Converts the (directed-by-time) HDH hypergraph into a *non-directed* hypergraph
-      suitable for KaHyPar.
-    - Partitions at the *logical qubit* level (1 vertex per qubit) to respect `cap`
-      (capacity = max unique qubits per partition).
-    - Projects the qubit partitioning back onto the original HDH nodes.
-
-    Notes:
-    - KaHyPar itself partitions undirected hypergraphs.
-    - This does *not* fall back to METIS or any other partitioner.
+    """Partition an HDH using the kahypar Python package.
 
     Args:
         hdh: HDH object with .S (nodes) and .C (hyperedges)

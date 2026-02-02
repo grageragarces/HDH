@@ -12,6 +12,7 @@ from datetime import datetime
 import multiprocessing as mp
 from functools import partial
 from tqdm import tqdm
+import re
 
 # CSV field size limit error
 maxInt = sys.maxsize
@@ -279,6 +280,42 @@ def run_metis_telegate(hdh_graph, k: int, capacity: int, config: Dict) -> Tuple[
     
     return bins_list, cost, respects_capacity, metadata
 
+def run_kahypar(hdh_graph, k: int, capacity: int, config: Dict) -> Tuple[List, int, bool, Dict]:
+    """
+    Run KaHyPar partitioner.
+    
+    Returns:
+        (bins, cost, respects_capacity, metadata)
+    """
+    from hdh.passes.cut import kahypar_cutter
+    
+    seed = config.get('seed', 0)
+    config_path = config.get('config_path', None)
+    suppress_output = config.get('suppress_output', True)
+    
+    bins, cost = kahypar_cutter(
+        hdh_graph,
+        k=k,
+        cap=capacity,
+        seed=seed,
+        config_path=config_path,
+        suppress_output=suppress_output
+    )
+    
+    # Convert bins from sets to lists
+    bins_list = [sorted(list(b)) for b in bins]
+    
+    # Check if capacity is respected
+    respects_capacity = all(count_unique_qubits(b) <= capacity for b in bins_list)
+    
+    metadata = {
+        'seed': seed,
+        'config_path': config_path if config_path else 'default',
+        'method': 'kahypar_qubit_level'
+    }
+    
+    return bins_list, cost, respects_capacity, metadata
+
 # Registry of available methods
 METHODS = {
     'greedy_hdh': {
@@ -293,6 +330,14 @@ METHODS = {
     'metis_telegate': {
         'function': run_metis_telegate,
         'default_config': {}
+    },
+    'kahypar': {
+        'function': run_kahypar,
+        'default_config': {
+            'seed': 0,
+            'config_path': None,
+            'suppress_output': True
+        }
     }
 }
 
@@ -434,7 +479,7 @@ def run_test(
         return result
         
     except Exception as e:
-        return None
+        raise
 
 def run_test_worker(task: Dict) -> Tuple[bool, Optional[Dict], str]:
     """
@@ -620,7 +665,7 @@ def main():
                     completed += 1
             else:
                 if error_msg:
-                    tqdm.write(f"Test failed: {error_msg[:100]}")
+                    tqdm.write(f"Test failed: {error_msg}")
                 failed += 1
     
     # Save to JSON if requested
