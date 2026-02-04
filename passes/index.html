@@ -153,18 +153,18 @@
 <p>The <code>hdh/passes</code> directory contains scripts for partitioning and manipulating HDH graphs. The primary file for partitioning is <code>cut.py</code>, which offers two main approaches: a greedy, HDH-aware method and a METIS-based method operating on a qubit graph representation (telegate).</p>
 <hr />
 <h2 id="greedy-hdh-partitioner">Greedy HDH Partitioner</h2>
-<p>The main partitioning function is <code>compute_cut</code>, which implements the <strong>Capacity-Aware Greedy HDH Partitioner</strong> (time-aware, node-level), matching the current implementation in <code>cut.py</code>. fileciteturn4file9</p>
+<p>The main partitioning function is <code>compute_cut</code>, which implements the <strong>Capacity-Aware Greedy HDH Partitioner</strong> (time-aware, node-level), matching the current implementation in <code>cut.py</code>. </p>
 <h3 id="core-mechanics-what-changed-vs-the-older-version">Core mechanics (what changed vs the older version)</h3>
 <ul>
-<li><strong>Node-level assignment:</strong> individual HDH nodes like <code>q7_t16</code> are assigned, not whole logical qubits. fileciteturn4file4</li>
-<li><strong>Capacity is in unique logical qubits:</strong> each bin tracks the set of <code>q</code> indices present; adding a node only “costs capacity” if it introduces a new logical qubit into that bin. fileciteturn4file4</li>
-<li><strong>No automatic sibling co-location:</strong> temporal siblings of the same qubit are <em>not</em> forced into the same bin (teledata-style cuts are therefore possible). fileciteturn4file9</li>
-<li><strong>Temporal validity:</strong> candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins). fileciteturn4file18</li>
+<li><strong>Node-level assignment:</strong> individual HDH nodes like <code>q7_t16</code> are assigned, not whole logical qubits. </li>
+<li><strong>Capacity is in unique logical qubits:</strong> each bin tracks the set of <code>q</code> indices present; adding a node only “costs capacity” if it introduces a new logical qubit into that bin. </li>
+<li><strong>No automatic sibling co-location:</strong> temporal siblings of the same qubit are <em>not</em> forced into the same bin (teledata-style cuts are therefore possible).</li>
+<li><strong>Temporal validity:</strong> candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins).</li>
 </ul>
 <h3 id="high-level-algorithm-3-phases">High-level algorithm (3 phases)</h3>
-<p>This is easiest to read as three phases, mirroring the code structure. fileciteturn4file4</p>
+<p>This is easiest to read as three phases, mirroring the code structure. </p>
 <h4 id="phase-1-seed-selection-per-bin">Phase 1: Seed selection (per bin)</h4>
-<p>For each bin (QPU), pick the earliest unassigned node as the seed (ties broken deterministically by node id), place it, and initialise a frontier of temporally valid neighbours. fileciteturn4file4turn4file18</p>
+<p>For each bin (QPU), pick the earliest unassigned node as the seed (ties broken deterministically by node id), place it, and initialise a frontier of temporally valid neighbours. </p>
 <h4 id="phase-2-temporal-greedy-expansion-priority-frontier-beam-k-scoring">Phase 2: Temporal greedy expansion (priority frontier + beam-k scoring)</h4>
 <p>While the bin still has capacity left:</p>
 <ol>
@@ -173,7 +173,7 @@
 <li>Score those candidates by <strong>delta cut cost</strong> (lower is better, negative means it reduces cuts).</li>
 <li>Pick the best-scoring candidate; if it would exceed capacity (by introducing a new qubit when already at <code>cap</code>), reject it for this bin and try again.</li>
 </ol>
-<p>This is “temporal greedy” for reach, with “beam-k” only used for <em>selection among the earliest few frontier nodes</em>, not a global beam search over all unassigned nodes. fileciteturn4file4turn4file6turn4file18</p>
+<p>This is “temporal greedy” for reach, with “beam-k” only used for <em>selection among the earliest few frontier nodes</em>, not a global beam search over all unassigned nodes.</p>
 <h4 id="phase-3-residual-best-fit-placement-delta-cost">Phase 3: Residual best-fit placement (delta-cost)</h4>
 <p>Once the per-bin expansions are done, remaining nodes are placed using a best-fit rule:</p>
 <ul>
@@ -182,7 +182,7 @@
 <li>If no bin can accept it under capacity, try a <strong>teledata fallback</strong> by placing it into any bin that already contains its logical qubit (so it does not consume additional capacity).</li>
 <li>If that is also impossible, mark it as unplaceable and continue.</li>
 </ul>
-<p>This replaces the older “round-robin mop-up”. fileciteturn4file5</p>
+<p>This replaces the older “round-robin mop-up”.</p>
 <h3 id="function-signature">Function signature</h3>
 <pre><code class="language-python">def compute_cut(hdh_graph, k: int, cap: int, *,
                 beam_k: int = 3,
@@ -193,7 +193,7 @@
                 predictive_reject: bool = True,
                 seed: int = 0) -&gt; Tuple[List[Set[str]], int]
 </code></pre>
-<p><strong>Note:</strong> in the current implementation, only <code>beam_k</code> is operational; the other keyword params are accepted for compatibility but not used. fileciteturn4file9</p>
+<p><strong>Note:</strong> in the current implementation, only <code>beam_k</code> is operational; the other keyword params are accepted for compatibility but not used. </p>
 <hr />
 <h2 id="metis-telegate-partitioner">METIS Telegate Partitioner</h2>
 <p>For an alternative approach to partitioning, the library provides the <code>metis_telegate</code> function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available).</p>
@@ -227,7 +227,7 @@
 <li>Vertices are <em>logical qubits</em>.</li>
 <li>Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.</li>
 <li>KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., <code>km1_kKaHyPar_sea20.ini</code>).</li>
-<li>Capacity is expressed as a <em>balance constraint</em> via KaHyPar’s <code>epsilon</code> (derived from <code>cap</code> relative to the ideal target size <code>n/k</code>). fileciteturn4file3</li>
+<li>Capacity is expressed as a <em>balance constraint</em> via KaHyPar’s <code>epsilon</code> (derived from <code>cap</code> relative to the ideal target size <code>n/k</code>). </li>
 <li>
 <p>This means the partitioner primarily “knows” about <strong>balancing qubit counts</strong>; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.</p>
 </li>
@@ -236,7 +236,7 @@
 </li>
 <li>Vertices are <em>HDH nodes</em> (time-expanded).</li>
 <li>Balance is therefore in <strong>node count</strong>, not in unique logical qubits.</li>
-<li>As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (it is intentionally a balance-only baseline for comparison). fileciteturn4file12</li>
+<li>As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (it is intentionally a balance-only baseline for comparison).</li>
 </ul>
 <h3 id="function-signature_1">Function Signature</h3>
 <pre><code class="language-python">def metis_telegate(hdh: &quot;HDH&quot;, partitions: int, capacities: int) -&gt; Tuple[List[Set[str]], int, bool, str]
@@ -272,17 +272,17 @@
 <p>The <code>cut.py</code> file contains helper utilities for the partitioners (note that some older helpers/classes remain in the file as legacy code paths).</p>
 <h3 id="temporal-incidence-frontier-utilities-greedy-partitioner">Temporal incidence + frontier utilities (greedy partitioner)</h3>
 <ul>
-<li><code>_build_temporal_incidence</code>: builds <code>inc[node] -&gt; [(hyperedge, edge_time)]</code> and <code>pins[hyperedge] -&gt; {nodes}</code>, where <code>edge_time = max(pin_times)</code>; used to enforce temporal validity. fileciteturn4file18</li>
-<li><code>_push_next_valid_neighbors</code>: expands a node into the min-heap frontier, pushing only temporally valid neighbour candidates. fileciteturn4file18</li>
-<li><code>_select_best_from_frontier_with_rejected</code>: takes the earliest <code>beam_k</code> frontier items (skipping rejected), evaluates delta cost, and returns the best candidate. fileciteturn4file6</li>
-<li><code>_compute_delta_cost_simple</code>: delta in (unweighted) cut-hyperedge count if a node is added to a specific bin. fileciteturn4file18</li>
-<li><code>_extract_qubit_id</code>: parses <code>q{idx}_t{t}</code> to extract the logical qubit index for capacity accounting. fileciteturn4file18</li>
+<li><code>_build_temporal_incidence</code>: builds <code>inc[node] -&gt; [(hyperedge, edge_time)]</code> and <code>pins[hyperedge] -&gt; {nodes}</code>, where <code>edge_time = max(pin_times)</code>; used to enforce temporal validity. </li>
+<li><code>_push_next_valid_neighbors</code>: expands a node into the min-heap frontier, pushing only temporally valid neighbour candidates. </li>
+<li><code>_select_best_from_frontier_with_rejected</code>: takes the earliest <code>beam_k</code> frontier items (skipping rejected), evaluates delta cost, and returns the best candidate. </li>
+<li><code>_compute_delta_cost_simple</code>: delta in (unweighted) cut-hyperedge count if a node is added to a specific bin. </li>
+<li><code>_extract_qubit_id</code>: parses <code>q{idx}_t{t}</code> to extract the logical qubit index for capacity accounting. </li>
 </ul>
 <h3 id="metis-utilities">METIS utilities</h3>
 <ul>
-<li><code>telegate_hdh</code>: converts the HDH to a qubit interaction graph (“telegate graph”). fileciteturn4file16</li>
-<li><code>_repair_overflow</code>, <code>_best_move_for_node</code>, <code>_over_under</code>: post-processing used to fix capacity violations after METIS/KL. fileciteturn4file10</li>
-<li><code>_cut_edges_unweighted</code>: unweighted cut-edge count for the telegate graph. fileciteturn4file10</li>
+<li><code>telegate_hdh</code>: converts the HDH to a qubit interaction graph (“telegate graph”). </li>
+<li><code>_repair_overflow</code>, <code>_best_move_for_node</code>, <code>_over_under</code>: post-processing used to fix capacity violations after METIS/KL.</li>
+<li><code>_cut_edges_unweighted</code>: unweighted cut-edge count for the telegate graph. </li>
 </ul>
 <hr />
 <h2 id="notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</h2>
