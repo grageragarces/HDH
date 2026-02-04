@@ -59,10 +59,6 @@
                 <li class="toctree-l1"><a class="reference internal" href="../vis/">Visualizing HDHs</a>
                 </li>
               </ul>
-              <ul>
-                <li class="toctree-l1"><a class="reference internal" href="../database/">The HDH Database</a>
-                </li>
-              </ul>
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Partitioning HDHs for distribution</a>
     <ul class="current">
@@ -121,8 +117,6 @@
     <li class="toctree-l3"><a class="reference internal" href="#partitioning-utilities">Partitioning Utilities</a>
     </li>
         </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#the-partitioner-leaderboard">The Partitioner Leaderboard</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</a>
     </li>
@@ -379,9 +373,6 @@
 <li><code>_kl_fallback_partition</code>: Implements recursive Kernighan-Lin bisection as a fallback when METIS is unavailable</li>
 </ul>
 <hr />
-<h2 id="the-partitioner-leaderboard">The Partitioner Leaderboard</h2>
-<p>For a detailed comparison of the performance of different partitioning strategies on various quantum circuits, please refer to the partitioner leaderboard in the repository's <a href="https://github.com/grageragarces/HDH/tree/database-branch/database">database</a>. This can provide valuable insights into which partitioning method is best suited for your specific needs. See the <a href="../database/">database file in the documentation</a> for more details.</p>
-<hr />
 <h2 id="notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</h2>
 <p>We would like to warn users and partitioning strategy developers that we have found partitioners to behave differently on real quantum workloads when compared to randomly generated ones. As such, we recommend not testing partitioners on randomly generated workloads unless that is specifically your goal.</p>
 <p><strong>Key considerations:</strong>
@@ -402,7 +393,7 @@
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../database/" class="btn btn-neutral float-left" title="The HDH Database"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../vis/" class="btn btn-neutral float-left" title="Visualizing HDHs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
         <a href="../literature/" class="btn btn-neutral float-right" title="Related publications and information">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
@@ -426,7 +417,7 @@
   <span class="rst-current-version" data-toggle="rst-current-version">
     
     
-      <span><a href="../database/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../vis/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
       <span><a href="../literature/" style="color: #fcfcfc">Next &raquo;</a></span>
