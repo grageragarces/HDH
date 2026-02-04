@@ -64,9 +64,9 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#partitioning-hdhs-for-distribution">Partitioning HDHs for Distribution</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#greedy-hdh-partitioner">Greedy HDH Partitioner</a>
+    <li class="toctree-l2"><a class="reference internal" href="#default-cut-algorithm">Default cut algorithm</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#high-level-algorithm">High-level algorithm</a>
+    <li class="toctree-l3"><a class="reference internal" href="#default-cut-algorithm_1">Default cut algorithm</a>
         <ul>
     <li class="toctree-l4"><a class="reference internal" href="#phase-1-greedy-bin-filling-via-temporal-expansion">Phase 1: Greedy bin filling via temporal expansion</a>
     </li>
@@ -75,8 +75,6 @@
     <li class="toctree-l4"><a class="reference internal" href="#phase-3-residual-assignment">Phase 3: Residual assignment</a>
     </li>
         </ul>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#function-signature">Function signature</a>
     </li>
         </ul>
     </li>
@@ -90,7 +88,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#kahypar-hypergraph-partitioner">KaHyPar hypergraph partitioner</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#function-signature_1">Function Signature</a>
+    <li class="toctree-l3"><a class="reference internal" href="#function-signature">Function Signature</a>
     </li>
         </ul>
     </li>
@@ -148,8 +146,8 @@
 <h2 id="partitioning-hdhs-for-distribution">Partitioning HDHs for Distribution</h2>
 <p>The <code>hdh/passes</code> directory contains scripts for partitioning and manipulating HDH graphs. The primary file for partitioning is <code>cut.py</code>, which offers two main approaches: a greedy, HDH-aware method and a METIS-based method operating on a qubit graph representation (telegate).</p>
 <hr />
-<h2 id="greedy-hdh-partitioner">Greedy HDH Partitioner</h2>
-<p>The main partitioning function is <code>compute_cut</code>, which implements the <strong>Capacity-Aware Greedy HDH Partitioner</strong> (time-aware, node-level), matching the current implementation in <code>cut.py</code>. </p>
+<h2 id="default-cut-algorithm">Default cut algorithm</h2>
+<p>The main partitioning function is <code>compute_cut</code>, which implements the <strong>Capacity-Aware Greedy HDH Partitioner</strong> in <code>cut.py</code>. </p>
 <!-- ### Core mechanics
 
 * **Node-level assignment:** individual HDH nodes like `q7_t16` are assigned, not whole logical qubits. 
@@ -157,7 +155,8 @@
 * **No automatic sibling co-location:** temporal siblings of the same qubit are *not* forced into the same bin (teledata-style cuts are therefore possible).
 * **Temporal validity:** candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins). -->
 
-<h3 id="high-level-algorithm">High-level algorithm</h3>
+<h3 id="default-cut-algorithm_1">Default cut algorithm</h3>
+<p>The default capacity-aware HDH partitioning algorithm operates in three phases. </p>
 <h4 id="phase-1-greedy-bin-filling-via-temporal-expansion">Phase 1: Greedy bin filling via temporal expansion</h4>
 <p>The algorithm begins by selecting the earliest-time unassigned HDH node as a seed and opening a new bin associated with a target QPU.
 The bin is then expanded forward in time by iteratively considering unassigned nodes that are connected to the current bin by time-respecting HDH dependencies.
@@ -179,20 +178,15 @@ a best-fit procedure (assigning the next remaining node minimum incremental cost
 A node is assigned to a bin only if doing so does not introduce a new logical qubit beyond the bin’s remaining capacity.
 Nodes that cannot be placed in any bin without violating capacity constraints are left unassigned.
 This phase ensures completeness of the assignment under the imposed capacity constraints.\todo{Emphasise that nodes should only be left unassigned if the user has asked for something impossible.}</p>
-<h3 id="function-signature">Function signature</h3>
-<pre><code class="language-python">def compute_cut(hdh_graph, k: int, cap: int, *,
-                beam_k: int = 3,
-                backtrack_window: int = 0,
-                polish_1swap_budget: int = 0,
-                restarts: int = 1,
-                reserve_frac: float = 0.08,
-                predictive_reject: bool = True,
-                seed: int = 0) -&gt; Tuple[List[Set[str]], int]
-</code></pre>
-<p><strong>Note:</strong> in the current implementation, only <code>beam_k</code> is operational; the other keyword params are accepted for compatibility but not used. </p>
 <hr />
 <h2 id="metis-telegate-partitioner">METIS Telegate Partitioner</h2>
-<p>For an alternative approach to partitioning, the library provides the <code>metis_telegate</code> function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available).</p>
+<p>For an alternative partitioner, the library provides the <code>metis_telegate</code> function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available) on a graph 
+generated by interpreting workload qubits as nodes and operations as 
+edges.</p>
+<ul>
+<li>Note: this method does not intake a HDH and is not capable of representing 
+operations implemented on more than 2 states, such as Toffoli gates *</li>
+</ul>
 <h3 id="telegate-graph-construction">Telegate Graph Construction</h3>
 <ul>
 <li><strong>Graph transformation:</strong> This method first converts the HDH into a "telegate" graph using the <code>telegate_hdh</code> function. In this representation:<ul>
@@ -234,7 +228,7 @@ This phase ensures completeness of the assignment under the imposed capacity con
 <li>Balance is therefore in <strong>node count</strong>, not in unique logical qubits.</li>
 <li>As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (it is intentionally a balance-only baseline for comparison).</li>
 </ul>
-<h3 id="function-signature_1">Function Signature</h3>
+<h3 id="function-signature">Function Signature</h3>
 <pre><code class="language-python">def metis_telegate(hdh: &quot;HDH&quot;, partitions: int, capacities: int) -&gt; Tuple[List[Set[str]], int, bool, str]
 </code></pre>
 <p><strong>Parameters:</strong>
