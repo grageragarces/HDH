@@ -226,14 +226,12 @@ To versions are included (qubit and node based):</p>
   * As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).</p>
 <hr />
 <h2 id="cut-cost-evaluation">Cut Cost Evaluation</h2>
-<p>The quality of a partition is determined by the number of "cuts"—that is, the number of hyperedges that span across multiple bins. The library provides two functions for this purpose:</p>
+<p>The quality of a partition is determined by the number of cut hyperedges, that is, the number of hyperedges that span across multiple QPUs (bins). The library provides two functions to evaluate this cost given a partitioning:</p>
 <h3 id="_total_cost_hdh"><code>_total_cost_hdh</code></h3>
 <p>Calculates the total cost of a partition on an HDH graph. This function:
 * Iterates through all hyperedges in the HDH
 * Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins
-* Returns the sum of weights of all cut hyperedges
-* Respects edge weights if defined in the HDH graph (defaults to 1 if not specified)</p>
-<p><strong>Algorithm:</strong> For each hyperedge, count the number of distinct bins containing at least one pin. If this count is ≥ 2, add the edge's weight to the total cost.</p>
+* Returns the sum of weights of all cut hyperedges (quantum hyperedges count as 10 and classic hyperedges count as 1 - you can modify these values in the source code but if you would like this to be adjustable please feel free to open an issue)</p>
 <h3 id="_cut_edges_unweighted"><code>_cut_edges_unweighted</code></h3>
 <p>Counts the number of edges that cross between different bins in a standard graph (used for evaluating telegate graph partitions). This function:
 * Takes a NetworkX graph and a partition assignment
@@ -259,12 +257,12 @@ To versions are included (qubit and node based):</p>
 </ul>
 <hr />
 <h2 id="notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</h2>
-<p>We would like to warn users and partitioning strategy developers that we have found partitioners to behave differently on real quantum workloads when compared to randomly generated ones. As such, we recommend not testing partitioners on randomly generated workloads unless that is specifically your goal.</p>
+<ul>
+<li>We would like to warn users and partitioning strategy developers that we have found partitioners to behave very differently on real quantum workloads (such as circuits) when compared to randomly generated ones. As such, we recommend <strong>not testing partitioners on randomly generated workloads</strong> unless that is specifically your goal. *</li>
+</ul>
 <p><strong>Key considerations:</strong>
 * <strong>Circuit structure matters:</strong> Real quantum algorithms often have characteristic patterns (e.g., layered structures, specific qubit interaction patterns) that random circuits lack.
-* <strong>Connectivity patterns:</strong> Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.
-* <strong>Tagging in the database:</strong> In the database, you can specify the origin of your workloads, tagging them as "random" if appropriate. This helps others understand the context of benchmark results.</p>
-<p>When developing new partitioning strategies, we strongly encourage testing on workloads representative of your target applications rather than relying solely on random circuit benchmarks.</p>
+* <strong>Connectivity patterns:</strong> Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.</p>
               
             </div>
           </div><footer>
