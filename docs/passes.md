@@ -1,6 +1,6 @@
 # HDH Partitioning Utilities
 
-Here is an overview of the partitioning utilities available in the HDH library, designed to distribute quantum computations across multiple devices.
+Here is an overview of the partitioning utilities available in the HDH library.
 
 ---
 
@@ -8,71 +8,61 @@ Here is an overview of the partitioning utilities available in the HDH library, 
 
 The `hdh/passes` directory contains scripts for partitioning and manipulating HDH graphs. The primary file for partitioning is `cut.py`, which offers two main approaches: a greedy, HDH-aware method and a METIS-based method operating on a qubit graph representation (telegate).
 
----
+### Default cut algorithm
 
-## Greedy HDH Partitioner
+The main partitioning function is `compute_cut`, which implements the **Capacity-Aware Greedy HDH Partitioner** in `cut.py`. 
 
-The main partitioning function is `compute_cut`, which implements the **Capacity-Aware Greedy HDH Partitioner** (time-aware, node-level), matching the current implementation in `cut.py`. 
 
-### Core mechanics (what changed vs the older version)
+<!-- ### Core mechanics
 
 * **Node-level assignment:** individual HDH nodes like `q7_t16` are assigned, not whole logical qubits. 
 * **Capacity is in unique logical qubits:** each bin tracks the set of `q` indices present; adding a node only “costs capacity” if it introduces a new logical qubit into that bin. 
 * **No automatic sibling co-location:** temporal siblings of the same qubit are *not* forced into the same bin (teledata-style cuts are therefore possible).
-* **Temporal validity:** candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins).
+* **Temporal validity:** candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins). -->
 
-### High-level algorithm (3 phases)
+#### Default cut algorithm
 
-This is easiest to read as three phases, mirroring the code structure. 
+The default capacity-aware HDH partitioning algorithm operates in three phases. 
 
-#### Phase 1: Seed selection (per bin)
+##### Phase 1: Greedy bin filling via temporal expansion
 
-For each bin (QPU), pick the earliest unassigned node as the seed (ties broken deterministically by node id), place it, and initialise a frontier of temporally valid neighbours. 
+The algorithm begins by selecting the earliest-time unassigned HDH node as a seed and opening a new bin associated with a target QPU.
+The bin is then expanded forward in time by iteratively considering unassigned nodes that are connected to the current bin by time-respecting HDH dependencies.
+At each iteration, the algorithm considers a bounded set of temporally admissible frontier nodes, consisting of the earliest-time candidates connected to the current bin.
+Among this set, it selects the node that minimises the estimated incremental communication cost of adding it to the bin, subject to the bin’s capacity constraint. 
+When multiple candidates have equal incremental cost, temporal order is used as a secondary tie-breaker.
+Nodes are added individually, even when they arise from multi-qubit operations.
+If multiple successor nodes are produced by the same operation, each is evaluated independently, and only those whose inclusion respects the bin’s capacity constraint are admitted.
 
-#### Phase 2: Temporal greedy expansion (priority frontier + beam-k scoring)
 
-While the bin still has capacity left:
+##### Phase 2: Sequential bin construction
 
-1. Maintain a **min-heap frontier** keyed by earliest valid connection time.
-2. Pop up to `beam_k` earliest candidates (skipping candidates already rejected for this bin).
-3. Score those candidates by **delta cut cost** (lower is better, negative means it reduces cuts).
-4. Pick the best-scoring candidate; if it would exceed capacity (by introducing a new qubit when already at `cap`), reject it for this bin and try again.
+Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to unassigned nodes, the current bin is closed.
+The algorithm then instantiates the next bin, corresponding to the next available QPU.
+Whenever possible, bins are instantiated in an order that reflects physical network adjacency between QPUs, so as to favor locality in subsequent inter-bin communication.
+When no topology information is provided, as in this work, the algorithm assumes a fully interconnected network.
+Under this assumption, bin ordering does not restrict routability but directly informs the cost model used later to evaluate communication overhead.
+This process repeats until all bins have been instantiated or no further QPUs are available.
 
-This is “temporal greedy” for reach, with “beam-k” only used for *selection among the earliest few frontier nodes*, not a global beam search over all unassigned nodes.
+##### Phase 3: Residual assignment
 
-#### Phase 3: Residual best-fit placement (delta-cost)
-
-Once the per-bin expansions are done, remaining nodes are placed using a best-fit rule:
-
-* For the next earliest unassigned node, compute its delta cost into every bin that can accept it under capacity.
-* Place it into the bin that minimises delta cost.
-* If no bin can accept it under capacity, try a **teledata fallback** by placing it into any bin that already contains its logical qubit (so it does not consume additional capacity).
-* If that is also impossible, mark it as unplaceable and continue.
-
-This replaces the older “round-robin mop-up”.
-
-### Function signature
-
-```python
-def compute_cut(hdh_graph, k: int, cap: int, *,
-                beam_k: int = 3,
-                backtrack_window: int = 0,
-                polish_1swap_budget: int = 0,
-                restarts: int = 1,
-                reserve_frac: float = 0.08,
-                predictive_reject: bool = True,
-                seed: int = 0) -> Tuple[List[Set[str]], int]
-```
-
-**Note:** in the current implementation, only `beam_k` is operational; the other keyword params are accepted for compatibility but not used. 
+If unassigned nodes remain after all bins have been instantiated, the algorithm attempts to place them in 
+a best-fit procedure (assigning the next remaining node minimum incremental cost) over the remaining nodes.
+A node is assigned to a bin only if doing so does not introduce a new logical qubit beyond the bin’s remaining capacity.
+Nodes that cannot be placed in any bin without violating capacity constraints are left unassigned.
+This phase ensures completeness of the assignment under the imposed capacity constraints.\todo{Emphasise that nodes should only be left unassigned if the user has asked for something impossible.}
 
 ---
 
-## METIS Telegate Partitioner
+### METIS Telegate Partitioner
 
-For an alternative approach to partitioning, the library provides the `metis_telegate` function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available).
+For an alternative partitioner, the library provides the `metis_telegate` function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available) on a graph 
+generated by interpreting workload qubits as nodes and operations as 
+edges.
 
-### Telegate Graph Construction
+*Note: this method is not capable of representing operations implemented on more than 2 states, such as Toffoli gates & only interprets quantum correlations.*
+
+#### Telegate Graph Construction
 
 * **Graph transformation:** This method first converts the HDH into a "telegate" graph using the `telegate_hdh` function. In this representation:
     * **Nodes** are the qubits of the quantum circuit (labeled as `q{idx}`).
@@ -80,7 +70,7 @@ For an alternative approach to partitioning, the library provides the `metis_tel
     * **Edge weights** correspond to the multiplicity of interactions between two qubits.
 * **Quantum operation filtering:** Only hyperedges marked as quantum operations (with `tau` attribute = "q") are considered when building the telegate graph.
 
-### Partitioning Process
+#### Partitioning Process
 
 * **METIS partitioning:** The telegate graph is partitioned using the `nxmetis` library, which provides Python bindings to the highly efficient METIS graph partitioning tool.
     * If METIS is unavailable, the algorithm automatically falls back to the Kernighan-Lin bisection algorithm from NetworkX.
@@ -90,23 +80,7 @@ For an alternative approach to partitioning, the library provides the `metis_tel
     * It prioritizes moving qubits that minimize the increase in cut edges.
 
 
-## KaHyPar hypergraph partitioner 
-
-`cut.py` also includes a KaHyPar-based partitioner, taken from the \href{https://kahypar.org}{KaHyPar library}.
-
-* **`kahypar_cutter` (qubit-level hypergraph):**
-  * Vertices are *logical qubits*.
-  * Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.
-  * KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., `km1_kKaHyPar_sea20.ini`).
-  * Capacity is expressed as a *balance constraint* via KaHyPar’s `epsilon` (derived from `cap` relative to the ideal target size `n/k`). 
-  * This means the partitioner primarily “knows” about **balancing qubit counts**; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.
-
-* **`kahypar_cutter_nodebalanced` (HDH-node-level hypergraph):**
-  * Vertices are *HDH nodes* (time-expanded).
-  * Balance is therefore in **node count**, not in unique logical qubits.
-  * As a result, it can produce partitions that look well-balanced to KaHyPar but **do not respect logical-qubit capacity** (it is intentionally a balance-only baseline for comparison).
-
-### Function Signature
+#### Function Signature
 
 ```python
 def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[Set[str]], int, bool, str]
@@ -124,21 +98,34 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
     * `respects_capacity` is a boolean indicating whether all bins satisfy the capacity constraint
     * `method` is either `"metis"` or `"kl"` indicating which algorithm was used
 
+### KaHyPar hypergraph partitioner 
+
+`cut.py` also includes a KaHyPar-based partitioner, taken from the [KaHyPar library](https://kahypar.org).
+To versions are included (qubit and node based):
+
+**`kahypar_cutter`**
+  * Vertices are *logical qubits*.
+  * Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.
+  * KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., `km1_kKaHyPar_sea20.ini`).
+  * Capacity is expressed as a *balance constraint* via KaHyPar’s `epsilon` (derived from `cap` relative to the ideal target size `n/k`). 
+  * This means the partitioner primarily “knows” about **balancing qubit counts**; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.
+
+**`kahypar_cutter_nodebalanced`:**
+  * Vertices are *HDH nodes* (time-expanded).
+  * Balance is therefore in **node count**, not in unique logical qubits.
+  * As a result, it can produce partitions that look well-balanced to KaHyPar but **do not respect logical-qubit capacity** (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).
 ---
 
 ## Cut Cost Evaluation
 
-The quality of a partition is determined by the number of "cuts"—that is, the number of hyperedges that span across multiple bins. The library provides two functions for this purpose:
+The quality of a partition is determined by the number of cut hyperedges, that is, the number of hyperedges that span across multiple QPUs (bins). The library provides two functions to evaluate this cost given a partitioning:
 
 ### `_total_cost_hdh`
 
 Calculates the total cost of a partition on an HDH graph. This function:
 * Iterates through all hyperedges in the HDH
 * Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins
-* Returns the sum of weights of all cut hyperedges
-* Respects edge weights if defined in the HDH graph (defaults to 1 if not specified)
-
-**Algorithm:** For each hyperedge, count the number of distinct bins containing at least one pin. If this count is ≥ 2, add the edge's weight to the total cost.
+* Returns the sum of weights of all cut hyperedges (quantum hyperedges count as 10 and classic hyperedges count as 1 - you can modify these values in the source code but if you would like this to be adjustable please feel free to open an issue)
 
 ### `_cut_edges_unweighted`
 
@@ -173,23 +160,8 @@ The `cut.py` file contains helper utilities for the partitioners (note that some
 
 ## Notes on Evaluating Partitioners on Random Circuits
 
-We would like to warn users and partitioning strategy developers that we have found partitioners to behave differently on real quantum workloads when compared to randomly generated ones. As such, we recommend not testing partitioners on randomly generated workloads unless that is specifically your goal.
+* We would like to warn users and partitioning strategy developers that we have found partitioners to behave very differently on real quantum workloads (such as circuits) when compared to randomly generated ones. As such, we recommend **not testing partitioners on randomly generated workloads** unless that is specifically your goal. *
 
 **Key considerations:**
 * **Circuit structure matters:** Real quantum algorithms often have characteristic patterns (e.g., layered structures, specific qubit interaction patterns) that random circuits lack.
 * **Connectivity patterns:** Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.
-* **Tagging in the database:** In the database, you can specify the origin of your workloads, tagging them as "random" if appropriate. This helps others understand the context of benchmark results.
-
-When developing new partitioning strategies, we strongly encourage testing on workloads representative of your target applications rather than relying solely on random circuit benchmarks.
-
----
-
-## Future Enhancements
-
-The current `cut.py` implementation includes several parameters that are reserved for future enhancements:
-
-* **Backtracking:** The `backtrack_window` parameter is currently unused but reserved for implementing backtracking search
-* **Local search:** The `polish_1swap_budget` parameter is disabled for HDH partitioning (as moving whole qubits is computationally heavier than single-node swaps)
-* **Predictive rejection:** The `predictive_reject` parameter is reserved for future heuristics
-
-These features may be enabled in future versions of the library as the partitioning algorithms continue to evolve.

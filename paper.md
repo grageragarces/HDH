@@ -113,10 +113,6 @@ The resulting HDH is shown below as a graph representation of a hypergraph, sinc
 
 ![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.png){ width=80% }
 
-# The HDH database
-To support reproducible evaluation and training of partitioning strategies, this library's git repository also includes a database of pre-generated HDHs, based on the MQT Benchmark suite [@MQTBench], as well as baseline partitions offered by the library's heuristics.
-This resource aims to facilitate benchmarking across diverse workloads and enable the development of learning-based distribution agents.
-
 # Acknowledgements
 
 We acknowledge contributions from [Joseph Tedds](https://github.com/josephtedds), [Manuel Alejandro](https://github.com/manalejandro), and [Alessandro Cosentino](https://github.com/cosenal).

@@ -15,5 +15,5 @@ State-of-the-art hypergraph partitioning techniques used in this context include
 
 
 It is important to note that the goal of HDHs is not to establish or model the physical quantum communication layer, nor to define classical channels between devices when no quantum connection exists.Those aspects are valuable for full-stack evaluation, and future versions will include quantum communication primitives, but HDHs focus first on the abstraction of computation, not the transport layer.
-Similarly, HDHs do not prescribe partitioning strategies.Their role is to provide a fair, consistent substrate on which partitioning techniques can be applied and compared.We will provide reference implementations for standard and emerging partitioners, and record partitioning outcomes in our database to enable systematic, cross-method evaluation.
+Similarly, HDHs do not prescribe partitioning strategies. Their role is to provide a fair, consistent substrate on which partitioning techniques can be applied and compared.
 
