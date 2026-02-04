@@ -66,21 +66,19 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#greedy-hdh-partitioner">Greedy HDH Partitioner</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#core-mechanics">Core Mechanics</a>
+    <li class="toctree-l3"><a class="reference internal" href="#core-mechanics-what-changed-vs-the-older-version">Core mechanics (what changed vs the older version)</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#algorithm-details">Algorithm Details</a>
+    <li class="toctree-l3"><a class="reference internal" href="#high-level-algorithm-3-phases">High-level algorithm (3 phases)</a>
         <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#phase-1-main-bin-filling-beam-search">Phase 1: Main Bin-Filling (Beam Search)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-1-seed-selection-per-bin">Phase 1: Seed selection (per bin)</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#phase-1-capacity-management-the-shadow-capacity-system">Phase 1 Capacity Management: The "Shadow Capacity" System</a>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-2-temporal-greedy-expansion-priority-frontier-beam-k-scoring">Phase 2: Temporal greedy expansion (priority frontier + beam-k scoring)</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#fallback-seeding">Fallback Seeding</a>
-    </li>
-    <li class="toctree-l4"><a class="reference internal" href="#phase-2-mop-up-round-robin-distribution">Phase 2: Mop-up (Round-Robin Distribution)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-3-residual-best-fit-placement-delta-cost">Phase 3: Residual best-fit placement (delta-cost)</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#function-signature">Function Signature</a>
+    <li class="toctree-l3"><a class="reference internal" href="#function-signature">Function signature</a>
     </li>
         </ul>
     </li>
@@ -90,6 +88,10 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#partitioning-process">Partitioning Process</a>
     </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#kahypar-hypergraph-partitioner">KaHyPar hypergraph partitioner</a>
+        <ul>
     <li class="toctree-l3"><a class="reference internal" href="#function-signature_1">Function Signature</a>
     </li>
         </ul>
@@ -104,17 +106,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#helper-functions-and-internal-components">Helper Functions and Internal Components</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#hypergraph-incidence-structure">Hypergraph Incidence Structure</a>
+    <li class="toctree-l3"><a class="reference internal" href="#temporal-incidence-frontier-utilities-greedy-partitioner">Temporal incidence + frontier utilities (greedy partitioner)</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#state-management">State Management</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#cost-calculation">Cost Calculation</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#candidate-selection">Candidate Selection</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#graph-repair">Graph Repair</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#partitioning-utilities">Partitioning Utilities</a>
+    <li class="toctree-l3"><a class="reference internal" href="#metis-utilities">METIS utilities</a>
     </li>
         </ul>
     </li>
@@ -159,132 +153,47 @@
 <p>The <code>hdh/passes</code> directory contains scripts for partitioning and manipulating HDH graphs. The primary file for partitioning is <code>cut.py</code>, which offers two main approaches: a greedy, HDH-aware method and a METIS-based method operating on a qubit graph representation (telegate).</p>
 <hr />
 <h2 id="greedy-hdh-partitioner">Greedy HDH Partitioner</h2>
-<p>The main partitioning function is <code>compute_cut</code>, which implements a greedy, bin-filling algorithm with hypergraph awareness. Here's how it works:</p>
-<h3 id="core-mechanics">Core Mechanics</h3>
+<p>The main partitioning function is <code>compute_cut</code>, which implements the <strong>Capacity-Aware Greedy HDH Partitioner</strong> (time-aware, node-level), matching the current implementation in <code>cut.py</code>. fileciteturn4file9</p>
+<h3 id="core-mechanics-what-changed-vs-the-older-version">Core mechanics (what changed vs the older version)</h3>
 <ul>
-<li><strong>Node-level assignment:</strong> The partitioner assigns individual nodes of the HDH graph to bins.</li>
-<li><strong>Qubit-based capacity:</strong> While the assignment is at the node level, the capacity of each bin is determined by the number of <em>unique qubits</em> it contains.</li>
-<li><strong>Automatic sibling placement:</strong> Once a node corresponding to a particular qubit is placed in a bin, all other nodes associated with that same qubit are automatically assigned to the same bin. This ensures that all temporal instances of a qubit remain co-located.</li>
+<li><strong>Node-level assignment:</strong> individual HDH nodes like <code>q7_t16</code> are assigned, not whole logical qubits. fileciteturn4file4</li>
+<li><strong>Capacity is in unique logical qubits:</strong> each bin tracks the set of <code>q</code> indices present; adding a node only “costs capacity” if it introduces a new logical qubit into that bin. fileciteturn4file4</li>
+<li><strong>No automatic sibling co-location:</strong> temporal siblings of the same qubit are <em>not</em> forced into the same bin (teledata-style cuts are therefore possible). fileciteturn4file9</li>
+<li><strong>Temporal validity:</strong> candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins). fileciteturn4file18</li>
 </ul>
-<h3 id="algorithm-details">Algorithm Details</h3>
-<p>The algorithm operates in two main phases: a beam-search-based bin-filling phase, followed by a round-robin mop-up phase.</p>
-<h4 id="phase-1-main-bin-filling-beam-search">Phase 1: Main Bin-Filling (Beam Search)</h4>
-<p><strong>Step 1 - Ordering and Representative Selection:</strong></p>
-<p>Each qubit in the quantum circuit may appear at multiple time steps (e.g., qubit 0 at time 1, time 5, time 12). The algorithm:
-1. Selects ONE representative node for each qubit - specifically, the node with the highest weighted degree (most connections to other operations)
-2. Sorts these representatives in descending order of their weighted degrees</p>
-<p><strong>Why?</strong> Placing highly connected qubits first gives the algorithm more context to make informed placement decisions. It's like seating the most social people at a party first - they help determine where their friends should sit.</p>
-<p><strong>Step 2 - Beam Search for Candidate Selection:</strong></p>
-<p>For each bin being filled, instead of greedily picking just the single best node (which might not fit due to capacity), the algorithm uses <strong>beam search</strong> to keep the top <code>beam_k</code> candidates.</p>
-<p><strong>What is Beam Search?</strong></p>
-<p>Beam search is a heuristic that balances between:
-- <strong>Greedy search</strong> (k=1): Only considers the single best option - fast but inflexible
-- <strong>Exhaustive search</strong> (k=∞): Considers all options - thorough but slow
-- <strong>Beam search</strong> (k=3 default): Keeps the top k candidates - good balance</p>
-<p><strong>Example with 50 unassigned qubits and beam_k=3:</strong></p>
-<pre><code>1. Evaluate all 50 qubits based on:
-   - Delta cost: How much would placing this node increase cut cost?
-   - Frontier score: How well connected is this node to nodes already in the bin?
-
-2. Keep top 3 candidates:
-   - Qubit 42: delta_cost=-5, frontier_score=100 (BEST)
-   - Qubit 17: delta_cost=-4, frontier_score=95  (2nd best)
-   - Qubit 23: delta_cost=-3, frontier_score=90  (3rd best)
-
-3. Check capacity constraints for each in order:
-   - Qubit 42: Would make bin have 26/25 qubits X
-   - Qubit 17: Would make bin have 25/25 qubits ✓
-   - Place qubit 17!
-</code></pre>
-<p><strong>Effect of changing beam_k:</strong>
-- <code>beam_k=1</code>: Fastest, but may miss good alternatives if the best choice violates capacity
-- <code>beam_k=3</code> (default): Good balance - considers alternatives without much overhead
-- <code>beam_k=10</code>: More thorough exploration, slower, potentially better quality for complex constraints</p>
-<h4 id="phase-1-capacity-management-the-shadow-capacity-system">Phase 1 Capacity Management: The "Shadow Capacity" System</h4>
-<p>The algorithm uses a dynamic capacity model to encourage better load balancing across bins.</p>
-<p><strong>How it works:</strong></p>
-<p>With <code>cap=25</code> qubits per bin and <code>reserve_frac=0.08</code>:
-- <strong>Shadow capacity</strong> = 25 × (1.0 - 0.08) = <strong>23 qubits</strong>
-- <strong>Hard capacity</strong> = <strong>25 qubits</strong>
-- <strong>80% threshold</strong> = 25 × 0.8 = <strong>20 qubits</strong></p>
-<table>
-<thead>
-<tr>
-<th>Qubits Currently in Bin</th>
-<th>Effective Capacity Limit</th>
-<th>Reasoning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0-19 qubits</td>
-<td>23 (shadow limit)</td>
-<td>"Save some room for later bins"</td>
-</tr>
-<tr>
-<td>20-25 qubits</td>
-<td>25 (hard limit)</td>
-<td>"Now you can fill to the top"</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Why this helps:</strong></p>
-<p>Without shadow capacity, early bins might greedily fill to 100%, leaving later bins with insufficient room for well-connected qubits. The shadow capacity ensures more even distribution.</p>
-<p><strong>Example scenario with 4 bins and 100 qubits:</strong>
-- <strong>Without shadow capacity:</strong> Bins might fill as [25, 25, 25, 25] perfectly, but if you have 102 qubits, 2 are stranded
-- <strong>With shadow capacity:</strong> Bins fill as [23, 23, 23, 23] initially, then even out to [26, 25, 26, 25], accommodating all qubits better</p>
-<h4 id="fallback-seeding">Fallback Seeding</h4>
-<p><strong>When:</strong> If all candidates in the beam violate capacity constraints, or if no good candidates exist.</p>
-<p><strong>What happens:</strong> The algorithm falls back to placing the first unassigned qubit representative that fits capacity, even if it's not optimal by the scoring criteria.</p>
-<p><strong>Why necessary:</strong> Prevents the algorithm from getting stuck when beam search finds no viable candidates. Ensures bins get initialized even in difficult cases.</p>
-<h4 id="phase-2-mop-up-round-robin-distribution">Phase 2: Mop-up (Round-Robin Distribution)</h4>
-<p>After the main bin-filling completes, some qubits might remain unassigned. These are distributed round-robin:</p>
-<pre><code>For each remaining unassigned qubit:
-  Try bins in order: 0, 1, 2, 3, 0, 1, 2, 3, ...
-  Place in first bin with available capacity
-  If no bins have space → qubit is not placed
-</code></pre>
-<p><strong>Example:</strong></p>
-<pre><code>5 qubits left: Q1, Q2, Q3, Q4, Q5
-4 bins with capacity 25:
-  Bin 0: 24/25 qubits
-  Bin 1: 25/25 qubits (FULL)
-  Bin 2: 23/25 qubits
-  Bin 3: 24/25 qubits
-
-→ Q1 placed in Bin 0 (now 25/25)
-→ Q2 skips Bin 1 (full), placed in Bin 2 (now 24/25)
-→ Q3 placed in Bin 3 (now 25/25)
-→ Q4 placed in Bin 2 (now 25/25)
-→ Q5 cannot be placed - all bins full
-</code></pre>
-<p><strong>Important:</strong> The round-robin phase <strong>respects the hard capacity limit</strong>. It will NOT overfill bins. If all bins are at 100% capacity and qubits remain, those qubits are skipped (not placed).</p>
-<p><strong>To avoid unplaced qubits:</strong> Ensure <code>k × cap ≥ total_number_of_qubits</code> when calling the partitioner.</p>
-<h3 id="function-signature">Function Signature</h3>
+<h3 id="high-level-algorithm-3-phases">High-level algorithm (3 phases)</h3>
+<p>This is easiest to read as three phases, mirroring the code structure. fileciteturn4file4</p>
+<h4 id="phase-1-seed-selection-per-bin">Phase 1: Seed selection (per bin)</h4>
+<p>For each bin (QPU), pick the earliest unassigned node as the seed (ties broken deterministically by node id), place it, and initialise a frontier of temporally valid neighbours. fileciteturn4file4turn4file18</p>
+<h4 id="phase-2-temporal-greedy-expansion-priority-frontier-beam-k-scoring">Phase 2: Temporal greedy expansion (priority frontier + beam-k scoring)</h4>
+<p>While the bin still has capacity left:</p>
+<ol>
+<li>Maintain a <strong>min-heap frontier</strong> keyed by earliest valid connection time.</li>
+<li>Pop up to <code>beam_k</code> earliest candidates (skipping candidates already rejected for this bin).</li>
+<li>Score those candidates by <strong>delta cut cost</strong> (lower is better, negative means it reduces cuts).</li>
+<li>Pick the best-scoring candidate; if it would exceed capacity (by introducing a new qubit when already at <code>cap</code>), reject it for this bin and try again.</li>
+</ol>
+<p>This is “temporal greedy” for reach, with “beam-k” only used for <em>selection among the earliest few frontier nodes</em>, not a global beam search over all unassigned nodes. fileciteturn4file4turn4file6turn4file18</p>
+<h4 id="phase-3-residual-best-fit-placement-delta-cost">Phase 3: Residual best-fit placement (delta-cost)</h4>
+<p>Once the per-bin expansions are done, remaining nodes are placed using a best-fit rule:</p>
+<ul>
+<li>For the next earliest unassigned node, compute its delta cost into every bin that can accept it under capacity.</li>
+<li>Place it into the bin that minimises delta cost.</li>
+<li>If no bin can accept it under capacity, try a <strong>teledata fallback</strong> by placing it into any bin that already contains its logical qubit (so it does not consume additional capacity).</li>
+<li>If that is also impossible, mark it as unplaceable and continue.</li>
+</ul>
+<p>This replaces the older “round-robin mop-up”. fileciteturn4file5</p>
+<h3 id="function-signature">Function signature</h3>
 <pre><code class="language-python">def compute_cut(hdh_graph, k: int, cap: int, *,
                 beam_k: int = 3,
                 backtrack_window: int = 0,
-                polish_1swap_budget: int = 0,  # disabled for HDH
+                polish_1swap_budget: int = 0,
                 restarts: int = 1,
                 reserve_frac: float = 0.08,
                 predictive_reject: bool = True,
                 seed: int = 0) -&gt; Tuple[List[Set[str]], int]
 </code></pre>
-<p><strong>Parameters:</strong>
-* <code>hdh_graph</code>: The HDH graph to partition
-* <code>k</code>: Number of partitions (bins)
-* <code>cap</code>: Capacity per bin (in unique qubits)
-* <code>beam_k</code>: Beam width for candidate selection (default: 3)
-* <code>backtrack_window</code>: Currently unused (reserved for future enhancements)
-* <code>polish_1swap_budget</code>: Currently disabled for HDH partitioning
-* <code>restarts</code>: Number of random restarts to try (default: 1)
-* <code>reserve_frac</code>: Fraction of capacity to reserve until 80% full (default: 0.08)
-* <code>predictive_reject</code>: Currently unused (reserved for future enhancements)
-* <code>seed</code>: Random seed for reproducibility</p>
-<p><strong>Returns:</strong>
-* A tuple of <code>(bins_nodes, cost)</code> where:
-    * <code>bins_nodes</code> is a list of sets, each containing node IDs assigned to that bin
-    * <code>cost</code> is the total cut cost (number of hyperedges spanning multiple bins)</p>
+<p><strong>Note:</strong> in the current implementation, only <code>beam_k</code> is operational; the other keyword params are accepted for compatibility but not used. fileciteturn4file9</p>
 <hr />
 <h2 id="metis-telegate-partitioner">METIS Telegate Partitioner</h2>
 <p>For an alternative approach to partitioning, the library provides the <code>metis_telegate</code> function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available).</p>
@@ -310,6 +219,24 @@
 <li>It prioritizes moving qubits that minimize the increase in cut edges.</li>
 </ul>
 </li>
+</ul>
+<h2 id="kahypar-hypergraph-partitioner">KaHyPar hypergraph partitioner</h2>
+<p><code>cut.py</code> also includes a KaHyPar-based partitioner, taken from the \href{https://kahypar.org}{KaHyPar library}.</p>
+<ul>
+<li><strong><code>kahypar_cutter</code> (qubit-level hypergraph):</strong></li>
+<li>Vertices are <em>logical qubits</em>.</li>
+<li>Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.</li>
+<li>KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., <code>km1_kKaHyPar_sea20.ini</code>).</li>
+<li>Capacity is expressed as a <em>balance constraint</em> via KaHyPar’s <code>epsilon</code> (derived from <code>cap</code> relative to the ideal target size <code>n/k</code>). fileciteturn4file3</li>
+<li>
+<p>This means the partitioner primarily “knows” about <strong>balancing qubit counts</strong>; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.</p>
+</li>
+<li>
+<p><strong><code>kahypar_cutter_nodebalanced</code> (HDH-node-level hypergraph):</strong></p>
+</li>
+<li>Vertices are <em>HDH nodes</em> (time-expanded).</li>
+<li>Balance is therefore in <strong>node count</strong>, not in unique logical qubits.</li>
+<li>As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (it is intentionally a balance-only baseline for comparison). fileciteturn4file12</li>
 </ul>
 <h3 id="function-signature_1">Function Signature</h3>
 <pre><code class="language-python">def metis_telegate(hdh: &quot;HDH&quot;, partitions: int, capacities: int) -&gt; Tuple[List[Set[str]], int, bool, str]
@@ -342,35 +269,20 @@
 <p><strong>Use case:</strong> This is specifically used by <code>metis_telegate</code> to evaluate the quality of qubit-graph partitions.</p>
 <hr />
 <h2 id="helper-functions-and-internal-components">Helper Functions and Internal Components</h2>
-<p>The <code>cut.py</code> file contains several internal helper functions that support the main partitioning algorithms:</p>
-<h3 id="hypergraph-incidence-structure">Hypergraph Incidence Structure</h3>
+<p>The <code>cut.py</code> file contains helper utilities for the partitioners (note that some older helpers/classes remain in the file as legacy code paths).</p>
+<h3 id="temporal-incidence-frontier-utilities-greedy-partitioner">Temporal incidence + frontier utilities (greedy partitioner)</h3>
 <ul>
-<li><code>_build_hdh_incidence</code>: Builds the incidence structure for efficient hypergraph queries</li>
-<li><code>_group_qnodes</code>: Groups nodes by their associated qubit for whole-qubit placement</li>
+<li><code>_build_temporal_incidence</code>: builds <code>inc[node] -&gt; [(hyperedge, edge_time)]</code> and <code>pins[hyperedge] -&gt; {nodes}</code>, where <code>edge_time = max(pin_times)</code>; used to enforce temporal validity. fileciteturn4file18</li>
+<li><code>_push_next_valid_neighbors</code>: expands a node into the min-heap frontier, pushing only temporally valid neighbour candidates. fileciteturn4file18</li>
+<li><code>_select_best_from_frontier_with_rejected</code>: takes the earliest <code>beam_k</code> frontier items (skipping rejected), evaluates delta cost, and returns the best candidate. fileciteturn4file6</li>
+<li><code>_compute_delta_cost_simple</code>: delta in (unweighted) cut-hyperedge count if a node is added to a specific bin. fileciteturn4file18</li>
+<li><code>_extract_qubit_id</code>: parses <code>q{idx}_t{t}</code> to extract the logical qubit index for capacity accounting. fileciteturn4file18</li>
 </ul>
-<h3 id="state-management">State Management</h3>
+<h3 id="metis-utilities">METIS utilities</h3>
 <ul>
-<li><code>_HDHState</code>: A class that tracks the current partition assignment, bin loads, qubit anchoring, and pin distributions during the greedy algorithm</li>
-</ul>
-<h3 id="cost-calculation">Cost Calculation</h3>
-<ul>
-<li><code>_delta_cost_hdh</code>: Computes the incremental change in cut cost when placing a node in a bin</li>
-<li><code>_qubit_of</code>: Extracts the qubit index from a node ID using regex matching</li>
-</ul>
-<h3 id="candidate-selection">Candidate Selection</h3>
-<ul>
-<li><code>_best_candidates_for_bin</code>: Selects the top-k candidate nodes for placement using beam search</li>
-<li><code>_first_unassigned_rep_that_fits</code>: Fallback function to seed bins when no good candidates are found</li>
-</ul>
-<h3 id="graph-repair">Graph Repair</h3>
-<ul>
-<li><code>_repair_overflow</code>: Greedy rebalancer to enforce bin capacity after METIS partitioning</li>
-<li><code>_best_move_for_node</code>: Heuristic to compute the gain of moving a node between bins</li>
-<li><code>_over_under</code>: Identifies which bins are over or under capacity</li>
-</ul>
-<h3 id="partitioning-utilities">Partitioning Utilities</h3>
-<ul>
-<li><code>_kl_fallback_partition</code>: Implements recursive Kernighan-Lin bisection as a fallback when METIS is unavailable</li>
+<li><code>telegate_hdh</code>: converts the HDH to a qubit interaction graph (“telegate graph”). fileciteturn4file16</li>
+<li><code>_repair_overflow</code>, <code>_best_move_for_node</code>, <code>_over_under</code>: post-processing used to fix capacity violations after METIS/KL. fileciteturn4file10</li>
+<li><code>_cut_edges_unweighted</code>: unweighted cut-edge count for the telegate graph. fileciteturn4file10</li>
 </ul>
 <hr />
 <h2 id="notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</h2>
