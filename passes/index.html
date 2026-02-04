@@ -66,15 +66,13 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#greedy-hdh-partitioner">Greedy HDH Partitioner</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#core-mechanics-what-changed-vs-the-older-version">Core mechanics (what changed vs the older version)</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#high-level-algorithm-3-phases">High-level algorithm (3 phases)</a>
+    <li class="toctree-l3"><a class="reference internal" href="#high-level-algorithm">High-level algorithm</a>
         <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#phase-1-seed-selection-per-bin">Phase 1: Seed selection (per bin)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-1-greedy-bin-filling-via-temporal-expansion">Phase 1: Greedy bin filling via temporal expansion</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#phase-2-temporal-greedy-expansion-priority-frontier-beam-k-scoring">Phase 2: Temporal greedy expansion (priority frontier + beam-k scoring)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-2-sequential-bin-construction">Phase 2: Sequential bin construction</a>
     </li>
-    <li class="toctree-l4"><a class="reference internal" href="#phase-3-residual-best-fit-placement-delta-cost">Phase 3: Residual best-fit placement (delta-cost)</a>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-3-residual-assignment">Phase 3: Residual assignment</a>
     </li>
         </ul>
     </li>
@@ -114,8 +112,6 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#future-enhancements">Future Enhancements</a>
-    </li>
     </ul>
                 </li>
               </ul>
@@ -147,42 +143,42 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="hdh-partitioning-utilities">HDH Partitioning Utilities</h1>
-<p>Here is an overview of the partitioning utilities available in the HDH library, designed to distribute quantum computations across multiple devices.</p>
+<p>Here is an overview of the partitioning utilities available in the HDH library.</p>
 <hr />
 <h2 id="partitioning-hdhs-for-distribution">Partitioning HDHs for Distribution</h2>
 <p>The <code>hdh/passes</code> directory contains scripts for partitioning and manipulating HDH graphs. The primary file for partitioning is <code>cut.py</code>, which offers two main approaches: a greedy, HDH-aware method and a METIS-based method operating on a qubit graph representation (telegate).</p>
 <hr />
 <h2 id="greedy-hdh-partitioner">Greedy HDH Partitioner</h2>
 <p>The main partitioning function is <code>compute_cut</code>, which implements the <strong>Capacity-Aware Greedy HDH Partitioner</strong> (time-aware, node-level), matching the current implementation in <code>cut.py</code>. </p>
-<h3 id="core-mechanics-what-changed-vs-the-older-version">Core mechanics (what changed vs the older version)</h3>
-<ul>
-<li><strong>Node-level assignment:</strong> individual HDH nodes like <code>q7_t16</code> are assigned, not whole logical qubits. </li>
-<li><strong>Capacity is in unique logical qubits:</strong> each bin tracks the set of <code>q</code> indices present; adding a node only “costs capacity” if it introduces a new logical qubit into that bin. </li>
-<li><strong>No automatic sibling co-location:</strong> temporal siblings of the same qubit are <em>not</em> forced into the same bin (teledata-style cuts are therefore possible).</li>
-<li><strong>Temporal validity:</strong> candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins).</li>
-</ul>
-<h3 id="high-level-algorithm-3-phases">High-level algorithm (3 phases)</h3>
-<p>This is easiest to read as three phases, mirroring the code structure. </p>
-<h4 id="phase-1-seed-selection-per-bin">Phase 1: Seed selection (per bin)</h4>
-<p>For each bin (QPU), pick the earliest unassigned node as the seed (ties broken deterministically by node id), place it, and initialise a frontier of temporally valid neighbours. </p>
-<h4 id="phase-2-temporal-greedy-expansion-priority-frontier-beam-k-scoring">Phase 2: Temporal greedy expansion (priority frontier + beam-k scoring)</h4>
-<p>While the bin still has capacity left:</p>
-<ol>
-<li>Maintain a <strong>min-heap frontier</strong> keyed by earliest valid connection time.</li>
-<li>Pop up to <code>beam_k</code> earliest candidates (skipping candidates already rejected for this bin).</li>
-<li>Score those candidates by <strong>delta cut cost</strong> (lower is better, negative means it reduces cuts).</li>
-<li>Pick the best-scoring candidate; if it would exceed capacity (by introducing a new qubit when already at <code>cap</code>), reject it for this bin and try again.</li>
-</ol>
-<p>This is “temporal greedy” for reach, with “beam-k” only used for <em>selection among the earliest few frontier nodes</em>, not a global beam search over all unassigned nodes.</p>
-<h4 id="phase-3-residual-best-fit-placement-delta-cost">Phase 3: Residual best-fit placement (delta-cost)</h4>
-<p>Once the per-bin expansions are done, remaining nodes are placed using a best-fit rule:</p>
-<ul>
-<li>For the next earliest unassigned node, compute its delta cost into every bin that can accept it under capacity.</li>
-<li>Place it into the bin that minimises delta cost.</li>
-<li>If no bin can accept it under capacity, try a <strong>teledata fallback</strong> by placing it into any bin that already contains its logical qubit (so it does not consume additional capacity).</li>
-<li>If that is also impossible, mark it as unplaceable and continue.</li>
-</ul>
-<p>This replaces the older “round-robin mop-up”.</p>
+<!-- ### Core mechanics
+
+* **Node-level assignment:** individual HDH nodes like `q7_t16` are assigned, not whole logical qubits. 
+* **Capacity is in unique logical qubits:** each bin tracks the set of `q` indices present; adding a node only “costs capacity” if it introduces a new logical qubit into that bin. 
+* **No automatic sibling co-location:** temporal siblings of the same qubit are *not* forced into the same bin (teledata-style cuts are therefore possible).
+* **Temporal validity:** candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins). -->
+
+<h3 id="high-level-algorithm">High-level algorithm</h3>
+<h4 id="phase-1-greedy-bin-filling-via-temporal-expansion">Phase 1: Greedy bin filling via temporal expansion</h4>
+<p>The algorithm begins by selecting the earliest-time unassigned HDH node as a seed and opening a new bin associated with a target QPU.
+The bin is then expanded forward in time by iteratively considering unassigned nodes that are connected to the current bin by time-respecting HDH dependencies.
+At each iteration, the algorithm considers a bounded set of temporally admissible frontier nodes, consisting of the earliest-time candidates connected to the current bin.
+Among this set, it selects the node that minimises the estimated incremental communication cost of adding it to the bin, subject to the bin’s capacity constraint. 
+When multiple candidates have equal incremental cost, temporal order is used as a secondary tie-breaker.
+Nodes are added individually, even when they arise from multi-qubit operations.
+If multiple successor nodes are produced by the same operation, each is evaluated independently, and only those whose inclusion respects the bin’s capacity constraint are admitted.</p>
+<h4 id="phase-2-sequential-bin-construction">Phase 2: Sequential bin construction</h4>
+<p>Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to unassigned nodes, the current bin is closed.
+The algorithm then instantiates the next bin, corresponding to the next available QPU.
+Whenever possible, bins are instantiated in an order that reflects physical network adjacency between QPUs, so as to favor locality in subsequent inter-bin communication.
+When no topology information is provided, as in this work, the algorithm assumes a fully interconnected network.
+Under this assumption, bin ordering does not restrict routability but directly informs the cost model used later to evaluate communication overhead.
+This process repeats until all bins have been instantiated or no further QPUs are available.</p>
+<h4 id="phase-3-residual-assignment">Phase 3: Residual assignment</h4>
+<p>If unassigned nodes remain after all bins have been instantiated, the algorithm attempts to place them in 
+a best-fit procedure (assigning the next remaining node minimum incremental cost) over the remaining nodes.
+A node is assigned to a bin only if doing so does not introduce a new logical qubit beyond the bin’s remaining capacity.
+Nodes that cannot be placed in any bin without violating capacity constraints are left unassigned.
+This phase ensures completeness of the assignment under the imposed capacity constraints.\todo{Emphasise that nodes should only be left unassigned if the user has asked for something impossible.}</p>
 <h3 id="function-signature">Function signature</h3>
 <pre><code class="language-python">def compute_cut(hdh_graph, k: int, cap: int, *,
                 beam_k: int = 3,
@@ -292,15 +288,6 @@
 * <strong>Connectivity patterns:</strong> Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.
 * <strong>Tagging in the database:</strong> In the database, you can specify the origin of your workloads, tagging them as "random" if appropriate. This helps others understand the context of benchmark results.</p>
 <p>When developing new partitioning strategies, we strongly encourage testing on workloads representative of your target applications rather than relying solely on random circuit benchmarks.</p>
-<hr />
-<h2 id="future-enhancements">Future Enhancements</h2>
-<p>The current <code>cut.py</code> implementation includes several parameters that are reserved for future enhancements:</p>
-<ul>
-<li><strong>Backtracking:</strong> The <code>backtrack_window</code> parameter is currently unused but reserved for implementing backtracking search</li>
-<li><strong>Local search:</strong> The <code>polish_1swap_budget</code> parameter is disabled for HDH partitioning (as moving whole qubits is computationally heavier than single-node swaps)</li>
-<li><strong>Predictive rejection:</strong> The <code>predictive_reject</code> parameter is reserved for future heuristics</li>
-</ul>
-<p>These features may be enabled in future versions of the library as the partitioning algorithms continue to evolve.</p>
               
             </div>
           </div><footer>
