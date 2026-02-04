@@ -1,5 +1,0 @@
-edge_index,type,realisation,gate_name,role,edge_args,edge_metadata
-0,c,a,measure,,,
-1,c,a,measure,,,
-2,q,a,h,,"[[[0, 1]], [], [true]]",
-3,q,a,x,,"[[[1, 1]], [], [true]]",
