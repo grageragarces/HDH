@@ -38,5 +38,5 @@ As a result, current compiler distribution frameworks are incompatible with key 
 They exclude alternative computational models required by some quantum devices and cannot accommodate hybrid quantum–classical workloads.
 
 ***HDHs** address both challenges and provide a unifying abstraction for representing partitioning across all models.
-This library is designed to make HDHs easy to construct and to offer a [database](database.md) where state-of-the-art and future techniques can be benchmarked against each other in one common framework.
+This library is designed to make HDHs easy to construct and to offer useful benchmarking tools to evaluate partitioners.
 For a concise overview of how HDHs are built, see our [brief introduction to HDHs](hdh.md).*
