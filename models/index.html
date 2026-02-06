@@ -152,8 +152,9 @@ circuit.add_instruction(&quot;h&quot;, [3])
 circuit.add_instruction(&quot;h&quot;, [5])
 circuit.add_instruction(&quot;cx&quot;, [3, 4])
 circuit.add_instruction(&quot;cx&quot;, [2, 1])
+circuit.add_instruction(&quot;measure&quot;, [5])
 
-circuit.add_conditional_gate(5, 4, &quot;z&quot;) 
+circuit.add_conditional_gate(5, 4, &quot;x&quot;) 
 
 circuit.add_instruction(&quot;cx&quot;, [0, 3])
 circuit.add_instruction(&quot;measure&quot;, [2])
@@ -163,9 +164,9 @@ hdh = circuit.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 </code></pre>
 <p>This code is equivalent to the following circuit:
-<img alt="Circuit" src="../img/circuit.png" width="300" /></p>
+<img alt="Circuit" src="img/circex.png" width="300" /></p>
 <p>Which is mapped to HDH:
-<img alt="CircuitHDH" src="../img/hdhfromcircuit.png" width="500" /></p>
+<img alt="CircuitHDH" src="img/circexend.png" width="500" /></p>
 <p>The HDH is composed of the motifs shown in the mapping table, appearing in the temporal order of computation and indexed by the qubits they abstract.
 Note that a qubit is not initialized until the timestep immediately preceding its first operation.</p>
 <h3 id="mbqc-patterns">MBQC patterns</h3>
