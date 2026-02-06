@@ -119,15 +119,18 @@ def plot_hdh(hdh, save_path=None):
                     dist = np.hypot(dx, dy)
                     if dist == 0:
                         continue
-                    t = np.linspace(0, 1, 200)
-                    x_line = x0 + dx * t
-                    y_line = y0 + dy * t
+                    # Calculate perpendicular unit vector
                     nx_vec = -dy / dist
                     ny_vec = dx / dist
-                    displacement = 0.08 * np.sin(6 * 2 * np.pi * t)
-                    x_vals = x_line + displacement * nx_vec
-                    y_vals = y_line + displacement * ny_vec
-                    ax.plot(x_vals, y_vals, color=color, linewidth=2, linestyle=line_style)
+                    # Offset distance for double line
+                    offset = 0.05
+                    # Draw two parallel lines
+                    ax.plot([x0 + offset * nx_vec, x1 + offset * nx_vec], 
+                            [y0 + offset * ny_vec, y1 + offset * ny_vec], 
+                            color=color, linewidth=1, linestyle=line_style)
+                    ax.plot([x0 - offset * nx_vec, x1 - offset * nx_vec], 
+                            [y0 - offset * ny_vec, y1 - offset * ny_vec], 
+                            color=color, linewidth=1, linestyle=line_style)
                 else:
                     ax.plot([x0, x1], [y0, y1], color=color, linewidth=1.5, linestyle=line_style)
 
