@@ -6,7 +6,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from .hdh import HDH
 
-def plot_hdh(hdh, save_path=None):
+def plot_hdh(hdh, save_path="hdh_plot.svg"):
     nodes = list(hdh.S)
     edges = [tuple(e) for e in hdh.C]
 
@@ -140,5 +140,6 @@ def plot_hdh(hdh, save_path=None):
             plt.savefig(save_path, dpi=600, bbox_inches='tight')
         else:
             plt.savefig(save_path, bbox_inches='tight')
+        print(f"Plot saved to: {save_path}")
     else:
         plt.show()
