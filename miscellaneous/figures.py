@@ -26,8 +26,6 @@ from qiskit.circuit.controlflow import IfElseOp
 from qiskit.qasm3 import dumps
 from qiskit.circuit.library import ZGate
 
-import matplotlib.pyplot as plt
-
 # import pennylane as qml
 # from pennylane.tape import OperationRecorder
 
@@ -361,26 +359,40 @@ def circuit_test_alt(): #figure 5; circuit example
     qc.measure(2,2)
     qc.measure(4,4)
     
-    qc.draw('mpl', filename='qiskit_circuit.svg')
-
-    
     hdh = from_qiskit(qc)
     
     fig = plot_hdh(hdh)
 
-def easycnotex():
-    circuit = Circuit()
-    circuit.add_instruction("cx", [1, 2])
-    circuit.add_instruction("cx", [0, 1])
-    circuit.add_instruction("cx", [2, 4])
-    circuit.add_instruction("cx", [1, 3])
-    circuit.add_instruction("cx", [2, 3])
-    circuit.add_instruction("cx", [2, 4])
+def test_doc():
+    import hdh
+    from hdh.models.qw import QW
+    from hdh.visualize import plot_hdh
+    qw = QW()
 
-    hdh = circuit.build_hdh() 
-    fig = plot_hdh(hdh) 
+    # Set of instructions
+    q0 = "q0"  
+    q1 = qw.add_coin(q0)         
+    q2 = qw.add_shift(q1)        
+    qw.add_measurement(q2, "c0")
+
+    hdh = qw.build_hdh() # Generate HDH
+    fig = plot_hdh(hdh)
+
+def deustj():
+    qc = QuantumCircuit(5)
+
+    for i in range(4):
+        qc.h(i) 
+    qc.barrier()
+    for i in range(4): 
+        qc.cx(i,4)  
+    qc.barrier()
+    for i in range(4):
+        qc.h(i) 
+    
+    qc.draw('mpl', filename='deutsch_jozsa_circuit.svg')
     
 # End fixed figures draft ---
 
 if __name__ == "__main__":
-    circuit_test_alt()
+    test_doc()

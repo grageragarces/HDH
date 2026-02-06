@@ -56,8 +56,9 @@ circuit.add_instruction("h", [3])
 circuit.add_instruction("h", [5])
 circuit.add_instruction("cx", [3, 4])
 circuit.add_instruction("cx", [2, 1])
+circuit.add_instruction("measure", [5])
 
-circuit.add_conditional_gate(5, 4, "z") 
+circuit.add_conditional_gate(5, 4, "x") 
 
 circuit.add_instruction("cx", [0, 3])
 circuit.add_instruction("measure", [2])
@@ -68,10 +69,10 @@ fig = plot_hdh(hdh) # Visualize HDH
 ```
 
 This code is equivalent to the following circuit:
-![Circuit](img/circuit.png){ width=300 }
+![Circuit](img/circex.svg){ width=300 }
 
 Which is mapped to HDH:
-![CircuitHDH](img/hdhfromcircuit.png){ width=500 }
+![CircuitHDH](img/circexend.svg){ width=500 }
 
 The HDH is composed of the motifs shown in the mapping table, appearing in the temporal order of computation and indexed by the qubits they abstract.
 Note that a qubit is not initialized until the timestep immediately preceding its first operation.
@@ -128,7 +129,7 @@ fig = plot_hdh(hdh) # Visualize HDH
 ```
 
 This code generates HDH:
-![mbqc](img/mbqccode.png){ width=600 }
+![mbqc](img/mbqccode.svg){ width=600 }
 
 Unlike in the circuit model, MBQC pattern operations are not "automatically" assigned to the ```q_``` and ```c_``` naming conventions.
 This is because a node in an MBQC pattern doesn't necessarily directly correspond to a qubit. 
@@ -136,7 +137,7 @@ For simplicity we have made it so in the example above, but feel free to name th
 Note that if you do the visualize function may play some tricks on you depending on the version of the library you are working with.
 
 This is the corresponding motif to operation mapping table for the MBQC model:
-![mbqc](img/mbqctable.png){ width=250 }
+![mbqc](img/mbqtable.png){ width=500 }
 
 
 ### Quantum walks 
@@ -168,7 +169,7 @@ import hdh
 from hdh.models.qw import QW
 from hdh.visualize import plot_hdh
 
-qw = QW(type=discrete)
+qw = QW()
 
 # Set of instructions
 q0 = "q0"  
@@ -180,10 +181,10 @@ hdh = qw.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 ```
 This code generates HDH:
-![qwhdh](img/qwhd.png){ width=600 }
+![qwhdh](img/qwhd.svg){ width=600 }
 
 This is the corresponding motif to operation mapping table for the QW model:
-![qw](img/qwtable.png){ width=400 }
+![qw](img/qwtable.png){ width=500 }
 
 Bellow you can find a short explanation explaining the differences between DTQW and CTQW implementations.
 If you're interested in QW, we recommend [this book](http://ndl.ethernet.edu.et/bitstream/123456789/73178/1/277.pdf).
@@ -211,8 +212,9 @@ Because HDHs are time-respecting, the sequential interplay of coin and shift ste
 In contrast, CTQWs describe physical evolution over time under a Hamiltonian and do not, by themselves, constitute a universal computational model.
 They lack a well-defined, manipulable set of time-indexed operations.
 Nonetheless, CTQWs can still be mapped to HDH constructions by interpreting their continuous evolution as a resource-driven process.
-HDHs accommodate this by using dedicated predictive constructs to represent these operations.
-In other words they discretize the CTQW, and map it using the DTQW mapping, whilst setting each operation to the predicted type.
+HDHs, as an abstraction, can accommodate this by using dedicated predictive constructs to represent these operations.
+Nonetheless the library expect discrete time walks.
+In other words ir is possible to discretize the CTQW, and map it using the DTQW mapping, whilst setting each operation to the predicted type. But this library does not do this for now.
 This logic can be extended to other prominent quantum frameworks, such as adiabatic quantum computing, which likewise lack native representations of sequential logical operations but can still be encoded into HDHs by discretizing their dynamics and treating them as structured evolution patterns.
 
 ### Quantum cellular automata
@@ -253,10 +255,10 @@ hdh = qca.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 ```
 This code generates HDH:
-![qca](img/qca.png){ width=600 }
+![qca](img/qca.svg){ width=600 }
 
 This is the corresponding motif to operation mapping table for the QCA model:
-![qca](img/qcatable.png){ width=350 }
+![qca](img/qcatable.png){ width=250 }
 
 # Built in Converters
 The library currently has converters from 

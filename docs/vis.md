@@ -27,7 +27,7 @@ qca = QCA(topology=topology, measurements=measurements, steps=3)
 hdh = qca.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 ```
-![qca](img/qca.png){ width=600 }
+![qca](img/qca.svg){ width=600 }
 
 or directly from "manually" defining all nodes and hyperedges of a HDH:
 ```python
@@ -97,10 +97,10 @@ hdh.add_hyperedge(["c3_t12", "q3_t11"], "c")
 hdh.add_hyperedge(["c3_t12", "q0_t13"], "c")
 hdh.add_hyperedge(["q0_t5", "q0_t13"], "q")
 
-fig = plot_hdh(hdh,save_path="test2.png") # Visualize HDH
+fig = plot_hdh(hdh,save_path="test2.svg") # Visualize HDH
 ```
 
-![test2](img/test2.png){ width=600 }
+![test2](img/test2.svg){ width=600 }
 
 A few things to note about the HDH visualizations:
 
