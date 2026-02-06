@@ -164,9 +164,9 @@ hdh = circuit.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 </code></pre>
 <p>This code is equivalent to the following circuit:
-<img alt="Circuit" src="img/circex.png" width="300" /></p>
+<img alt="Circuit" src="../img/circex.svg" width="300" /></p>
 <p>Which is mapped to HDH:
-<img alt="CircuitHDH" src="img/circexend.png" width="500" /></p>
+<img alt="CircuitHDH" src="../img/circexend.svg" width="500" /></p>
 <p>The HDH is composed of the motifs shown in the mapping table, appearing in the temporal order of computation and indexed by the qubits they abstract.
 Note that a qubit is not initialized until the timestep immediately preceding its first operation.</p>
 <h3 id="mbqc-patterns">MBQC patterns</h3>
@@ -219,13 +219,13 @@ fig = plot_hdh(hdh) # Visualize HDH
 
 </code></pre>
 <p>This code generates HDH:
-<img alt="mbqc" src="../img/mbqccode.png" width="600" /></p>
+<img alt="mbqc" src="../img/mbqccode.svg" width="600" /></p>
 <p>Unlike in the circuit model, MBQC pattern operations are not "automatically" assigned to the <code>q_</code> and <code>c_</code> naming conventions.
 This is because a node in an MBQC pattern doesn't necessarily directly correspond to a qubit. 
 For simplicity we have made it so in the example above, but feel free to name them something else.
 Note that if you do the visualize function may play some tricks on you depending on the version of the library you are working with.</p>
 <p>This is the corresponding motif to operation mapping table for the MBQC model:
-<img alt="mbqc" src="../img/mbqctable.png" width="250" /></p>
+<img alt="mbqc" src="../img/mbqtable.png" width="500" /></p>
 <h3 id="quantum-walks">Quantum walks</h3>
 <p>Quantum walks are another universal model of quantum computation [<a href="https://arxiv.org/abs/0806.1972">9</a>].
 Like quantum circuits, quantum walks can be expressed using different sets of unitary operations and are universal for quantum computation. 
@@ -248,7 +248,7 @@ As a result, the probability distribution spreads ballistically (linearly with t
 from hdh.models.qw import QW
 from hdh.visualize import plot_hdh
 
-qw = QW(type=discrete)
+qw = QW()
 
 # Set of instructions
 q0 = &quot;q0&quot;  
@@ -260,9 +260,9 @@ hdh = qw.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 </code></pre>
 <p>This code generates HDH:
-<img alt="qwhdh" src="../img/qwhd.png" width="600" /></p>
+<img alt="qwhdh" src="../img/qwhd.svg" width="600" /></p>
 <p>This is the corresponding motif to operation mapping table for the QW model:
-<img alt="qw" src="../img/qwtable.png" width="400" /></p>
+<img alt="qw" src="../img/qwtable.png" width="500" /></p>
 <p>Bellow you can find a short explanation explaining the differences between DTQW and CTQW implementations.
 If you're interested in QW, we recommend <a href="http://ndl.ethernet.edu.et/bitstream/123456789/73178/1/277.pdf">this book</a>.</p>
 <h4 id="discrete-time-quantum-walks">Discrete Time Quantum Walks</h4>
@@ -283,8 +283,9 @@ Because HDHs are time-respecting, the sequential interplay of coin and shift ste
 <p>In contrast, CTQWs describe physical evolution over time under a Hamiltonian and do not, by themselves, constitute a universal computational model.
 They lack a well-defined, manipulable set of time-indexed operations.
 Nonetheless, CTQWs can still be mapped to HDH constructions by interpreting their continuous evolution as a resource-driven process.
-HDHs accommodate this by using dedicated predictive constructs to represent these operations.
-In other words they discretize the CTQW, and map it using the DTQW mapping, whilst setting each operation to the predicted type.
+HDHs, as an abstraction, can accommodate this by using dedicated predictive constructs to represent these operations.
+Nonetheless the library expect discrete time walks.
+In other words ir is possible to discretize the CTQW, and map it using the DTQW mapping, whilst setting each operation to the predicted type. But this library does not do this for now.
 This logic can be extended to other prominent quantum frameworks, such as adiabatic quantum computing, which likewise lack native representations of sequential logical operations but can still be encoded into HDHs by discretizing their dynamics and treating them as structured evolution patterns.</p>
 <h3 id="quantum-cellular-automata">Quantum cellular automata</h3>
 <p>Finally, the last model currently compatible with the HDH library is QCA (Quantum cellular automaton).
@@ -321,9 +322,9 @@ hdh = qca.build_hdh() # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 </code></pre>
 <p>This code generates HDH:
-<img alt="qca" src="../img/qca.png" width="600" /></p>
+<img alt="qca" src="../img/qca.svg" width="600" /></p>
 <p>This is the corresponding motif to operation mapping table for the QCA model:
-<img alt="qca" src="../img/qcatable.png" width="350" /></p>
+<img alt="qca" src="../img/qcatable.png" width="250" /></p>
 <h1 id="built-in-converters">Built in Converters</h1>
 <p>The library currently has converters from </p>
 <ul>
