@@ -85,13 +85,19 @@ class Circuit:
                     # Use current qubit time (default 0), do NOT advance it here
                     t_in = qubit_time.get(qubit, 0)
                     q_in = f"q{qubit}_t{t_in}"
-                    hdh.add_node(q_in, "q", t_in, node_real=cond_flag)
+                    
+                    # Check if node already exists - preserve its potential status
+                    if q_in not in hdh.S:
+                        hdh.add_node(q_in, "q", t_in, node_real="a")  # Default to actual
 
                     bit = cargs[i]
                     t_out = t_in + 1              # classical result at next tick
                     c_out = f"c{bit}_t{t_out}"
+                    # Classical output is always actual - measurement is unconditional
                     hdh.add_node(c_out, "c", t_out, node_real=cond_flag)
 
+                    # Measurement hyperedge is always actual - the operation itself is unconditional
+                    # (even if measuring a potential quantum state)
                     hdh.add_hyperedge({q_in, c_out}, "c", name="measure", node_real=cond_flag)
 
                     # Next-free convention for this bit stream
@@ -116,7 +122,7 @@ class Circuit:
                 # bit_time points to "next free" slot; the latest existing node is at t = bit_time-1
                 c_latest = bit_time.get(ctrl, 1) - 1
                 cnode = f"c{ctrl}_t{c_latest}"
-                hdh.add_node(cnode, "c", c_latest, node_real=cond_flag)
+                hdh.add_node(cnode, "c", c_latest, node_real="a")  # Classical node is actual
 
                 edges = []
                 for tq in qargs:
@@ -124,14 +130,22 @@ class Circuit:
                     t_in_q = qubit_time[tq]
                     t_gate = max(t_in_q, c_latest) + 1
                     qname = f"q{tq}"
+                    
+                    # Create input quantum node (actual state before conditional)
+                    qin = f"{qname}_t{t_in_q}"
+                    hdh.add_node(qin, "q", t_in_q, node_real="a")
+                    
+                    # Create output quantum node (potential state after conditional)
                     qout = f"{qname}_t{t_gate}"
-
-                    # ensure the quantum output node exists at gate time
                     hdh.add_node(qout, "q", t_gate, node_real=cond_flag)
 
-                    # add classical hyperedge feeding the quantum node
-                    e = hdh.add_hyperedge({cnode, qout}, "c", name=name, node_real=cond_flag)
-                    edges.append(e)
+                    # Add quantum hyperedge for wire continuity (potential)
+                    q_edge = hdh.add_hyperedge({qin, qout}, "q", name=name, node_real=cond_flag)
+                    edges.append(q_edge)
+                    
+                    # Add classical hyperedge for conditional dependency (potential)
+                    c_edge = hdh.add_hyperedge({cnode, qout}, "c", name=name, node_real=cond_flag)
+                    edges.append(c_edge)
 
                     # advance time
                     last_gate_input_time[tq] = t_in_q

@@ -13,12 +13,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import matplotlib.pyplot as plt
 
 import hdh
-from hdh.hdh import HDH
+from hdh import HDH
 from hdh.models.circuit import Circuit
 from hdh.visualize import plot_hdh
-from hdh.converters.qiskit import from_qiskit
-from hdh.converters.pennylane_converter import from_pennylane
-from hdh.converters import cirq_converter
+from hdh.converters import from_qiskit
 
 
 import qiskit
@@ -28,15 +26,16 @@ from qiskit.circuit.controlflow import IfElseOp
 from qiskit.qasm3 import dumps
 from qiskit.circuit.library import ZGate
 
-import pennylane as qml
-from pennylane.tape import OperationRecorder
+# import pennylane as qml
+# from pennylane.tape import OperationRecorder
+
 import warnings
 
-import cirq
+# import cirq
 
 # import braket._sdk as braket
 # from braket.circuits import Circuit 
-# from hdh.converters.braket import from_braket
+# from converters.braket import from_braket
 
 def circuit_test():
     qc = QuantumCircuit(2,2)
@@ -286,14 +285,14 @@ def test_cond():
     hdh = qc.build_hdh()
     fig = plot_hdh(hdh)
     
-dev = qml.device("default.qubit", wires=2, shots=None)
+# dev = qml.device("default.qubit", wires=2, shots=None)
 
-@qml.qnode(dev)
-def qml_circuit():
-    qml.Hadamard(0)
-    qml.RX(10, wires=1)
-    qml.CNOT([0, 1])
-    return qml.probs(wires=[0, 1])
+# @qml.qnode(dev)
+# def qml_circuit():
+#     qml.Hadamard(0)
+#     qml.RX(10, wires=1)
+#     qml.CNOT([0, 1])
+#     return qml.probs(wires=[0, 1])
 
 def test_penny():
     # Record the underlying Python function WITHOUT executing the device
@@ -341,60 +340,28 @@ def test_braket():
     plot_hdh(hdh)
     
 # Fixed figures draft ---
-    
+
+
 def circuit_test_alt():
-    qc = QuantumCircuit(6,3)
+    qc = QuantumCircuit(6,6)
 
     qc.ccx(0, 1, 2)  
     qc.h(3)
     qc.cx(2,1)
     qc.cx(3,4)
     qc.h(5)
-    qc.measure(5, 0)           
+    qc.measure(5, 5)   
+    
+    with qc.if_test((qc.clbits[5], 1)):  # If classical bit 0 == 1
+        qc.x(4)  # Apply X to qubit 4
+    
+    qc.cx(0,3)
     
     qc.measure(2,2)
+    qc.measure(4,4)
     
     hdh = from_qiskit(qc)
     
-    #ifelse
-    hdh.add_node("q4_t12","q",10, "p")
-    hdh.add_node("c4_t13","c",10)
-    hdh.add_hyperedge(["c5_t11", "q4_t12"], "c", node_real = "p")
-    hdh.add_hyperedge(["q4_t9", "q4_t12"], "q", node_real = "p")
-    hdh.add_hyperedge(["c4_t13", "q4_t12"], "c")
-    
-    hdh.add_node("q0_t10","q",10)
-    hdh.add_node("q0_t11","q",11)
-    hdh.add_node("q0_t12","q",12)
-    hdh.add_node("q3_t10","q",10)
-    hdh.add_node("q3_t11","q",11)
-    hdh.add_node("q3_t12","q",12)
-    hdh.add_node("q5_t8","q",8)
-    hdh.add_hyperedge(["q0_t3","q0_t10", "q0_t11", "q0_t12"], "q")
-    hdh.add_hyperedge(["q3_t9","q3_t10", "q3_t11", "q3_t12"], "q")
-    hdh.add_hyperedge(["q3_t10", "q3_t11", "q0_t10", "q0_t11"], "q")
-    hdh.add_hyperedge(["q5_t8", "q5_t9"], "q")
-    
-    # then = QuantumCircuit(6, 3, name="then")
-    # then.z(4)
-    # els = QuantumCircuit(6, 3, name="else")  # no-op
-
-    # # Newer Qiskit: simple signature
-    # try:
-    #     qc.if_else((qc.clbits[0], 1), then, els)
-    # # Older Qiskit: needs explicit wire lists
-    # except TypeError:
-    #     qc.if_else((qc.clbits[0], 1), then, els,
-    #                qubits=list(range(6)), clbits=list(range(3)))
-    
-    # qc.cx(0,3)
-    
-    # qc.measure(4,1)
-    # qc.measure(2,2)
-    
-    # qc.draw('mpl', filename="circuit.png")
-
-    # hdh = from_qiskit(qc)
     fig = plot_hdh(hdh)
 
 def circuit_test_alt_2():
@@ -422,6 +389,18 @@ def circuit_test_alt_2():
     
     return hdh
 
+def easycnotex():
+    circuit = Circuit()
+    circuit.add_instruction("cx", [1, 2])
+    circuit.add_instruction("cx", [0, 1])
+    circuit.add_instruction("cx", [2, 4])
+    circuit.add_instruction("cx", [1, 3])
+    circuit.add_instruction("cx", [2, 3])
+    circuit.add_instruction("cx", [2, 4])
+
+    hdh = circuit.build_hdh() 
+    fig = plot_hdh(hdh) 
+    
 # End fixed figures draft ---
 
 if __name__ == "__main__":
