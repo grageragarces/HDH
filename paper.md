@@ -111,7 +111,7 @@ The resulting HDH is shown below as a graph representation of a hypergraph, sinc
 
 (2) classical data flows are explicitly included (shown in orange):
 
-![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.png){ width=80% }
+![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.svg){ width=80% }
 
 # Acknowledgements
 

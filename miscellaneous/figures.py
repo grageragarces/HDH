@@ -365,18 +365,26 @@ def circuit_test_alt(): #figure 5; circuit example
 
 def test_doc():
     import hdh
-    from hdh.models.qw import QW
+    from hdh.models.circuit import Circuit
     from hdh.visualize import plot_hdh
-    qw = QW()
+
+    circuit = Circuit()
 
     # Set of instructions
-    q0 = "q0"  
-    q1 = qw.add_coin(q0)         
-    q2 = qw.add_shift(q1)        
-    qw.add_measurement(q2, "c0")
+    circuit.add_instruction("ccx", [0, 1, 2])
+    circuit.add_instruction("h", [3])
+    circuit.add_instruction("h", [5])
+    circuit.add_instruction("cx", [3, 4])
+    circuit.add_instruction("cx", [2, 1])
 
-    hdh = qw.build_hdh() # Generate HDH
-    fig = plot_hdh(hdh)
+    circuit.add_conditional_gate(5, 4, "z") 
+
+    circuit.add_instruction("cx", [0, 3])
+    circuit.add_instruction("measure", [2])
+    circuit.add_instruction("measure", [4])
+
+    hdh = circuit.build_hdh()  # Generate HDH
+    fig = plot_hdh(hdh) 
 
 def deustj():
     qc = QuantumCircuit(5)
