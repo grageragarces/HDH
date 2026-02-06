@@ -45,8 +45,8 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
     timestep_ticks = sorted(timesteps)
 
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.set_xlabel("Timestep")
-    ax.set_ylabel("Qubit/Clbit Index")
+    ax.set_xlabel("Timestep",fontsize=16)
+    ax.set_ylabel("Qubit/Clbit Index",fontsize=16)
     ax.set_xticks(timestep_ticks)
     ax.set_yticks(flipped_ticks)
     ax.set_yticklabels(qubit_ticks)

@@ -26,6 +26,8 @@ from qiskit.circuit.controlflow import IfElseOp
 from qiskit.qasm3 import dumps
 from qiskit.circuit.library import ZGate
 
+import matplotlib.pyplot as plt
+
 # import pennylane as qml
 # from pennylane.tape import OperationRecorder
 
@@ -341,8 +343,7 @@ def test_braket():
     
 # Fixed figures draft ---
 
-
-def circuit_test_alt():
+def circuit_test_alt(): #figure 5; circuit example
     qc = QuantumCircuit(6,6)
 
     qc.ccx(0, 1, 2)  
@@ -352,42 +353,20 @@ def circuit_test_alt():
     qc.h(5)
     qc.measure(5, 5)   
     
-    with qc.if_test((qc.clbits[5], 1)):  # If classical bit 0 == 1
-        qc.x(4)  # Apply X to qubit 4
+    with qc.if_test((qc.clbits[5], 1)):  
+        qc.x(4)  
     
     qc.cx(0,3)
     
     qc.measure(2,2)
     qc.measure(4,4)
     
+    qc.draw('mpl', filename='qiskit_circuit.svg')
+
+    
     hdh = from_qiskit(qc)
     
     fig = plot_hdh(hdh)
-
-def circuit_test_alt_2():
-
-    circuit = Circuit()
-    
-    circuit.add_instruction("ccx", [0, 1, 2]) # ccx(q0, q1, q2)
-    circuit.add_instruction("cx", [2, 1]) # cx(q2, q1)
-    circuit.add_instruction("h", [3]) # h(q3)
-    circuit.add_instruction("cx", [3, 4]) # cx(q3, q4)
-    circuit.add_instruction("h", [1]) 
-    circuit.add_instruction("measure", [2]) 
-    circuit.add_instruction("cx", [0, 3]) # cx(q0, q3)
-    circuit.add_instruction("measure", [5]) 
-    circuit.add_instruction("measure", [1]) 
-    
-    hdh = circuit.build_hdh()
-
-    hdh.add_node("q4_t11", "q", 11)
-    hdh.add_node("q4_t12", "q", 12)
-    hdh.add_hyperedge(["c1_t8", "q4_t11"], "c")
-    hdh.add_hyperedge(["q4_t10","q4_t12", "q4_t11"], "1")
-    
-    fig = plot_hdh(hdh)
-    
-    return hdh
 
 def easycnotex():
     circuit = Circuit()
