@@ -42,18 +42,7 @@ def kahypar_cutter(
     config_path: Optional[str] = None,
     suppress_output: bool = True,
 ):
-    """Partition an HDH using the `kahypar` Python package.
-
-    What this does (as requested):
-    - Converts the (directed-by-time) HDH hypergraph into a *non-directed* hypergraph
-      suitable for KaHyPar.
-    - Partitions at the *logical qubit* level (1 vertex per qubit) to respect `cap`
-      (capacity = max unique qubits per partition).
-    - Projects the qubit partitioning back onto the original HDH nodes.
-
-    Notes:
-    - KaHyPar itself partitions undirected hypergraphs.
-    - This does *not* fall back to METIS or any other partitioner.
+    """Partition an HDH using the kahypar Python package.
 
     Args:
         hdh: HDH object with .S (nodes) and .C (hyperedges)
@@ -651,15 +640,24 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
                                               partitions: List[Set[str]],
                                               inc: Dict[str, List[Tuple[frozenset, int]]],
                                               pins: Dict[frozenset, Set[str]],
-                                              beam_k: int = 3) -> Optional[str]:
+                                              beam_k: int = 3,
+                                              partition_qubits: Optional[List[Set[int]]] = None,
+                                              hdh_graph=None) -> Optional[str]:
     """
     Select next node from frontier using delta cost awareness, excluding rejected nodes.
     
     Instead of just taking the earliest node, consider top beam_k candidates
     and pick the one with best (most negative) delta cost.
     
+    Tie-breaking order (matching paper):
+        1. Minimum incremental communication cost (delta cost)
+        2. Prefer nodes whose logical qubit is already in the bin
+        3. Earlier temporal order
+    
     Args:
         rejected: Set of nodes that have been rejected for this bin (e.g., due to capacity)
+        partition_qubits: List of sets tracking unique qubits per partition (for tie-breaking)
+        hdh_graph: HDH graph object (for time_map tie-breaking)
     
     Returns:
         Best node to add, or None if frontier is empty
@@ -688,15 +686,20 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
     if not candidates:
         return None
     
-    # Score each candidate by delta cost
+    # Score each candidate by (delta_cost, qubit_not_in_bin, time, node_id)
+    # Tie-breaking: prefer same-qubit (already in bin), then earlier time
     scored = []
     for node in candidates:
         delta = _compute_delta_cost_simple(node, bin_idx, partitions, inc, pins)
-        # Prioritize: low delta cost (negative is best)
-        scored.append((delta, node))
+        node_qubit = _extract_qubit_id(node)
+        # 0 = qubit already in bin (preferred), 1 = new qubit
+        qubit_in_bin = 0 if (partition_qubits is not None and node_qubit is not None
+                             and node_qubit in partition_qubits[bin_idx]) else 1
+        node_time = hdh_graph.time_map.get(node, 0) if hdh_graph is not None else 0
+        scored.append((delta, qubit_in_bin, node_time, node))
     
     scored.sort()
-    best_node = scored[0][1]
+    best_node = scored[0][3]
     
     # Put back the candidates we didn't select
     for item in examined:
@@ -713,10 +716,13 @@ def _select_best_from_frontier(frontier: List[Tuple[int, int, str]],
                                 partitions: List[Set[str]],
                                 inc: Dict[str, List[Tuple[frozenset, int]]],
                                 pins: Dict[frozenset, Set[str]],
-                                beam_k: int = 3) -> Optional[str]:
+                                beam_k: int = 3,
+                                partition_qubits: Optional[List[Set[int]]] = None,
+                                hdh_graph=None) -> Optional[str]:
     """Wrapper for _select_best_from_frontier_with_rejected with empty rejected set."""
     return _select_best_from_frontier_with_rejected(frontier, unassigned, set(), 
-                                                     bin_idx, partitions, inc, pins, beam_k)
+                                                     bin_idx, partitions, inc, pins, beam_k,
+                                                     partition_qubits, hdh_graph)
 
 
 def _pop_earliest_valid(frontier: List[Tuple[int, int, str]], 
@@ -836,7 +842,8 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         while used[bin_idx] < cap:
             # Select best node from frontier using delta cost (excluding rejected)
             next_node = _select_best_from_frontier_with_rejected(frontier, unassigned, rejected,
-                                                                  bin_idx, partitions, inc, pins, beam_k)
+                                                                  bin_idx, partitions, inc, pins, beam_k,
+                                                                  partition_qubits, hdh_graph)
             
             if next_node is None:
                 break  # No more valid neighbors

@@ -666,7 +666,7 @@ def main():
     parser.add_argument(
         '--time_limit',
         type=int,
-        default=1800,
+        default=300,
         help='Time limit per hypergraph in seconds (default: 1800 = 30 min)'
     )
     parser.add_argument(

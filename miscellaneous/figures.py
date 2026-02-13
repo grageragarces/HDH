@@ -16,9 +16,9 @@ import hdh
 from hdh.hdh import HDH
 from hdh.models.circuit import Circuit
 from hdh.visualize import plot_hdh
-from hdh.converters.qiskit import from_qiskit
+from hdh.converters.qiskit_converter import from_qiskit
 from hdh.converters.pennylane_converter import from_pennylane
-from hdh.converters import cirq_converter
+# from hdh.converters import cirq_converter
 
 
 import qiskit
@@ -32,7 +32,7 @@ import pennylane as qml
 from pennylane.tape import OperationRecorder
 import warnings
 
-import cirq
+# import cirq
 
 # import braket._sdk as braket
 # from braket.circuits import Circuit 
@@ -422,7 +422,32 @@ def circuit_test_alt_2():
     
     return hdh
 
+def fig_1():
+    circuit = QuantumCircuit(5)
+    
+    circuit.cx(1,2)
+    circuit.cx(0,1)
+    circuit.cx(2,4)
+    circuit.cx(1,3)
+    circuit.cx(2,3)
+    circuit.cx(2,4)
+    
+    # circuit.draw(output='mpl', filename='fig_1.svg')
+    
+    HDH = from_qiskit(circuit)
+    fig = plot_hdh(HDH)
+
+def fig_1():
+    circuit = QuantumCircuit(2)
+    
+    circuit.cx(0,1)
+
+    circuit.draw(output='mpl', filename='fig_2.svg')
+    
+    HDH = from_qiskit(circuit)
+    fig = plot_hdh(HDH)
+
 # End fixed figures draft ---
 
 if __name__ == "__main__":
-    circuit_test_alt()
+    fig_1()
