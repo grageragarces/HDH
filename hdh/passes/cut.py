@@ -17,8 +17,6 @@ Parallelism and Participation Metrics:
   (detects imbalances in how partitions utilize their available capacity)
 """
 
-# from __future__ import annotations
-
 # ------------------------------ Imports ------------------------------
 import math
 import os
