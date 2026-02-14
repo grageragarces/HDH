@@ -354,6 +354,8 @@ def circuit_test_alt():
     
     qc.measure(2,2)
     
+    qc.draw(output='mpl', filename='circuit_for_hdh.svg')
+    
     hdh = from_qiskit(qc)
     
     #ifelse
@@ -450,4 +452,4 @@ def fig_1():
 # End fixed figures draft ---
 
 if __name__ == "__main__":
-    fig_1()
+    circuit_test_alt()
