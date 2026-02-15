@@ -47,10 +47,16 @@ This process repeats until all bins have been instantiated or no further QPUs ar
 ##### Phase 3: Residual assignment
 
 If unassigned nodes remain after all bins have been instantiated, the algorithm attempts to place them in 
-a best-fit procedure (assigning the next remaining node minimum incremental cost) over the remaining nodes.
-A node is assigned to a bin only if doing so does not introduce a new logical qubit beyond the bin’s remaining capacity.
-Nodes that cannot be placed in any bin without violating capacity constraints are left unassigned.
-This phase ensures completeness of the assignment under the imposed capacity constraints.\todo{Emphasise that nodes should only be left unassigned if the user has asked for something impossible.}
+a best-fit procedure (assigning the next remaining node minimum incremental cost).
+A node is assigned to a bin only if doing so does not introduce a new qubit beyond the bin’s remaining capacity.
+Nodes that cannot be placed in any bin without violating capacity constraints are left unassigned. 
+This occurs when the remaining nodes cannot be placed without exceeding the available capacity of all devices
+A lower bound on the qubits required for a given computation
+has been derived recently \cite{matsui2025characterizing}.
+As such, one can determine whether a computation exceeds the capacity
+of a given network prior to partitioning, avoiding infeasible instances.
+This phase ensures completeness of the assignment under the imposed capacity constraints.
+
 
 ---
 
