@@ -10,8 +10,8 @@ import matplotlib.ticker as ticker
 CSV_FILE = Path('experiment_outputs_mqtbench/results_node_level_fixed_over10.csv') 
 OUTPUT_DIR = Path('experiment_outputs_mqtbench')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.png'
-SIZE_PLOT_FILE = OUTPUT_DIR / 'optimality_vs_circuit_size_overhead1.png'
+PLOT_FILE = OUTPUT_DIR / 'optimality_vs_overhead_k3.svg'
+SIZE_PLOT_FILE = OUTPUT_DIR / 'optimality_vs_circuit_size_overhead1.svg'
 
 # Plotting style
 sns.set_style("whitegrid")
@@ -241,7 +241,7 @@ def create_plot(df: pd.DataFrame, output_path: Path, k: int):
     ax.legend(loc='lower left')
     
     # Save
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, format='svg', bbox_inches='tight')
     print(f"✓ Plot saved to: {output_path}")
     
     plt.close()
@@ -353,7 +353,7 @@ def create_circuit_size_plot(df: pd.DataFrame, output_path: Path, k: int, overhe
     #         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     # Save
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')    
+    plt.savefig(output_path, format='svg', bbox_inches='tight')    
     plt.close()
 
 
