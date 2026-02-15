@@ -642,13 +642,13 @@ def main():
     parser.add_argument(
         '--min_qubits',
         type=int,
-        default=6,
+        default=3,
         help='Minimum qubits for circuits to test'
     )
     parser.add_argument(
         '--max_qubits',
         type=int,
-        default=10,
+        default=5,
         help='Maximum qubits for circuits to test'
     )
     parser.add_argument(
