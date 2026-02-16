@@ -159,11 +159,9 @@ If a tie still remains, temporal order is used as a third criterion,
 with earlier nodes selected before later ones.
 If multiple successor nodes are produced by the same operation, each is evaluated independently, and only those whose inclusion respects the bin’s capacity constraint are admitted.</p>
 <h5 id="phase-2-sequential-bin-construction">Phase 2: Sequential bin construction</h5>
-<p>Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to unassigned nodes, the current bin is closed.
+<p>Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to the seed, the current bin is closed.
 The algorithm then instantiates the next bin, corresponding to the next available QPU.
-Whenever possible, bins are instantiated in an order that reflects physical network adjacency between QPUs, so as to favor locality in subsequent inter-bin communication.
-When no topology information is provided, as in this work, the algorithm assumes a fully interconnected network.
-Under this assumption, bin ordering does not restrict routability but directly informs the cost model used later to evaluate communication overhead.
+Bins are instantiated in an order that reflects physical network adjacency between QPUs, so as to favor locality in subsequent inter-bin communication.
 This process repeats until all bins have been instantiated or no further QPUs are available.</p>
 <h5 id="phase-3-residual-assignment">Phase 3: Residual assignment</h5>
 <p>If unassigned nodes remain after all bins have been instantiated, the algorithm attempts to place them in 
