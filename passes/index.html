@@ -151,10 +151,12 @@
 <h5 id="phase-1-greedy-bin-filling-via-temporal-expansion">Phase 1: Greedy bin filling via temporal expansion</h5>
 <p>The algorithm begins by selecting the earliest-time unassigned HDH node as a seed and opening a new bin associated with a target QPU.
 The bin is then expanded forward in time by iteratively considering unassigned nodes that are connected to the current bin by time-respecting HDH dependencies.
-At each iteration, the algorithm considers a bounded set of temporally admissible frontier nodes, consisting of the earliest-time candidates connected to the current bin.
+At each iteration, the algorithm considers a bounded set of temporally admissible frontier nodes, consisting of the candidates connected to the currently considered node.
 Among this set, it selects the node that minimises the estimated incremental communication cost of adding it to the bin, subject to the bin’s capacity constraint. 
-When multiple candidates have equal incremental cost, temporal order is used as a secondary tie-breaker.
-Nodes are added individually, even when they arise from multi-qubit operations.
+When multiple candidates have equal incremental cost,
+nodes corresponding to the same qubit are preferred as a secondary tie-breaker.
+If a tie still remains, temporal order is used as a third criterion,
+with earlier nodes selected before later ones.
 If multiple successor nodes are produced by the same operation, each is evaluated independently, and only those whose inclusion respects the bin’s capacity constraint are admitted.</p>
 <h5 id="phase-2-sequential-bin-construction">Phase 2: Sequential bin construction</h5>
 <p>Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to unassigned nodes, the current bin is closed.
