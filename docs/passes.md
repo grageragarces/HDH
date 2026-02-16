@@ -26,24 +26,15 @@ The default capacity-aware HDH partitioning algorithm operates in three phases.
 
 ##### Phase 1: Greedy bin filling via temporal expansion
 
-The algorithm begins by selecting the earliest-time unassigned HDH node as a seed and opening a new bin associated with a target QPU.
-The bin is then expanded forward in time by iteratively considering unassigned nodes that are connected to the current bin by time-respecting HDH dependencies.
-At each iteration, the algorithm considers a bounded set of temporally admissible frontier nodes, consisting of the candidates connected to the currently considered node.
-Among this set, it selects the node that minimises the estimated incremental communication cost of adding it to the bin, subject to the bin’s capacity constraint. 
-When multiple candidates have equal incremental cost,
-nodes corresponding to the same qubit are preferred as a secondary tie-breaker.
-If a tie still remains, temporal order is used as a third criterion,
-with earlier nodes selected before later ones.
-If multiple successor nodes are produced by the same operation, each is evaluated independently, and only those whose inclusion respects the bin’s capacity constraint are admitted.
+The algorithm begins by selecting the earliest unassigned HDH node as a seed and opening a new bin associated with a target QPU. The bin is expanded forward in time: at each step, the algorithm identifies a frontier of unassigned nodes connected to the current bin via time-respecting HDH dependencies. From this frontier, it selects the node whose inclusion minimizes the incremental communication cost, subject to the bin's capacity constraint. Candidates that would exceed capacity are excluded.
+Ties are broken in the following order: 
+(1) nodes on the same qubit as the seed are preferred, 
+(2) among remaining ties, earlier nodes are selected first. 
+If an operation produces multiple successor nodes, each is evaluated independently.
 
 ##### Phase 2: Sequential bin construction
 
-Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to unassigned nodes, the current bin is closed.
-The algorithm then instantiates the next bin, corresponding to the next available QPU.
-Whenever possible, bins are instantiated in an order that reflects physical network adjacency between QPUs, so as to favor locality in subsequent inter-bin communication.
-When no topology information is provided, as in this work, the algorithm assumes a fully interconnected network.
-Under this assumption, bin ordering does not restrict routability but directly informs the cost model used later to evaluate communication overhead.
-This process repeats until all bins have been instantiated or no further QPUs are available.
+Once no further admissible expansions remain (either due to capacity saturation or an exhausted frontier) the current bin is closed and the next bin is opened for the next available QPU. This repeats until all QPUs have been assigned or no unassigned nodes remain.
 
 ##### Phase 3: Residual assignment
 
