@@ -1,7 +1,6 @@
-
 ======================================================================
 BRUTE FORCE vs HEURISTIC ANALYSIS (k=3 QPUs)
-OPTIMALITY VIEW: How close to optimal are we?
+COST RATIO VIEW: Heuristic / Exhaustive (lower is better)
 ======================================================================
 
 Loading data from: experiment_outputs_mqtbench/results_node_level_fixed_over10.csv
@@ -49,27 +48,27 @@ Algorithms Analyzed:
   vqe                       3, 4, 5, 6, 7, 8, 9, 10       
   wstate                    3, 4, 5, 6, 7, 8, 9, 10       
 
-Optimality Distribution:
-  Finite values: 560
+Cost Ratio Distribution:
+  Finite values: 559
   Infinite values: 0
-  NaN values: 0
+  NaN values: 1
 
-Optimality Statistics (finite values only):
-  Mean:   108.9%
-  Median: 100.0%
-  Std:    70.0 percentage points
-  Min:    0.0%
-  Max:    1300.0%
+Cost Ratio Statistics (finite values only):
+  Mean:   1.158
+  Median: 1.000
+  Std:    0.595
+  Min:    0.077
+  Max:    4.000
 
-  Perfect matches (100% optimal): 80/560 (14.3%)
+  Perfect matches (ratio = 1.0): 80/559 (14.3%)
 
 Breakdown by Overhead:
-  Overhead     Count    Mean Optimality    Std          Perfect %   
+  Overhead     Count    Mean Ratio (H/E)     Std          Perfect %   
   ---------------------------------------------------------------------------
-  1.00         140      122.7             % 52.6        pp 30.0        %
-  1.10         140      101.6             % 42.6        pp 13.6        %
-  1.20         140      100.5             % 42.2        pp 11.4        %
-  1.30         140      110.6             % 114.1       pp 2.1         %
+  1.00         140      0.978                0.445        30.0        %
+  1.10         140      1.192                0.572        13.6        %
+  1.20         140      1.218                0.621        11.4        %
+  1.30         139      1.243                0.683        2.2         %
 
 Cost Statistics:
   Optimal costs:
@@ -92,12 +91,12 @@ Timing (seconds):
 
 Creating plot...
 
-Optimality distribution by overhead:
-  Overhead 1.00: median=100.0%, mean=122.7%, n=140
-  Overhead 1.10: median=100.0%, mean=101.6%, n=140
-  Overhead 1.20: median=100.0%, mean=100.5%, n=140
-  Overhead 1.30: median=95.2%, mean=110.6%, n=140
-✓ Plot saved to: experiment_outputs_mqtbench/optimality_vs_overhead_k3.png
+Cost ratio distribution by overhead:
+  Overhead 1.00: median=1.000, mean=0.978, n=140
+  Overhead 1.10: median=1.000, mean=1.192, n=140
+  Overhead 1.20: median=1.000, mean=1.218, n=140
+  Overhead 1.30: median=1.048, mean=1.243, n=139
+✓ Plot saved to: experiment_outputs_mqtbench/optimality_vs_overhead_k3.svg
 
 Creating circuit size plot for overhead=1.0...
 
@@ -105,7 +104,7 @@ Circuit size analysis for overhead=1.0:
   Total circuits: 140
   Qubit range: 3 - 10
   Mean heuristic cost: 2551.6
-  Mean optimality: 122.7%
+  Mean cost ratio (H/E): 0.978
   Note: 7 outlier(s) exceed y-axis limit (max cost: 252200.0)
 
  Analysis complete!
