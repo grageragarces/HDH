@@ -53,7 +53,7 @@ Optyx [@kupper2025optyx], DC-MBQC [@xue2026dc]), these implement end-to-end
 distribution pipelines rather than exposing the underlying abstraction as a 
 research tool. No existing library provides a model-agnostic hypergraph abstraction 
 designed specifically to enable the development and fair comparison of partitioning 
-heuristics — the role `HDH` is built to fill.
+heuristics (the role `HDH` is built to fill).
 
 While quantum compilation frameworks like Qiskit [@Qiskit], Cirq [@Cirq], and 
 PennyLane [@PennyLane] provide circuit optimization and device mapping, they do 
@@ -154,7 +154,7 @@ The resulting HDH is shown below as a graph representation of a hypergraph, sinc
 ## Research Impact Statement
 
 HDH is the software implementation of a theoretical framework currently under peer review, as the library and its formal foundations were developed in tandem. 
-A copy can be provided under author request. <!-- Hopefully we can modify this to a citation before publishing. -->
+The manuscript is available from the author upon request. <!-- Hopefully we can modify this to a citation before publishing. -->
 
 Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025] (a major networking venue), has received funding through the Unitary Fund microgrant program (dedicated to supporting open source quantum software to benefit humanity) and has already seen external contributors (acknowledged bellow).
 Further, we're in discussion with companies in the Distributed Quantum Computing space regarding the library's integration within their stack.
