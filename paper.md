@@ -1,5 +1,5 @@
 ---
-title: 'HDH:The Distributed Quantum Computing library'
+title: 'HDH: A Python Library for Hypergraph-Based Distributed Quantum Computing Partitioning'
 tags:
   - Python
   - distributed quantum computing
