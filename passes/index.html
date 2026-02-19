@@ -70,6 +70,20 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#worked-example">Worked Example</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#inputs">Inputs</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-1-filling-qpu1-capacity-1-qubit">Phase 1 — Filling QPU1 (capacity: 1 qubit)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-2-filling-qpu2-capacity-2-qubits">Phase 2 — Filling QPU2 (capacity: 2 qubits)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-2-continued-filling-qpu3-capacity-1-qubit">Phase 2 (continued) — Filling QPU3 (capacity: 1 qubit)</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#phase-3-residual-assignment_1">Phase 3 — Residual assignment</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#metis-telegate-partitioner">METIS Telegate Partitioner</a>
         <ul>
     <li class="toctree-l4"><a class="reference internal" href="#telegate-graph-construction">Telegate Graph Construction</a>
@@ -149,20 +163,13 @@
 <h4 id="default-cut-algorithm_1">Default cut algorithm</h4>
 <p>The default capacity-aware HDH partitioning algorithm operates in three phases. </p>
 <h5 id="phase-1-greedy-bin-filling-via-temporal-expansion">Phase 1: Greedy bin filling via temporal expansion</h5>
-<p>The algorithm begins by selecting the earliest-time unassigned HDH node as a seed and opening a new bin associated with a target QPU.
-The bin is then expanded forward in time by iteratively considering unassigned nodes that are connected to the current bin by time-respecting HDH dependencies.
-At each iteration, the algorithm considers a bounded set of temporally admissible frontier nodes, consisting of the candidates connected to the currently considered node.
-Among this set, it selects the node that minimises the estimated incremental communication cost of adding it to the bin, subject to the bin’s capacity constraint. 
-When multiple candidates have equal incremental cost,
-nodes corresponding to the same qubit are preferred as a secondary tie-breaker.
-If a tie still remains, temporal order is used as a third criterion,
-with earlier nodes selected before later ones.
-If multiple successor nodes are produced by the same operation, each is evaluated independently, and only those whose inclusion respects the bin’s capacity constraint are admitted.</p>
+<p>The algorithm begins by selecting the earliest unassigned HDH node as a seed and opening a new bin associated with a target QPU. The bin is expanded forward in time: at each step, the algorithm identifies a frontier of unassigned nodes connected to the current bin via time-respecting HDH dependencies. From this frontier, it selects the node whose inclusion minimizes the incremental communication cost, subject to the bin's capacity constraint. Candidates that would exceed capacity are excluded.
+Ties are broken in the following order: 
+(1) nodes on the same qubit as the seed are preferred, 
+(2) among remaining ties, earlier nodes are selected first. 
+If an operation produces multiple successor nodes, each is evaluated independently.</p>
 <h5 id="phase-2-sequential-bin-construction">Phase 2: Sequential bin construction</h5>
-<p>Once no further admissible expansions are possible, either due to capacity saturation or the absence of valid temporal connections to the seed, the current bin is closed.
-The algorithm then instantiates the next bin, corresponding to the next available QPU.
-Bins are instantiated in an order that reflects physical network adjacency between QPUs, so as to favor locality in subsequent inter-bin communication.
-This process repeats until all bins have been instantiated or no further QPUs are available.</p>
+<p>Once no further admissible expansions remain (either due to capacity saturation or an exhausted frontier) the current bin is closed and the next bin is opened for the next available QPU. This repeats until all QPUs have been assigned or no unassigned nodes remain.</p>
 <h5 id="phase-3-residual-assignment">Phase 3: Residual assignment</h5>
 <p>If unassigned nodes remain after all bins have been instantiated, the algorithm attempts to place them in 
 a best-fit procedure (assigning the next remaining node minimum incremental cost).
@@ -171,6 +178,67 @@ Nodes that cannot be placed in any bin without violating capacity constraints ar
 This occurs when the remaining nodes cannot be placed without exceeding the available capacity of all devices.
 of a given network prior to partitioning, avoiding infeasible instances.
 This phase ensures completeness of the assignment under the imposed capacity constraints.</p>
+<hr />
+<h3 id="worked-example">Worked Example</h3>
+<p>The following walks through the greedy partitioner step by step on a small artificial computation, so you can see exactly how the three phases play out in practice.</p>
+<blockquote>
+<p><strong>Note on cost model:</strong> This example uses a uniform cost of 1 for all hyperedge cuts, rather than the default weighted model (quantum = 10, classical = 1). This is just to keep the numbers easy to follow — the algorithm itself is identical regardless of the cost function supplied.</p>
+</blockquote>
+<h4 id="inputs">Inputs</h4>
+<p>The example uses a directed hypergraph representing the computational dependencies of a workload, distributed across a three-QPU network in a line topology. The QPUs have capacities of <strong>1, 2, and 1 qubit</strong> respectively. This is intentionally a tiny instance — the goal is clarity, not realism.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;"><img alt="Dependency hypergraph" src="../img/bigalg/input1.svg" /></th>
+<th style="text-align: center;"><img alt="Three-QPU network" src="../img/bigalg/input2.svg" /></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Directed hypergraph of computational dependencies</td>
+<td style="text-align: center;">Three-QPU line network with per-device capacities 1, 2, 1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h4 id="phase-1-filling-qpu1-capacity-1-qubit">Phase 1 — Filling QPU1 (capacity: 1 qubit)</h4>
+<p><img alt="QPU1" src="../img/bigalg/qpu1.svg" /></p>
+<p><strong>Seed:</strong> The earliest unassigned node is selected as the seed: <code>q1t1</code>.</p>
+<p><img alt="Step 0" src="../img/bigalg/qpu1s0.svg" /></p>
+<p><strong>Step 1:</strong> The only node reachable from <code>q1t1</code> is <code>q1t3</code>. Adding it would not introduce a new qubit (it is still qubit 1), so capacity is respected. There are no other candidates, so <code>q1t3</code> is taken.</p>
+<p><img alt="Step 1" src="../img/bigalg/qpu1s1.svg" /></p>
+<p><strong>Step 2:</strong> Four nodes are now connected to the QPU1 bin: <code>q1t5</code>, <code>q2t3</code>, <code>q2t4</code>, and <code>q2t5</code>. Only <code>q1t5</code> is admissible — the others all belong to qubit 2, which would bring the bin over its 1-qubit capacity. Among candidates with equal incremental cost, nodes on the same qubit as the seed are preferred, so <code>q1t5</code> would be selected even if capacity were not a constraint. We take <code>q1t5</code>.</p>
+<p><img alt="Step 2" src="../img/bigalg/qpu1s2v3.svg" /></p>
+<p><strong>Step 3:</strong> The remaining frontier contains <code>q2t4</code> and <code>q2t5</code>. Neither can be assigned without introducing qubit 2 into a bin already at capacity. No admissible expansion remains — the QPU1 bin is closed.</p>
+<p><img alt="Step 3" src="../img/bigalg/qpu1s3.svg" /></p>
+<hr />
+<h4 id="phase-2-filling-qpu2-capacity-2-qubits">Phase 2 — Filling QPU2 (capacity: 2 qubits)</h4>
+<p><img alt="QPU2" src="../img/bigalg/qpu2.svg" /></p>
+<p><strong>Seed:</strong> The next earliest unassigned node is <code>q2t2</code>.</p>
+<p><img alt="Step 0" src="../img/bigalg/qpu2s0.svg" /></p>
+<p><strong>Step 1:</strong> Two nodes are reachable: <code>q1t3</code> (already assigned to QPU1) and <code>q3t3</code>. Since <code>q1t3</code> is unavailable, we take <code>q3t3</code>.</p>
+<p><img alt="Step 1" src="../img/bigalg/qpu2s1v3.svg" /></p>
+<p><strong>Step 2:</strong> Three candidates are now connected to the QPU2 bin: <code>q2t4</code>, <code>q3t1</code>, and <code>q4t4</code>. Adding <code>q4t4</code> would introduce a third qubit into a bin that can hold only two — it is excluded. Between <code>q2t4</code> and <code>q3t1</code>, adding <code>q3t1</code> incurs zero incremental communication cost (it is only connected to <code>q3t3</code>, which is already in this bin), so it is preferred. We take <code>q3t1</code>.</p>
+<p><img alt="Step 2" src="../img/bigalg/qpu2s2.svg" /></p>
+<p><strong>Step 3:</strong> The bin is now full (qubits 2 and 3). The only remaining viable candidate is <code>q2t4</code> — it belongs to qubit 2, which is already in the bin, so no new qubit is introduced. We take <code>q2t4</code>.</p>
+<p><img alt="Step 3" src="../img/bigalg/qpu2s3v2.svg" /></p>
+<p><strong>Step 4:</strong> Same reasoning — <code>q2t5</code> is the only viable candidate. We take it.</p>
+<p><img alt="Step 4" src="../img/bigalg/qpu2s4v2.svg" /></p>
+<p><strong>Step 5:</strong> The only node still connected to the QPU2 bin is <code>q3t3</code>, which is already assigned. No admissible expansion remains — the QPU2 bin is closed.</p>
+<p><img alt="Step 5" src="../img/bigalg/qpu2s5v2.svg" /></p>
+<hr />
+<h4 id="phase-2-continued-filling-qpu3-capacity-1-qubit">Phase 2 (continued) — Filling QPU3 (capacity: 1 qubit)</h4>
+<p><img alt="QPU3" src="../img/bigalg/qpu3.svg" /></p>
+<p><strong>Seed:</strong> The next earliest unassigned node is <code>q4t3</code>.</p>
+<p><img alt="Step 0" src="../img/bigalg/qpu3s0.svg" /></p>
+<p><strong>Step 1:</strong> The only reachable node is <code>q4t5</code>, which belongs to qubit 4 — already in this bin. We take it.</p>
+<p><img alt="Step 1" src="../img/bigalg/qpu3s1.svg" /></p>
+<p><strong>Step 2:</strong> No further nodes are connected to the QPU3 bin. The bin is closed.</p>
+<p><img alt="Step 2" src="../img/bigalg/qpu3s2.svg" /></p>
+<hr />
+<h4 id="phase-3-residual-assignment_1">Phase 3 — Residual assignment</h4>
+<p>All nodes have been assigned by the end of Phase 2, so Phase 3 is skipped entirely.</p>
+<p>The final partition assigns <code>{q1t1, q1t3, q1t5}</code> to QPU1, <code>{q2t2, q2t4, q2t5, q3t1, q3t3}</code> to QPU2, and <code>{q4t3, q4t5}</code> to QPU3 — each within the capacity of its device.</p>
 <hr />
 <h3 id="metis-telegate-partitioner">METIS Telegate Partitioner</h3>
 <p>For an alternative partitioner, the library provides the <code>metis_telegate</code> function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available) on a graph 
@@ -203,42 +271,56 @@ edges.</p>
 <h4 id="function-signature">Function Signature</h4>
 <pre><code class="language-python">def metis_telegate(hdh: &quot;HDH&quot;, partitions: int, capacities: int) -&gt; Tuple[List[Set[str]], int, bool, str]
 </code></pre>
-<p><strong>Parameters:</strong>
-* <code>hdh</code>: The HDH graph to partition
-* <code>partitions</code>: Number of partitions (k)
-* <code>capacities</code>: Capacity per partition (in qubits)</p>
-<p><strong>Returns:</strong>
-* A tuple of <code>(bins_qubits, cut_cost, respects_capacity, method)</code> where:
-    * <code>bins_qubits</code> is a list of sets, each containing qubit IDs (as strings like <code>"q0"</code>, <code>"q1"</code>) in that partition
-    * <code>cut_cost</code> is the number of edges crossing between partitions (unweighted)
-    * <code>respects_capacity</code> is a boolean indicating whether all bins satisfy the capacity constraint
-    * <code>method</code> is either <code>"metis"</code> or <code>"kl"</code> indicating which algorithm was used</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>hdh</code>: The HDH graph to partition</li>
+<li><code>partitions</code>: Number of partitions (k)</li>
+<li><code>capacities</code>: Capacity per partition (in qubits)</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li>A tuple of <code>(bins_qubits, cut_cost, respects_capacity, method)</code> where:<ul>
+<li><code>bins_qubits</code> is a list of sets, each containing qubit IDs (as strings like <code>"q0"</code>, <code>"q1"</code>) in that partition</li>
+<li><code>cut_cost</code> is the number of edges crossing between partitions (unweighted)</li>
+<li><code>respects_capacity</code> is a boolean indicating whether all bins satisfy the capacity constraint</li>
+<li><code>method</code> is either <code>"metis"</code> or <code>"kl"</code> indicating which algorithm was used</li>
+</ul>
+</li>
+</ul>
 <h3 id="kahypar-hypergraph-partitioner">KaHyPar hypergraph partitioner</h3>
 <p><code>cut.py</code> also includes a KaHyPar-based partitioner, taken from the <a href="https://kahypar.org">KaHyPar library</a>.
 To versions are included (qubit and node based):</p>
-<p><strong><code>kahypar_cutter</code></strong>
-  * Vertices are <em>logical qubits</em>.
-  * Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.
-  * KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., <code>km1_kKaHyPar_sea20.ini</code>).
-  * Capacity is expressed as a <em>balance constraint</em> via KaHyPar’s <code>epsilon</code> (derived from <code>cap</code> relative to the ideal target size <code>n/k</code>). 
-  * This means the partitioner primarily “knows” about <strong>balancing qubit counts</strong>; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.</p>
-<p><strong><code>kahypar_cutter_nodebalanced</code>:</strong>
-  * Vertices are <em>HDH nodes</em> (time-expanded).
-  * Balance is therefore in <strong>node count</strong>, not in unique logical qubits.
-  * As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).</p>
+<p><strong><code>kahypar_cutter</code></strong></p>
+<ul>
+<li>Vertices are <em>logical qubits</em>.</li>
+<li>Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.</li>
+<li>KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., <code>km1_kKaHyPar_sea20.ini</code>).</li>
+<li>Capacity is expressed as a <em>balance constraint</em> via KaHyPar’s <code>epsilon</code> (derived from <code>cap</code> relative to the ideal target size <code>n/k</code>). </li>
+<li>This means the partitioner primarily “knows” about <strong>balancing qubit counts</strong>; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.</li>
+</ul>
+<p><strong><code>kahypar_cutter_nodebalanced</code>:</strong></p>
+<ul>
+<li>Vertices are <em>HDH nodes</em> (time-expanded).</li>
+<li>Balance is therefore in <strong>node count</strong>, not in unique logical qubits.</li>
+<li>As a result, it can produce partitions that look well-balanced to KaHyPar but <strong>do not respect logical-qubit capacity</strong> (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).</li>
+</ul>
 <hr />
 <h2 id="cut-cost-evaluation">Cut Cost Evaluation</h2>
 <p>The quality of a partition is determined by the number of cut hyperedges, that is, the number of hyperedges that span across multiple QPUs (bins). The library provides two functions to evaluate this cost given a partitioning:</p>
 <h3 id="_total_cost_hdh"><code>_total_cost_hdh</code></h3>
-<p>Calculates the total cost of a partition on an HDH graph. This function:
-* Iterates through all hyperedges in the HDH
-* Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins
-* Returns the sum of weights of all cut hyperedges (quantum hyperedges count as 10 and classic hyperedges count as 1 - you can modify these values in the source code but if you would like this to be adjustable please feel free to open an issue)</p>
+<p>Calculates the total cost of a partition on an HDH graph. This function:</p>
+<ul>
+<li>Iterates through all hyperedges in the HDH</li>
+<li>Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins</li>
+<li>Returns the sum of weights of all cut hyperedges (quantum hyperedges count as 10 and classic hyperedges count as 1 - you can modify these values in the source code but if you would like this to be adjustable please feel free to open an issue)</li>
+</ul>
 <h3 id="_cut_edges_unweighted"><code>_cut_edges_unweighted</code></h3>
-<p>Counts the number of edges that cross between different bins in a standard graph (used for evaluating telegate graph partitions). This function:
-* Takes a NetworkX graph and a partition assignment
-* Counts edges where the two endpoints are in different bins
-* Returns an unweighted count (each cut edge counts as 1)</p>
+<p>Counts the number of edges that cross between different bins in a standard graph (used for evaluating telegate graph partitions). This function:</p>
+<ul>
+<li>Takes a NetworkX graph and a partition assignment</li>
+<li>Counts edges where the two endpoints are in different bins</li>
+<li>Returns an unweighted count (each cut edge counts as 1)</li>
+</ul>
 <p><strong>Use case:</strong> This is specifically used by <code>metis_telegate</code> to evaluate the quality of qubit-graph partitions.</p>
 <hr />
 <h2 id="helper-functions-and-internal-components">Helper Functions and Internal Components</h2>
@@ -259,12 +341,12 @@ To versions are included (qubit and node based):</p>
 </ul>
 <hr />
 <h2 id="notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</h2>
+<p><em>We would like to warn users and partitioning strategy developers that we have found partitioners to behave very differently on real quantum workloads (such as circuits) when compared to randomly generated ones. As such, we recommend </em><em>not testing partitioners on randomly generated workloads</em><em> unless that is specifically your goal.</em></p>
+<p><strong>Key considerations:</strong></p>
 <ul>
-<li>We would like to warn users and partitioning strategy developers that we have found partitioners to behave very differently on real quantum workloads (such as circuits) when compared to randomly generated ones. As such, we recommend <strong>not testing partitioners on randomly generated workloads</strong> unless that is specifically your goal. *</li>
+<li><strong>Circuit structure matters:</strong> Real quantum algorithms often have characteristic patterns (e.g., layered structures, specific qubit interaction patterns) that random circuits lack.</li>
+<li><strong>Connectivity patterns:</strong> Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.</li>
 </ul>
-<p><strong>Key considerations:</strong>
-* <strong>Circuit structure matters:</strong> Real quantum algorithms often have characteristic patterns (e.g., layered structures, specific qubit interaction patterns) that random circuits lack.
-* <strong>Connectivity patterns:</strong> Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.</p>
               
             </div>
           </div><footer>
