@@ -48,6 +48,100 @@ This phase ensures completeness of the assignment under the imposed capacity con
 
 ---
 
+### Worked Example
+
+The following walks through the greedy partitioner step by step on a small artificial computation, so you can see exactly how the three phases play out in practice.
+
+> **Note on cost model:** This example uses a uniform cost of 1 for all hyperedge cuts, rather than the default weighted model (quantum = 10, classical = 1). This is just to keep the numbers easy to follow — the algorithm itself is identical regardless of the cost function supplied.
+
+#### Inputs
+
+The example uses a directed hypergraph representing the computational dependencies of a workload, distributed across a three-QPU network in a line topology. The QPUs have capacities of **1, 2, and 1 qubit** respectively. This is intentionally a tiny instance — the goal is clarity, not realism.
+
+| ![Dependency hypergraph](img/bigalg/input1.svg) | ![Three-QPU network](img/bigalg/input2.svg) |
+|:---:|:---:|
+| Directed hypergraph of computational dependencies | Three-QPU line network with per-device capacities 1, 2, 1 |
+
+---
+
+#### Phase 1 — Filling QPU1 (capacity: 1 qubit)
+
+![QPU1](img/bigalg/qpu1.svg)
+
+**Seed:** The earliest unassigned node is selected as the seed: `q1t1`.
+
+![Step 0](img/bigalg/qpu1s0.svg)
+
+**Step 1:** The only node reachable from `q1t1` is `q1t3`. Adding it would not introduce a new qubit (it is still qubit 1), so capacity is respected. There are no other candidates, so `q1t3` is taken.
+
+![Step 1](img/bigalg/qpu1s1.svg)
+
+**Step 2:** Four nodes are now connected to the QPU1 bin: `q1t5`, `q2t3`, `q2t4`, and `q2t5`. Only `q1t5` is admissible — the others all belong to qubit 2, which would bring the bin over its 1-qubit capacity. Among candidates with equal incremental cost, nodes on the same qubit as the seed are preferred, so `q1t5` would be selected even if capacity were not a constraint. We take `q1t5`.
+
+![Step 2](img/bigalg/qpu1s2v3.svg)
+
+**Step 3:** The remaining frontier contains `q2t4` and `q2t5`. Neither can be assigned without introducing qubit 2 into a bin already at capacity. No admissible expansion remains — the QPU1 bin is closed.
+
+![Step 3](img/bigalg/qpu1s3.svg)
+
+---
+
+#### Phase 2 — Filling QPU2 (capacity: 2 qubits)
+
+![QPU2](img/bigalg/qpu2.svg)
+
+**Seed:** The next earliest unassigned node is `q2t2`.
+
+![Step 0](img/bigalg/qpu2s0.svg)
+
+**Step 1:** Two nodes are reachable: `q1t3` (already assigned to QPU1) and `q3t3`. Since `q1t3` is unavailable, we take `q3t3`.
+
+![Step 1](img/bigalg/qpu2s1v3.svg)
+
+**Step 2:** Three candidates are now connected to the QPU2 bin: `q2t4`, `q3t1`, and `q4t4`. Adding `q4t4` would introduce a third qubit into a bin that can hold only two — it is excluded. Between `q2t4` and `q3t1`, adding `q3t1` incurs zero incremental communication cost (it is only connected to `q3t3`, which is already in this bin), so it is preferred. We take `q3t1`.
+
+![Step 2](img/bigalg/qpu2s2.svg)
+
+**Step 3:** The bin is now full (qubits 2 and 3). The only remaining viable candidate is `q2t4` — it belongs to qubit 2, which is already in the bin, so no new qubit is introduced. We take `q2t4`.
+
+![Step 3](img/bigalg/qpu2s3v2.svg)
+
+**Step 4:** Same reasoning — `q2t5` is the only viable candidate. We take it.
+
+![Step 4](img/bigalg/qpu2s4v2.svg)
+
+**Step 5:** The only node still connected to the QPU2 bin is `q3t3`, which is already assigned. No admissible expansion remains — the QPU2 bin is closed.
+
+![Step 5](img/bigalg/qpu2s5v2.svg)
+
+---
+
+#### Phase 2 (continued) — Filling QPU3 (capacity: 1 qubit)
+
+![QPU3](img/bigalg/qpu3.svg)
+
+**Seed:** The next earliest unassigned node is `q4t3`.
+
+![Step 0](img/bigalg/qpu3s0.svg)
+
+**Step 1:** The only reachable node is `q4t5`, which belongs to qubit 4 — already in this bin. We take it.
+
+![Step 1](img/bigalg/qpu3s1.svg)
+
+**Step 2:** No further nodes are connected to the QPU3 bin. The bin is closed.
+
+![Step 2](img/bigalg/qpu3s2.svg)
+
+---
+
+#### Phase 3 — Residual assignment
+
+All nodes have been assigned by the end of Phase 2, so Phase 3 is skipped entirely.
+
+The final partition assigns `{q1t1, q1t3, q1t5}` to QPU1, `{q2t2, q2t4, q2t5, q3t1, q3t3}` to QPU2, and `{q4t3, q4t5}` to QPU3 — each within the capacity of its device.
+
+---
+
 ### METIS Telegate Partitioner
 
 For an alternative partitioner, the library provides the `metis_telegate` function, which leverages the METIS algorithm (with a fallback to the Kernighan-Lin algorithm if METIS is not available) on a graph 
