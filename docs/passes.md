@@ -81,11 +81,13 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
 ```
 
 **Parameters:**
+
 * `hdh`: The HDH graph to partition
 * `partitions`: Number of partitions (k)
 * `capacities`: Capacity per partition (in qubits)
 
 **Returns:**
+
 * A tuple of `(bins_qubits, cut_cost, respects_capacity, method)` where:
     * `bins_qubits` is a list of sets, each containing qubit IDs (as strings like `"q0"`, `"q1"`) in that partition
     * `cut_cost` is the number of edges crossing between partitions (unweighted)
@@ -98,16 +100,18 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
 To versions are included (qubit and node based):
 
 **`kahypar_cutter`**
-  * Vertices are *logical qubits*.
-  * Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.
-  * KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., `km1_kKaHyPar_sea20.ini`).
-  * Capacity is expressed as a *balance constraint* via KaHyPar’s `epsilon` (derived from `cap` relative to the ideal target size `n/k`). 
-  * This means the partitioner primarily “knows” about **balancing qubit counts**; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.
+
+* Vertices are *logical qubits*.
+* Each HDH hyperedge contributes a hyperedge over the qubits that appear in it.
+* KaHyPar then runs its multilevel hypergraph partitioning pipeline (coarsening → initial partition → refinement), configured by an INI file (e.g., `km1_kKaHyPar_sea20.ini`).
+* Capacity is expressed as a *balance constraint* via KaHyPar’s `epsilon` (derived from `cap` relative to the ideal target size `n/k`). 
+* This means the partitioner primarily “knows” about **balancing qubit counts**; it does not model HDH-specific capacity nuances (for example, heterogeneous per-QPU capacities, or time-expanded node effects), and any “capacity” notion lives inside the balance constraint.
 
 **`kahypar_cutter_nodebalanced`:**
-  * Vertices are *HDH nodes* (time-expanded).
-  * Balance is therefore in **node count**, not in unique logical qubits.
-  * As a result, it can produce partitions that look well-balanced to KaHyPar but **do not respect logical-qubit capacity** (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).
+
+* Vertices are *HDH nodes* (time-expanded).
+* Balance is therefore in **node count**, not in unique logical qubits.
+* As a result, it can produce partitions that look well-balanced to KaHyPar but **do not respect logical-qubit capacity** (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).
 ---
 
 ## Cut Cost Evaluation
@@ -117,6 +121,7 @@ The quality of a partition is determined by the number of cut hyperedges, that i
 ### `_total_cost_hdh`
 
 Calculates the total cost of a partition on an HDH graph. This function:
+
 * Iterates through all hyperedges in the HDH
 * Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins
 * Returns the sum of weights of all cut hyperedges (quantum hyperedges count as 10 and classic hyperedges count as 1 - you can modify these values in the source code but if you would like this to be adjustable please feel free to open an issue)
@@ -124,6 +129,7 @@ Calculates the total cost of a partition on an HDH graph. This function:
 ### `_cut_edges_unweighted`
 
 Counts the number of edges that cross between different bins in a standard graph (used for evaluating telegate graph partitions). This function:
+
 * Takes a NetworkX graph and a partition assignment
 * Counts edges where the two endpoints are in different bins
 * Returns an unweighted count (each cut edge counts as 1)
@@ -154,8 +160,9 @@ The `cut.py` file contains helper utilities for the partitioners (note that some
 
 ## Notes on Evaluating Partitioners on Random Circuits
 
-* We would like to warn users and partitioning strategy developers that we have found partitioners to behave very differently on real quantum workloads (such as circuits) when compared to randomly generated ones. As such, we recommend **not testing partitioners on randomly generated workloads** unless that is specifically your goal. *
+*We would like to warn users and partitioning strategy developers that we have found partitioners to behave very differently on real quantum workloads (such as circuits) when compared to randomly generated ones. As such, we recommend **not testing partitioners on randomly generated workloads** unless that is specifically your goal.*
 
 **Key considerations:**
+
 * **Circuit structure matters:** Real quantum algorithms often have characteristic patterns (e.g., layered structures, specific qubit interaction patterns) that random circuits lack.
 * **Connectivity patterns:** Random circuits may not reflect the typical connectivity found in QAOA, VQE, quantum simulation, or other structured quantum algorithms.
