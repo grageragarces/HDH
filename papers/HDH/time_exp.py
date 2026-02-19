@@ -6,7 +6,7 @@ from pathlib import Path
 # Add the current directory to path to import hdh modules
 sys.path.insert(0, str(Path.cwd()))
 
-from hdh.hdh_bruteforce import (
+from papers.HDH.hdh_bruteforce import (
     brute_force_qubit_level_timed,
     extract_qubits_from_hdh,
     get_node_qubit_mapping,
