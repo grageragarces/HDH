@@ -291,6 +291,55 @@ hdh_graph = from_qiskit(qc) # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 ```
 
+### Reconverting partitioned HDHs back to Qiskit
+
+After partitioning an HDH you can recover one Qiskit ``QuantumCircuit`` per QPU using ``partitions_to_qiskit``.
+Each sub-circuit contains only the gates whose qubits are entirely local to that partition; cross-partition gates are excluded (they become teledata/telegate communication primitives in a full DQC implementation).
+
+```python
+from qiskit import QuantumCircuit
+from hdh.converters.qiskit_converter import from_qiskit, partitions_to_qiskit
+from hdh.passes.cut import compute_cut
+
+# 1. Build and convert a Qiskit circuit
+qc = QuantumCircuit(4)
+qc.h(0)
+qc.cx(0, 1)
+qc.cx(1, 2)
+qc.cx(2, 3)
+
+hdh = from_qiskit(qc)
+
+# 2. Partition into k=2 QPUs with a capacity of 2 qubits each
+partitions, cut_cost = compute_cut(hdh, k=2, cap=2)
+print(f"Cut cost: {cut_cost} cross-partition edges")
+
+# 3. Recover one Qiskit sub-circuit per partition
+sub_circuits = partitions_to_qiskit(hdh, partitions)
+
+for i, sub_qc in enumerate(sub_circuits):
+    print(f"\n--- Partition {i} ---")
+    print(f"  Qubits (circuit size): {sub_qc.num_qubits}")
+    print(f"  Gates: {len(sub_qc.data)}")
+    print(sub_qc.draw())
+```
+
+If you only need to convert a single HDH back to Qiskit without partitioning, use ``hdh_to_qiskit`` directly:
+
+```python
+from hdh.converters.qiskit_converter import from_qiskit, hdh_to_qiskit
+
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+
+hdh = from_qiskit(qc)
+qc_reconstructed = hdh_to_qiskit(hdh)
+print(qc_reconstructed.draw())
+```
+
+Note that gate parameters (angles for ``rx``, ``ry``, ``rz`` etc.) are not preserved through the HDH representation and will default to 0 on reconstruction.
+
 # Make your own instruction set
 
 Beyond the given models and converters, you can also make your own model class by defining the desired HDH motif construction.
