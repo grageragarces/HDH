@@ -27,11 +27,6 @@ try:
 except ImportError:
     QISKIT_INSTALLED = False
 
-
-# ---------------------------------------------------------------------------
-# Pipeline fixture (used by TestFromQiskit, TestComputeCut, TestPartitionsToQiskit)
-# ---------------------------------------------------------------------------
-
 N_QUBITS = 10
 K = 2
 CAP = 5
