@@ -52,34 +52,6 @@ DEFAULT_PRIMITIVES = {
     "cat": telegate
 }
 
-def implement_comm_primitives(partitioned_hdhs, model="circuit", sdk="qiskit", primitives=None):
-    if model != "circuit" or sdk != "qiskit":
-        raise NotImplementedError("Only circuit + qiskit is currently supported.")
-    
-    primitives = primitives or DEFAULT_PRIMITIVES
-    circuits = []
-
-    for hdh in partitioned_hdhs:
-        qc = QuantumCircuit(hdh.get_num_qubits())
-        
-        for edge in hdh.C:
-            if hdh.edge_role.get(edge) in {"teledata", "telegate"}:
-                label = hdh.gate_name.get(edge)
-                if label in primitives:
-                    # call the primitive circuit
-                    subcircuit = primitives[label](0, 1, 0)  # qubit indices placeholder
-                    required_qubits = max(qc.num_qubits, subcircuit.num_qubits)
-
-                    if len(qc.qubits) < required_qubits:
-                        # Extend the circuit with additional qubits
-                        extra = required_qubits - len(qc.qubits)
-                        qc.add_register(QuantumRegister(extra))
-
-                    qc.append(subcircuit.to_instruction(), qc.qubits[:subcircuit.num_qubits])
-        
-        circuits.append(qc)
-
-    return circuits
   
 # =====================================================================
 #                        PRIMITIVES
@@ -93,6 +65,35 @@ def implement_comm_primitives(partitioned_hdhs, model="circuit", sdk="qiskit", p
 #         name = f"{base}_anc{self.counter}_t{time}"
 #         self.counter += 1
 #         return name
+
+# def implement_comm_primitives(partitioned_hdhs, model="circuit", sdk="qiskit", primitives=None):
+#     if model != "circuit" or sdk != "qiskit":
+#         raise NotImplementedError("Only circuit + qiskit is currently supported.")
+    
+#     primitives = primitives or DEFAULT_PRIMITIVES
+#     circuits = []
+
+#     for hdh in partitioned_hdhs:
+#         qc = QuantumCircuit(hdh.get_num_qubits())
+        
+#         for edge in hdh.C:
+#             if hdh.edge_role.get(edge) in {"teledata", "telegate"}:
+#                 label = hdh.gate_name.get(edge)
+#                 if label in primitives:
+#                     # call the primitive circuit
+#                     subcircuit = primitives[label](0, 1, 0)  # qubit indices placeholder
+#                     required_qubits = max(qc.num_qubits, subcircuit.num_qubits)
+
+#                     if len(qc.qubits) < required_qubits:
+#                         # Extend the circuit with additional qubits
+#                         extra = required_qubits - len(qc.qubits)
+#                         qc.add_register(QuantumRegister(extra))
+
+#                     qc.append(subcircuit.to_instruction(), qc.qubits[:subcircuit.num_qubits])
+        
+#         circuits.append(qc)
+
+#     return circuits
 
 # def extract_qidx(n):
 #     m = re.search(r'q(?:[A-Za-z_]*?)(\d+)', n)

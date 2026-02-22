@@ -29,6 +29,11 @@ from collections import defaultdict, Counter
 import networkx as nx
 from networkx.algorithms.community import kernighan_lin_bisection
 
+# ------------------------------ Regexes ------------------------------
+# useful for recognising qubit and bit IDs
+_Q_RE   = re.compile(r"^q(\d+)_t\d+$")
+_C_RE   = re.compile(r"^c(\d+)_t\d+$")
+
 # ------------------------------ KaHyPar cutter (qubit-level -> HDH node-level) ------------------------------
 
 def kahypar_cutter(
@@ -347,43 +352,7 @@ def kahypar_cutter_nodebalanced(
     cut_cost = _compute_cut_cost(hdh, node_assignment)
     return partitions, cut_cost
 
-# ------------------------------ Regexes ------------------------------
-# useful for recognising qubit and bit IDs
-_Q_RE   = re.compile(r"^q(\d+)_t\d+$")
-_C_RE   = re.compile(r"^c(\d+)_t\d+$")
-
 # ------------------------------- Greedy partitioning on HDH -------------------------------
-
-def _qubit_of(nid: str) -> Optional[int]:
-    m = _Q_RE.match(nid)
-    return int(m.group(1)) if m else None
-
-def _build_hdh_incidence(hdh) -> Tuple[Dict[str, Set[frozenset]], Dict[frozenset, Set[str]], Dict[frozenset, int]]:
-    """
-    Returns:
-      inc[v]  -> set of incident hyperedges for node v
-      pins[e] -> set of node-ids in e
-      w[e]    -> weight (default 1)
-    """
-    pins: Dict[frozenset, Set[str]] = {e: set(e) for e in hdh.C}
-    inc:  Dict[str, Set[frozenset]] = defaultdict(set)
-    for e, mems in pins.items():
-        for v in mems:
-            inc[v].add(e)
-    w = {e: int(getattr(hdh, "edge_weight", {}).get(e, 1)) for e in hdh.C}
-    return inc, pins, w
-
-def _group_qnodes(hdh) -> Tuple[Dict[int, List[str]], Dict[str, int]]:
-    """q -> [node_ids], and node_id -> q"""
-    qnodes_by_qubit: Dict[int, List[str]] = defaultdict(list)
-    qubit_of: Dict[str, int] = {}
-    for nid in hdh.S:
-        m = _Q_RE.match(nid)
-        if m:
-            q = int(m.group(1))
-            qnodes_by_qubit[q].append(nid)
-            qubit_of[nid] = q
-    return qnodes_by_qubit, qubit_of
 
 class _HDHState:
     """
@@ -428,109 +397,11 @@ def _delta_cost_hdh(v:str, b:int, st:_HDHState, inc, pins, w) -> int:
             d -= w[e]
     return d
 
-def _place_hdh(v:str, b:int, st:_HDHState, inc, w, qnodes_by_qubit: Dict[int, List[str]]):
-    """Place v, and if it's the first node of its qubit, auto-place all siblings to the same bin."""
-    q = _qubit_of(v)
-    # Respect existing qubit anchor
-    if q is not None and q in st.qubit_bin and st.qubit_bin[q] != b:
-        b = st.qubit_bin[q]
-
-    def _place_one(nid:str):
-        if nid in st.assign:
-            return
-        st.assign[nid] = b
-        st.bin_nodes[b] += 1
-        for e in inc.get(nid, ()):
-            st.pin_in_bin[e][b] += 1
-            st.unassigned_pins[e] -= 1
-
-    _place_one(v)
-
-    # First time we see this qubit? anchor + auto-place its other nodes
-    if q is not None and q not in st.qubit_bin:
-        st.qubit_bin[q] = b
-        st.bin_qubits[b].add(q)
-        for sib in qnodes_by_qubit.get(q, []):
-            if sib != v:
-                _place_one(sib)
-
-def _total_cost_hdh(st:_HDHState, pins, w) -> int:
-    cost = 0
-    for e, cnt in st.pin_in_bin.items():
-        nonzero = sum(1 for c in cnt.values() if c>0)
-        if nonzero >= 2:
-            cost += w[e]
-    return cost
-
-
-def _best_candidates_for_bin(items: Iterable[str],
-                             b:int,
-                             delta_fn,
-                             state,
-                             frontier_score_fn,
-                             beam_k:int) -> List[Tuple[int,int,str]]: 
-    # candidate picker (no capacity gating)
-    """Top-K by (Δ, -frontier_score, id)."""
-    cand = []
-    for v in items:
-        if v in state.assign:
-            continue
-        d = delta_fn(v, b)
-        fr = frontier_score_fn(v, b)
-        cand.append((d, -fr, v))
-    cand.sort(key=lambda t: (t[0], t[1], t[2]))
-    return cand[:beam_k]
-
-def _first_unassigned_rep_that_fits(order, st, b):
-    """Pick the first representative v (of an unanchored qubit) that fits bin b."""
-    for v in order:
-        if v in st.assign:
-            continue
-        q = _qubit_of(v)
-        if st.can_place_qubit(q, b):
-            return v
-    return None
 
 def _extract_qubit_id(node_id: str) -> Optional[int]:
     """Extract qubit number from node ID like 'q5_t2' -> 5"""
     m = _Q_RE.match(node_id)
     return int(m.group(1)) if m else None
-
-
-def _build_node_connectivity(hdh) -> Dict[str, Set[str]]:
-    """
-    Build node connectivity from HDH hyperedges.
-    Two nodes are connected if they appear in the same hyperedge.
-    
-    Returns: {node_id: {connected_node_ids}}
-    """
-    adjacency = defaultdict(set)
-    
-    for hyperedge in hdh.C:
-        nodes_in_edge = list(hyperedge)
-        # Connect all pairs of nodes in this hyperedge
-        for i, n1 in enumerate(nodes_in_edge):
-            for n2 in nodes_in_edge[i+1:]:
-                adjacency[n1].add(n2)
-                adjacency[n2].add(n1)
-    
-    return adjacency
-
-
-def _get_qubit_to_nodes(hdh) -> Dict[int, List[str]]:
-    """
-    Map each qubit to all its temporal nodes.
-    
-    Returns: {qubit_id: [node_ids]}
-    """
-    qubit_nodes = defaultdict(list)
-    
-    for node in hdh.S:
-        q = _extract_qubit_id(node)
-        if q is not None:
-            qubit_nodes[q].append(node)
-    
-    return qubit_nodes
 
 
 def _build_temporal_incidence(hdh) -> Tuple[Dict[str, List[Tuple[frozenset, int]]], Dict[frozenset, Set[str]]]:
@@ -706,35 +577,6 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
             heapq.heappush(frontier, item)
     
     return best_node
-
-
-def _select_best_from_frontier(frontier: List[Tuple[int, int, str]], 
-                                unassigned: Set[str],
-                                bin_idx: int,
-                                partitions: List[Set[str]],
-                                inc: Dict[str, List[Tuple[frozenset, int]]],
-                                pins: Dict[frozenset, Set[str]],
-                                beam_k: int = 3,
-                                partition_qubits: Optional[List[Set[int]]] = None,
-                                hdh_graph=None) -> Optional[str]:
-    """Wrapper for _select_best_from_frontier_with_rejected with empty rejected set."""
-    return _select_best_from_frontier_with_rejected(frontier, unassigned, set(), 
-                                                     bin_idx, partitions, inc, pins, beam_k,
-                                                     partition_qubits, hdh_graph)
-
-
-def _pop_earliest_valid(frontier: List[Tuple[int, int, str]], 
-                        unassigned: Set[str]) -> Optional[str]:
-    """
-    Pop the earliest valid (still unassigned) node from the frontier.
-    
-    Returns None if no valid candidates remain.
-    """
-    while frontier:
-        _, _, node = heapq.heappop(frontier)
-        if node in unassigned:
-            return node
-    return None
 
 
 def _compute_cut_cost(hdh, node_assignment: Dict[str, int]) -> int:
