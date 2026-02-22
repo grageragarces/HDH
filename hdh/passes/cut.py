@@ -386,18 +386,6 @@ class _HDHState:
             return (self.qubit_bin[q] == b)
         return (self.qubit_load(b) < self.bin_capacity(b))
 
-def _delta_cost_hdh(v:str, b:int, st:_HDHState, inc, pins, w) -> int:
-    d = 0
-    for e in inc.get(v, ()):
-        was = st.pin_in_bin[e][b]
-        full_after = (st.pin_in_bin[e][b] + 1 == len(pins[e])) and (st.unassigned_pins[e] == 1)
-        if was == 0 and not full_after:
-            d += w[e]
-        if full_after:
-            d -= w[e]
-    return d
-
-
 def _extract_qubit_id(node_id: str) -> Optional[int]:
     """Extract qubit number from node ID like 'q5_t2' -> 5"""
     m = _Q_RE.match(node_id)
