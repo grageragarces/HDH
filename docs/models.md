@@ -292,6 +292,7 @@ fig = plot_hdh(hdh) # Visualize HDH
 ```
 
 ### Reconverting partitioned HDHs back to Qiskit
+*Note this is a feature under construction and may fail*
 
 After partitioning an HDH you can recover one Qiskit ``QuantumCircuit`` per QPU using ``partitions_to_qiskit``.
 Each sub-circuit contains only the gates whose qubits are entirely local to that partition; cross-partition gates are excluded (they become teledata/telegate communication primitives in a full DQC implementation).
