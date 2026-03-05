@@ -354,6 +354,7 @@ hdh_graph = from_qiskit(qc) # Generate HDH
 fig = plot_hdh(hdh) # Visualize HDH
 </code></pre>
 <h3 id="reconverting-partitioned-hdhs-back-to-qiskit">Reconverting partitioned HDHs back to Qiskit</h3>
+<p><em>Note this is a feature under construction and may fail</em></p>
 <p>After partitioning an HDH you can recover one Qiskit <code>QuantumCircuit</code> per QPU using <code>partitions_to_qiskit</code>.
 Each sub-circuit contains only the gates whose qubits are entirely local to that partition; cross-partition gates are excluded (they become teledata/telegate communication primitives in a full DQC implementation).</p>
 <pre><code class="language-python">from qiskit import QuantumCircuit
