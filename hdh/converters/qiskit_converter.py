@@ -1,14 +1,41 @@
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from __future__ import annotations
+
+from qiskit import QuantumCircuit, ClassicalRegister
 import sys
 import os
+from typing import List, Optional, Set
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from hdh.hdh import HDH
-from models.circuit import Circuit
-from qiskit.circuit import Instruction, InstructionSet, Measure, Reset, Clbit
+from qiskit.circuit import Clbit
 from qiskit.circuit.controlflow import IfElseOp
+from qiskit.circuit.library import (
+    HGate, IGate, XGate, YGate, ZGate,
+    SGate, SdgGate, TGate, TdgGate,
+    SXGate, SXdgGate,
+    RXGate, RYGate, RZGate, U1Gate, U2Gate, U3Gate,
+    CXGate, CYGate, CZGate, CHGate,
+    SwapGate, iSwapGate,
+    CCXGate, CSGate, CSwapGate,
+    PhaseGate, CPhaseGate,
+)
 import re
 
 from hdh.models.circuit import Circuit
+
+_Q_RE = re.compile(r'^q(\d+)_t\d+$')
+_C_RE = re.compile(r'^c(\d+)_t\d+$')
+
+
+def _parse_qubit(node_id: str) -> Optional[int]:
+    """Return the qubit index encoded in a node id like ``q3_t7``, else None."""
+    m = _Q_RE.match(node_id)
+    return int(m.group(1)) if m else None
+
+
+def _parse_cbit(node_id: str) -> Optional[int]:
+    """Return the classical bit index encoded in a node id like ``c3_t7``, else None."""
+    m = _C_RE.match(node_id)
+    return int(m.group(1)) if m else None
 
 def _bit_index_from_cond_target(qc, target):
     """
@@ -159,151 +186,247 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
 
     return circuit.build_hdh()
 
-def to_qiskit(hdh) -> QuantumCircuit:
+def _make_gate(name: str, params: Optional[List] = None):
     """
-    Convert HDH format back to Qiskit QuantumCircuit.
-    
-    Note: No longer compatible with from_qiskit due to HDH representation changes.
-    
+    Build a Qiskit gate object from an HDH gate name.
+
+    Args:
+        name: Lower-case gate name as stored in ``hdh.gate_name``
+        params: Rotation angles, when the HDH carries them
+
+    Returns:
+        Gate instance, or None if the name is not recognised.
+    """
+    p = params or []
+
+    _FIXED = {
+        "h":       HGate(),
+        "i":       IGate(),
+        "id":      IGate(),
+        "x":       XGate(),
+        "y":       YGate(),
+        "z":       ZGate(),
+        "s":       SGate(),
+        "sdg":     SdgGate(),
+        "t":       TGate(),
+        "tdg":     TdgGate(),
+        "sx":      SXGate(),
+        "sxdg":    SXdgGate(),
+        "cx":      CXGate(),
+        "cnot":    CXGate(),
+        "cy":      CYGate(),
+        "cz":      CZGate(),
+        "ch":      CHGate(),
+        "cs":      CSGate(),
+        "swap":    SwapGate(),
+        "iswap":   iSwapGate(),
+        "ccx":     CCXGate(),
+        "toffoli": CCXGate(),
+        "cswap":   CSwapGate(),
+        "fredkin": CSwapGate(),
+    }
+
+    if name in _FIXED:
+        return _FIXED[name]
+
+    theta = p[0] if p else 0.0
+    phi   = p[1] if len(p) > 1 else 0.0
+    lam   = p[2] if len(p) > 2 else 0.0
+
+    _PARAMETRIC = {
+        "rx":     RXGate(theta),
+        "ry":     RYGate(theta),
+        "rz":     RZGate(theta),
+        "p":      PhaseGate(theta),
+        "phase":  PhaseGate(theta),
+        "u1":     U1Gate(lam),
+        "u2":     U2Gate(phi, lam),
+        "u3":     U3Gate(theta, phi, lam),
+        "u":      U3Gate(theta, phi, lam),
+        "cp":     CPhaseGate(theta),
+        "cphase": CPhaseGate(theta),
+    }
+
+    if name in _PARAMETRIC:
+        if not p:
+            print(
+                f"[WARNING] Gate '{name}' is parametric but no parameters were stored "
+                f"in the HDH. Defaulting to theta=phi=lambda=0."
+            )
+        return _PARAMETRIC[name]
+
+    return None
+
+
+def to_qiskit(hdh: HDH) -> QuantumCircuit:
+    """
+    Convert an HDH back into a Qiskit QuantumCircuit.
+
+    Multi-qubit gates are stored in the HDH as three hyperedges (``<name>_stage1``,
+    ``_stage2``, ``_stage3``); only the ``_stage2`` edge carries the full qubit set,
+    so the stage 1 and 3 wire-continuity edges are skipped during reconstruction.
+
     Args:
         hdh: HDH object
-        
+
     Returns:
         QuantumCircuit: Qiskit representation
+
+    Note:
+        Gate parameters (rotation angles) are not preserved by the HDH
+        representation and default to 0 on reconstruction.
     """
+    qubit_indices: Set[int] = set()
+    bit_indices:   Set[int] = set()
 
-    def resolve_qidxs(raw_q, anc_q, expected_len, edge, name):
-        seen = set()
-        deduped = []
-        anc_pool = list(dict.fromkeys(anc_q))
+    for node_id in hdh.S:
+        q = _parse_qubit(node_id)
+        if q is not None:
+            qubit_indices.add(q)
+            continue
+        c = _parse_cbit(node_id)
+        if c is not None:
+            bit_indices.add(c)
 
-        for q in raw_q:
-            if q in seen:
-                if not anc_pool:
-                    raise ValueError(f"Edge {edge} ({name}) needs more ancillas to resolve duplicates.")
-                deduped.append(anc_pool.pop(0))
-            else:
-                deduped.append(q)
-                seen.add(q)
+    n_qubits = max(qubit_indices) + 1 if qubit_indices else 0
+    n_bits   = max(bit_indices)   + 1 if bit_indices   else 0
 
-        remaining_anc = [a for a in anc_pool if a not in seen]
-        combined = deduped + remaining_anc
+    if n_qubits == 0:
+        return QuantumCircuit()
 
-        if len(set(combined)) < len(combined):
-            raise ValueError(f"Edge {edge} ({name}) still has duplicate qubits after resolution: {combined}")
+    qc = QuantumCircuit(n_qubits, n_bits) if n_bits > 0 else QuantumCircuit(n_qubits)
 
-        return combined[:expected_len]
+    records: List[tuple] = []
 
-    # Creates global contiguous index maps
-    q_nodes = sorted(n for n in hdh.S if hdh.sigma[n] == 'q')
-    c_nodes = sorted(n for n in hdh.S if hdh.sigma[n] == 'c')
+    for edge in hdh.C:
+        raw_name  = hdh.gate_name.get(edge, "")
+        edge_type = hdh.tau.get(edge, "q")
 
-    node_to_qidx = {n: i for i, n in enumerate(q_nodes)}
-    node_to_cidx = {n: i for i, n in enumerate(c_nodes)}
-
-    # Also include ancilla nodes from motifs
-    if hasattr(hdh, "motifs"):
-        for motif in hdh.motifs.values():
-            for n in motif.get("ancilla_qubits", []):
-                if hdh.sigma.get(n) == 'q' and n not in node_to_qidx:
-                    node_to_qidx[n] = len(node_to_qidx)
-            for n in motif.get("ancilla_bits", []):
-                if hdh.sigma.get(n) == 'c' and n not in node_to_cidx:
-                    node_to_cidx[n] = len(node_to_cidx)
-
-    qr = QuantumRegister(len(node_to_qidx), 'q')
-    cr = ClassicalRegister(len(node_to_cidx), 'c')
-    qc = QuantumCircuit(qr, cr)
-
-    found_telegate = False
-    found_teledata = False
-
-    for edge in sorted(hdh.C, key=lambda e: hdh.edge_metadata.get(e, {}).get("timestep", 0)):
-        meta = hdh.edge_metadata.get(edge, {})
-        name = hdh.gate_name.get(edge, "unknown")
-        raw_q_idxs = [node_to_qidx[q] for q in meta.get("qubits", []) if q in node_to_qidx]
-        c_idxs = [node_to_cidx[c] for c in meta.get("cbits", []) if c in node_to_cidx]
-
-        anc_qidxs = []
-        anc_cidxs = []
-        if edge in getattr(hdh, "motifs", {}):
-            motif = hdh.motifs[edge]
-            anc_qidxs = [node_to_qidx[n] for n in motif.get("ancilla_qubits", []) if n in node_to_qidx]
-            anc_cidxs = [node_to_cidx[n] for n in motif.get("ancilla_bits", []) if n in node_to_cidx]
-
-        anc_qidxs = [a for a in anc_qidxs if a not in raw_q_idxs]
-        anc_cidxs = [c for c in anc_cidxs if c not in c_idxs]
-        c_idxs += anc_cidxs
-
-        sub = hdh.edge_args.get(edge)
-
-        if sub is None:
-            gate = meta.get("gate")
-            params = meta.get("params", [])
-            if gate == "h":
-                qc.h(qr[raw_q_idxs[0]])
-            elif gate == "rx":
-                qc.rx(params[0] if params else 0.5, qr[raw_q_idxs[0]])
-            elif gate == "cx":
-                qc.cx(qr[raw_q_idxs[0]], qr[raw_q_idxs[1]])
-            elif gate == "measure":
-                if not raw_q_idxs or not c_idxs:
-                    continue
-                qc.measure(qr[raw_q_idxs[0]], cr[c_idxs[0]])
-            else:
+        if raw_name == "measure":
+            q_nodes = sorted(
+                (n for n in edge if hdh.sigma.get(n) == "q"),
+                key=lambda n: hdh.time_map.get(n, 0),
+            )
+            c_nodes = sorted(
+                (n for n in edge if hdh.sigma.get(n) == "c"),
+                key=lambda n: hdh.time_map.get(n, 0),
+            )
+            if not q_nodes or not c_nodes:
                 continue
-
-        try:
-            if isinstance(sub, InstructionSet):
-                if len(sub.instructions) != 1:
-                    raise ValueError(f"InstructionSet in edge {edge} has multiple instructions.")
-                single_inst = sub.instructions[0]
-                inst = single_inst[0] if isinstance(single_inst, tuple) else single_inst
-            elif isinstance(sub, (Instruction, Measure, Reset)):
-                inst = sub
-            elif hasattr(sub, "to_instruction"):
-                inst = sub.to_instruction()
-            else:
-                raise TypeError(f"Unsupported edge_args type for edge {edge}: {type(sub)}")
-        except Exception as e:
-            raise RuntimeError(f"Failed to resolve instruction for edge {edge} ({name}): {e}") from e
-
-        q_idxs = resolve_qidxs(raw_q_idxs, anc_qidxs, inst.num_qubits, edge, name)
-        c_idxs = c_idxs[:inst.num_clbits]
-
-        if len(set(q_idxs)) < len(q_idxs):
-            raise ValueError(f"Edge {edge} ({name}) has duplicate qubit indices after slicing: {q_idxs}")
-        if len(set(c_idxs)) < len(c_idxs):
-            raise ValueError(f"Edge {edge} ({name}) has duplicate classical indices: {c_idxs}")
-
-        qubits = [qr[i] for i in q_idxs]
-        clbits = [cr[i] for i in c_idxs]
-
-        if name == 'measure':
-            if not qubits or not clbits:
-                print(f"[ERROR] Cannot apply measure on edge {edge}: missing qubit or cbit idxs")
+            q_idx = _parse_qubit(q_nodes[0])
+            c_idx = _parse_cbit(c_nodes[0])
+            if q_idx is None or c_idx is None:
                 continue
-            qc.measure(qubits[0], clbits[0])
-        elif isinstance(sub, QuantumCircuit):
-            if name == 'telegate':
-                found_telegate = True
-            if name == 'teledata':
-                found_teledata = True
-            for g in sub.data:
-                gate, qargs, cargs = g
-                qidxs = [qr[q._index] for q in qargs]
-                cidxs = [cr[c._index] for c in cargs] if cargs else []
-                qc.append(gate, qidxs, cidxs)
+            sort_time = hdh.time_map.get(c_nodes[0], 0)
+            records.append((sort_time, "measure", [q_idx], [c_idx], False))
+            continue
+
+        # Stages 1 and 3 only carry wire continuity; stage 2 holds the real gate.
+        if raw_name.endswith("_stage1") or raw_name.endswith("_stage3"):
+            continue
+
+        # Classical edges of a conditional gate duplicate its quantum edge.
+        if edge_type == "c":
+            continue
+
+        args = hdh.edge_args.get(edge)
+        if args is None:
+            continue
+
+        q_with_time, c_with_time, _ = args
+        actual_name = raw_name[:-7] if raw_name.endswith("_stage2") else raw_name
+        q_indices   = [q for q, _ in q_with_time]
+        c_indices   = [c for c, _ in c_with_time]
+        sort_time   = min((t for _, t in q_with_time), default=0)
+        is_cond     = hdh.phi.get(edge) == "p"
+
+        records.append((sort_time, actual_name, q_indices, c_indices, is_cond))
+
+    records.sort(key=lambda r: r[0])
+
+    # A multi-qubit gate contributes one record per qubit wire; keep one.
+    seen: Set[tuple] = set()
+    unique_records: List[tuple] = []
+    for rec in records:
+        sort_time, name, q_indices, c_indices, is_cond = rec
+        dedup_key = (sort_time, name, tuple(q_indices))
+        if dedup_key not in seen:
+            seen.add(dedup_key)
+            unique_records.append(rec)
+
+    for sort_time, name, q_indices, c_indices, is_cond in unique_records:
+        if name == "measure":
+            for qi, ci in zip(q_indices, c_indices):
+                qc.measure(qi, ci)
+            continue
+
+        gate = _make_gate(name)
+        if gate is None:
+            print(f"[WARNING] Unrecognised gate '{name}' at t={sort_time} on qubits {q_indices} - skipped.")
+            continue
+
+        if any(qi >= n_qubits or qi < 0 for qi in q_indices):
+            print(f"[WARNING] Gate '{name}' references out-of-range qubits {q_indices} - skipped.")
+            continue
+
+        if gate.num_qubits != len(q_indices):
+            print(f"[WARNING] Gate '{name}' expects {gate.num_qubits} qubits but got {len(q_indices)} - skipped.")
+            continue
+
+        if is_cond and c_indices:
+            ctrl_bit = c_indices[0]
+            if ctrl_bit >= n_bits:
+                print(f"[WARNING] Conditional gate '{name}' references out-of-range classical bit {ctrl_bit} - applied unconditionally.")
+                qc.append(gate, q_indices)
+            else:
+                with qc.if_test((qc.clbits[ctrl_bit], 1)):
+                    qc.append(gate, q_indices)
         else:
-            if name == 'telegate':
-                found_telegate = True
-            if name == 'teledata':
-                found_teledata = True
-            qc.append(inst, qubits, clbits)
+            qc.append(gate, q_indices)
 
-    if not found_telegate and not found_teledata:
-        print("[WARNING] No communication primitives (telegate/teledata) appended!")
-
-    num_teledata = sum(1 for name in hdh.gate_name.values() if name == 'teledata')
-    num_telegate = sum(1 for name in hdh.gate_name.values() if name == 'telegate')
     return qc
+
+
+def _project_hdh(hdh: HDH, node_set: Set[str]) -> HDH:
+    """
+    Restrict an HDH to ``node_set``, keeping only hyperedges fully inside it.
+
+    Hyperedges that straddle the boundary are dropped: those are the cut edges
+    that a full DQC implementation replaces with teledata/telegate primitives.
+    """
+    sub = HDH()
+
+    for nid in node_set:
+        if nid not in hdh.S:
+            continue
+        sub.add_node(nid, hdh.sigma[nid], hdh.time_map[nid], node_real=hdh.upsilon.get(nid, "a"))
+
+    for edge in hdh.C:
+        if not edge.issubset(node_set):
+            continue
+        sub.add_hyperedge(
+            set(edge),
+            hdh.tau[edge],
+            name=hdh.gate_name.get(edge),
+            node_real=hdh.phi.get(edge, "a"),
+            role=hdh.edge_role.get(edge),
+        )
+        if edge in hdh.edge_args:
+            sub.edge_args[edge] = hdh.edge_args[edge]
+
+    return sub
+
+
+def partitions_to_qiskit(hdh: HDH, partitions: List[Set[str]]) -> List[QuantumCircuit]:
+    """
+    Recover one Qiskit QuantumCircuit per partition of a cut HDH.
+
+    Args:
+        hdh: The HDH that was partitioned
+        partitions: Node sets as returned by ``hdh.passes.cut.compute_cut``
+
+    Returns:
+        One QuantumCircuit per partition, containing only the gates whose
+        qubits are entirely local to that partition.
+    """
+    return [to_qiskit(_project_hdh(hdh, node_set)) for node_set in partitions]

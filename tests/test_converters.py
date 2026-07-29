@@ -1,31 +1,18 @@
 import re
 import pytest
 
-try:
-    from hdh.converters.qiskit_converter import from_qiskit, hdh_to_qiskit, partitions_to_qiskit
-    QISKIT_AVAILABLE = True
-    HDH_TO_QISKIT_AVAILABLE = True
-except ImportError:
-    QISKIT_AVAILABLE = False
-    HDH_TO_QISKIT_AVAILABLE = False
+# qiskit is a hard dependency of hdh (see pyproject.toml), so these are plain
+# imports: a missing symbol must fail loudly here rather than silently skip the
+# whole module, which is how the hdh_to_qiskit -> to_qiskit rename went unnoticed.
+from qiskit import QuantumCircuit
 
-try:
-    from hdh.converters.qasm_converter import from_qasm
-    QASM_AVAILABLE = True
-except ImportError:
-    QASM_AVAILABLE = False
-
-try:
-    from hdh.passes.cut import compute_cut
-    CUT_AVAILABLE = True
-except ImportError:
-    CUT_AVAILABLE = False
-
-try:
-    from qiskit import QuantumCircuit
-    QISKIT_INSTALLED = True
-except ImportError:
-    QISKIT_INSTALLED = False
+from hdh.converters.qiskit_converter import (
+    from_qiskit,
+    to_qiskit,
+    partitions_to_qiskit,
+)
+from hdh.converters.qasm_converter import from_qasm
+from hdh.passes.cut import compute_cut
 
 N_QUBITS = 10
 K = 2
@@ -58,8 +45,6 @@ def pipeline():
 # TestQiskitConverter
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not QISKIT_AVAILABLE or not QISKIT_INSTALLED,
-                    reason="Qiskit converter or qiskit not available")
 class TestQiskitConverter:
     def test_simple_circuit_conversion(self):
         qc = QuantumCircuit(2)
@@ -159,8 +144,6 @@ class TestQiskitConverter:
 # TestQiskitRoundtrip
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not HDH_TO_QISKIT_AVAILABLE or not QISKIT_INSTALLED,
-                    reason="hdh_to_qiskit or qiskit not available")
 class TestQiskitRoundtrip:
     def test_roundtrip_simple(self):
         qc = QuantumCircuit(2)
@@ -168,17 +151,80 @@ class TestQiskitRoundtrip:
         qc.cx(0, 1)
 
         hdh1 = from_qiskit(qc)
-        qc2 = hdh_to_qiskit(hdh1)
+        qc2 = to_qiskit(hdh1)
         hdh2 = from_qiskit(qc2)
 
         assert hdh1.get_num_qubits() == hdh2.get_num_qubits()
+
+    def test_roundtrip_preserves_gate_sequence(self):
+        qc = QuantumCircuit(2)
+        qc.h(0)
+        qc.cx(0, 1)
+
+        qc2 = to_qiskit(from_qiskit(qc))
+
+        assert [i.operation.name for i in qc2.data] == ["h", "cx"]
+        assert [qc2.find_bit(q).index for q in qc2.data[1].qubits] == [0, 1]
+
+    def test_roundtrip_preserves_measurement(self):
+        qc = QuantumCircuit(2, 2)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.measure([0, 1], [0, 1])
+
+        qc2 = to_qiskit(from_qiskit(qc))
+
+        measures = [i for i in qc2.data if i.operation.name == "measure"]
+        assert len(measures) == 2
+        assert qc2.num_clbits == 2
+
+    def test_roundtrip_ghz(self):
+        qc = QuantumCircuit(3)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.cx(0, 2)
+
+        qc2 = to_qiskit(from_qiskit(qc))
+
+        assert qc2.num_qubits == 3
+        assert [i.operation.name for i in qc2.data] == ["h", "cx", "cx"]
+
+    def test_roundtrip_is_idempotent(self):
+        qc = QuantumCircuit(3)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.cx(1, 2)
+
+        qc2 = to_qiskit(from_qiskit(qc))
+        qc3 = to_qiskit(from_qiskit(qc2))
+
+        assert [i.operation.name for i in qc2.data] == \
+               [i.operation.name for i in qc3.data]
+
+    def test_to_qiskit_on_empty_hdh(self):
+        qc2 = to_qiskit(from_qiskit(QuantumCircuit(2)))
+        assert qc2.num_qubits == 0
+        assert len(qc2.data) == 0
+
+
+# ---------------------------------------------------------------------------
+# TestConverterExports
+# ---------------------------------------------------------------------------
+
+class TestConverterExports:
+    """Guards the public `hdh.converters` surface against import regressions."""
+
+    def test_public_namespace_exports_converters(self):
+        import hdh.converters as converters
+
+        for name in ("from_qiskit", "to_qiskit", "partitions_to_qiskit", "from_qasm"):
+            assert hasattr(converters, name), f"hdh.converters is missing {name}"
 
 
 # ---------------------------------------------------------------------------
 # TestQASMConverter
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not QASM_AVAILABLE, reason="QASM converter not available")
 class TestQASMConverter:
     def test_qasm_string_simple(self):
         qasm_str = """
@@ -222,8 +268,6 @@ class TestQASMConverter:
 # TestConverterEdgeCases
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not QISKIT_AVAILABLE or not QISKIT_INSTALLED,
-                    reason="Qiskit not available")
 class TestConverterEdgeCases:
     def test_empty_circuit(self):
         qc = QuantumCircuit(2)
@@ -254,8 +298,6 @@ class TestConverterEdgeCases:
 # TestFromQiskit  (pipeline — HDH structure)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not QISKIT_AVAILABLE or not QISKIT_INSTALLED or not CUT_AVAILABLE,
-                    reason="dependencies not available")
 class TestFromQiskit:
     def test_hdh_has_nodes(self, pipeline):
         _, hdh, *_ = pipeline
@@ -280,8 +322,6 @@ class TestFromQiskit:
 # TestComputeCut  (pipeline — partition correctness)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(not QISKIT_AVAILABLE or not QISKIT_INSTALLED or not CUT_AVAILABLE,
-                    reason="dependencies not available")
 class TestComputeCut:
     def test_returns_k_partitions(self, pipeline):
         _, _, partitions, *_ = pipeline
@@ -316,10 +356,6 @@ class TestComputeCut:
 # TestPartitionsToQiskit  (pipeline — sub-circuit reconstruction)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(
-    not QISKIT_AVAILABLE or not QISKIT_INSTALLED or not CUT_AVAILABLE or not HDH_TO_QISKIT_AVAILABLE,
-    reason="dependencies not available",
-)
 class TestPartitionsToQiskit:
     def test_returns_two_circuits(self, pipeline):
         *_, sub_circuits = pipeline

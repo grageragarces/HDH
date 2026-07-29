@@ -278,7 +278,7 @@ import qiskit
 from qiskit import QuantumCircuit
 from hdh.converters import from_qiskit
 from hdh.visualize import plot_hdh
-from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
+from hdh.passes.cut import compute_cut, cost, partition_size, compute_parallelism_by_time
 
 # Qiskit circuit
 qc = QuantumCircuit(3)
@@ -288,7 +288,7 @@ qc.ccx(1, 2, 0)
 qc.measure_all()
 
 hdh_graph = from_qiskit(qc) # Generate HDH
-fig = plot_hdh(hdh) # Visualize HDH
+fig = plot_hdh(hdh_graph) # Visualize HDH
 ```
 
 ### Reconverting partitioned HDHs back to Qiskit
@@ -299,7 +299,7 @@ Each sub-circuit contains only the gates whose qubits are entirely local to that
 
 ```python
 from qiskit import QuantumCircuit
-from hdh.converters.qiskit_converter import from_qiskit, partitions_to_qiskit
+from hdh.converters import from_qiskit, partitions_to_qiskit
 from hdh.passes.cut import compute_cut
 
 # 1. Build and convert a Qiskit circuit
@@ -325,17 +325,17 @@ for i, sub_qc in enumerate(sub_circuits):
     print(sub_qc.draw())
 ```
 
-If you only need to convert a single HDH back to Qiskit without partitioning, use ``hdh_to_qiskit`` directly:
+If you only need to convert a single HDH back to Qiskit without partitioning, use ``to_qiskit`` directly:
 
 ```python
-from hdh.converters.qiskit_converter import from_qiskit, hdh_to_qiskit
+from hdh.converters import from_qiskit, to_qiskit
 
 qc = QuantumCircuit(2)
 qc.h(0)
 qc.cx(0, 1)
 
 hdh = from_qiskit(qc)
-qc_reconstructed = hdh_to_qiskit(hdh)
+qc_reconstructed = to_qiskit(hdh)
 print(qc_reconstructed.draw())
 ```
 
