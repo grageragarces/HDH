@@ -13,10 +13,17 @@ from hdh.models.circuit import Circuit
 # ---------- wire helpers ----------
 
 def _wire_index_map(qs: QuantumScript) -> Dict[Any, int]:
-    # PennyLane wires can be arbitrary labels; map to contiguous 0..n-1
+    """Map each of `qs`'s wire labels (arbitrary, per PennyLane) to a
+    contiguous 0..n-1 qubit index, in wire-declaration order."""
     return {w: i for i, w in enumerate(qs.wires)}
 
 def _mk_op(name: str, params: List[Any], wires: List[int]):
+    """Build a PennyLane operation from an HDH-style gate name.
+
+    Not currently called anywhere in this module — a `to_pennylane`
+    (HDH -> PennyLane) reconstruction path hasn't been implemented yet;
+    this is what its gate lookup would use.
+    """
     n = name.lower()
     # minimal gate LUT; extend as needed
     if n in {"h", "hadamard"}:
@@ -46,8 +53,29 @@ def _mk_op(name: str, params: List[Any], wires: List[int]):
 # ---------- from_pennylane ----------
 
 def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
-    """
-    Wires kinda mess up multiqubit visuals - they still map the right hyperedges, just not in visually equivalent way to how other circuit CNOTs are constructed
+    """Convert a PennyLane `QuantumScript`/`OperationRecorder` to an HDH.
+
+    Supports standard gates, mid-circuit measurements (`MidMeasureMP` and
+    the `ProbabilityMP`/`ExpectationMP`/`SampleMP` terminal measurements,
+    each treated as a "measure" instruction), and single-condition `qml.cond`
+    blocks (via PennyLane's `Conditional` operator).
+
+    Note: since PennyLane wires can be arbitrary labels (not necessarily
+    small contiguous integers), they're remapped via `_wire_index_map`
+    before being handed to `Circuit`. The resulting HDH's hyperedges are
+    correct, but for multi-qubit gates the resulting node layout may not
+    visually resemble the equivalent circuit built directly from small
+    integer wire indices (e.g. via `from_qiskit`).
+
+    Args:
+        circ_like: The PennyLane script/recorder to convert.
+
+    Returns:
+        HDH: the converted circuit.
+
+    Raises:
+        NotImplementedError: If a `qml.cond` condition isn't
+            `MeasurementValue`-based.
     """
     qs = circ_like
     wire2idx = _wire_index_map(qs)

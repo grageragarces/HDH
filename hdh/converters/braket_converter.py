@@ -37,10 +37,16 @@ def _name_of(instr: BraketInstruction) -> str:
     return n.lower()
 
 def _is_measure(instr: BraketInstruction) -> bool:
+    """Return whether `instr` is a measurement operation."""
     return _name_of(instr) in {"measure", "m"}
 
 def _is_ignorable(instr: BraketInstruction) -> bool:
-    # No explicit barrier in Braket; keep hook for future skips
+    """Return whether `instr` should be skipped entirely (e.g. a barrier).
+
+    Always `False` currently — Braket has no explicit barrier instruction —
+    kept as an extension point for future instruction types that should be
+    silently skipped rather than converted.
+    """
     return False
 
 # ----- main -----

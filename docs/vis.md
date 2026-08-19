@@ -2,11 +2,13 @@
 ```plot_hdh``` renders an HDH as a time-vs-index diagram, showing how ```q```uantum and ```c```lassical states evolve across timesteps and how hyperedges connect them.
 
 ```python
-plot_hdh(hdh: HDH, save_path: str | None = None) -> None
+plot_hdh(hdh: HDH, save_path: str | None = "hdh_plot.svg") -> None
 ```
 
-The function returns nothing, and shows the HDH in a python window unless a ```save_path = hdh.png``` is set.
-In this case the image will be directly saved to the input path.
+The function returns nothing. By default it saves the plot to `hdh_plot.svg`
+in the current directory; pass a different path (e.g. `save_path="hdh.png"`)
+to save elsewhere, or `save_path=None` to instead show the plot in a Python
+window without saving it.
 
 It can be used on any HDH, after it is generated from model instructions:
 ```python

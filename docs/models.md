@@ -311,8 +311,10 @@ qc.cx(2, 3)
 
 hdh = from_qiskit(qc)
 
-# 2. Partition into k=2 QPUs with a capacity of 2 qubits each
-partitions, cut_cost = compute_cut(hdh, k=2, cap=2)
+# 2. Partition into k=2 QPUs with a capacity of 3 qubits each
+# (cap must leave the greedy heuristic some slack above n_qubits/k to find a
+# feasible assignment; compute_cut raises RuntimeError if it can't)
+partitions, cut_cost = compute_cut(hdh, k=2, cap=3)
 print(f"Cut cost: {cut_cost} cross-partition edges")
 
 # 3. Recover one Qiskit sub-circuit per partition

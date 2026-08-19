@@ -25,7 +25,7 @@ import itertools
 import random
 import heapq
 from typing import List, Set, Tuple, Dict, Optional, Iterable
-from collections import defaultdict, Counter
+from collections import defaultdict
 import networkx as nx
 from networkx.algorithms.community import kernighan_lin_bisection
 
@@ -357,38 +357,6 @@ def kahypar_cutter_nodebalanced(
     return partitions, cut_cost
 
 # ------------------------------- Greedy partitioning on HDH -------------------------------
-
-class _HDHState:
-    """
-    Assign at node-level, but capacity applies to UNIQUE QUBITS/bin.
-    When a qubit enters a bin, all its remaining nodes are auto-assigned to that bin.
-    """
-    __slots__ = ("assign","bin_nodes","bin_qubits","qubit_bin",
-                 "pin_in_bin","unassigned_pins","k","cap","reserve_frac")
-    def __init__(self, k:int, cap:int, edges:Iterable[frozenset], reserve_frac:float):
-        self.assign: Dict[str,int] = {}                 # node -> bin
-        self.bin_nodes = [0]*k                          # for stats only
-        self.bin_qubits: List[Set[int]] = [set() for _ in range(k)]  # unique qubits/bin
-        self.qubit_bin: Dict[int,int] = {}             # qubit -> bin
-        self.pin_in_bin: Dict[frozenset, Counter] = {e: Counter() for e in edges}
-        self.unassigned_pins: Dict[frozenset,int] = {e: len(e) for e in edges}
-        self.k, self.cap, self.reserve_frac = k, cap, reserve_frac
-
-    def qubit_load(self, b:int) -> int:
-        return len(self.bin_qubits[b])
-
-    def bin_capacity(self, b:int) -> int:
-        used_q = self.qubit_load(b)
-        hard = self.cap
-        shadow = max(0, int(self.cap*(1.0 - self.reserve_frac)))
-        return hard if used_q >= int(0.8*self.cap) else shadow
-
-    def can_place_qubit(self, q: Optional[int], b:int) -> bool:
-        if q is None:
-            return True
-        if q in self.qubit_bin:
-            return (self.qubit_bin[q] == b)
-        return (self.qubit_load(b) < self.bin_capacity(b))
 
 def _extract_qubit_id(node_id: str) -> Optional[int]:
     """Extract qubit number from node ID like 'q5_t2' -> 5"""
@@ -928,12 +896,16 @@ def telegate_hdh(hdh: "HDH") -> nx.Graph:
     return G
 
 def _bins_from_parts(parts) -> List[Set[str]]:
+    """Normalize a partitioner's raw output (any iterable-of-iterables) into
+    a list of `str` sets, as used by `metis_telegate` and its helpers."""
     return [set(map(str, p)) for p in parts]
 
 def _sizes(bins: List[Set[str]]) -> List[int]:
+    """Return each bin's element count, in order."""
     return [len(b) for b in bins]
 
 def _over_under(bins: List[Set[str]], cap: int):
+    """Split bin indices into those over `cap` and those with room to spare."""
     sizes = _sizes(bins)
     over = [i for i, s in enumerate(sizes) if s > cap]
     under = [i for i, s in enumerate(sizes) if s < cap]

@@ -5,6 +5,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from hdh.hdh import HDH
 
 class Circuit:
+    """Gate-model quantum circuit builder that compiles down to an HDH.
+
+    Instructions are recorded in order via ``add_instruction`` (and, for
+    classically-conditioned gates, ``add_conditional_gate``), then translated
+    into an HDH's nodes and hyperedges by ``build_hdh``. This mirrors how you'd
+    build a circuit in Qiskit/Cirq/etc., but stores gates as a flat list rather
+    than executing them immediately.
+
+    Attributes:
+        instructions: Recorded gates, one tuple per call to ``add_instruction``:
+            ``(name, qubits, bits, modifies_flags, cond_flag, params)``. Built
+            up by ``add_instruction``/``add_conditional_gate`` and consumed by
+            ``build_hdh`` — not usually read or written directly.
+    """
+
     def __init__(self):
         self.instructions: List[
             Tuple[str, List[int], List[int], List[bool], Literal["a", "p"], Optional[List[float]]]
@@ -19,6 +34,28 @@ class Circuit:
         cond_flag: Literal["a", "p"] = "a",
         params: Optional[List[float]] = None,
     ):
+        """Append one gate or measurement to the circuit.
+
+        Args:
+            name: Gate name (e.g. ``"h"``, ``"cx"``, ``"rx"``, ``"measure"``).
+                Case-insensitive; stored lower-cased.
+            qubits: Qubit indices the instruction acts on, in order.
+            bits: Classical bit indices involved. For ``"measure"``, defaults
+                to a 1:1 mapping with `qubits` if omitted; ignored for
+                unconditional gates unless explicitly provided.
+            modifies_flags: Per-qubit flag marking whether that qubit's state
+                is actually changed by this instruction. Defaults to all
+                `True`. Rarely needed directly — prefer `add_conditional_gate`
+                for classically-controlled gates.
+            cond_flag: `"a"` (actualized) for an unconditional instruction, or
+                `"p"` (potential) for one whose effect depends on a classical
+                condition not yet known at build time.
+            params: Rotation angles / gate parameters (e.g. ``[theta]`` for an
+                `rx` gate), if the gate is parametric. Stored alongside the
+                instruction and later attached to the corresponding HDH
+                hyperedge via `HDH.gate_params` so they survive a round trip
+                through `build_hdh` and back to a circuit representation.
+        """
         name = name.lower()
 
         if name == "measure":
@@ -38,6 +75,26 @@ class Circuit:
         modifies_flags: Optional[List[bool]] = None,
         params: Optional[List[float]] = None,
     ):
+        """Append a gate whose application is conditioned on a classical bit.
+
+        Convenience wrapper around `add_instruction` for the common
+        single-classical-control case (e.g. a mid-circuit-measurement
+        feed-forward gate): it sets `cond_flag="p"` and puts `classical_bit`
+        in the instruction's `bits`, so the resulting HDH marks the gate's
+        output as a *potential* (not yet actualized) state until that
+        classical value is known. `classical_bit` must already have a value
+        by the time this instruction executes — typically produced by an
+        earlier `add_instruction("measure", ...)` call.
+
+        Args:
+            classical_bit: Index of the classical bit the gate is conditioned on.
+            target_qubit: Primary qubit the gate acts on.
+            gate_name: Gate name, as in `add_instruction`.
+            additional_qubits: Extra qubits for a multi-qubit conditional gate,
+                applied after `target_qubit`.
+            modifies_flags: As in `add_instruction`; defaults to all `True`.
+            params: Rotation angles / gate parameters, as in `add_instruction`.
+        """
         gate_name = gate_name.lower()
 
         # Build the qubit list
@@ -62,6 +119,33 @@ class Circuit:
         )
 
     def build_hdh(self, hdh_cls=HDH) -> HDH:
+        """Translate the recorded instructions into an HDH.
+
+        Each qubit/bit gets one node per timestep it's touched, named
+        ``q{idx}_t{time}`` / ``c{idx}_t{time}``. Single-qubit gates add one
+        hyperedge connecting a qubit's input and output node at consecutive
+        timesteps.
+
+        Multi-qubit gates are deliberately spread across *three* timesteps
+        per gate rather than one, via three hyperedges suffixed
+        ``_stage1``/``_stage2``/``_stage3``: stage 1 and 3 are per-qubit wire
+        continuity (input->intermediate, final->post), and stage 2 is the
+        single hyperedge spanning every involved qubit's intermediate and
+        final nodes. This is intentional — it's what lets the HDH represent
+        pre- and post-gate teleportation as separate cuttable edges rather
+        than only a single all-or-nothing gate boundary — so a multi-qubit
+        gate's apparent "depth" in `time_map` is 3 ticks even though it's one
+        logical operation.
+
+        Args:
+            hdh_cls: HDH class to instantiate (override for a subclass).
+
+        Returns:
+            HDH: the built hypergraph, with `S`/`C`/`sigma`/`tau`/`time_map`
+            and friends populated. `edge_args` and `gate_params` are also
+            populated per gate, letting `hdh.converters.qiskit_converter.to_qiskit`
+            (and similar) reconstruct a circuit from it.
+        """
         hdh = hdh_cls()
         qubit_time: Dict[int, int] = {}
         bit_time: Dict[int, int] = {}

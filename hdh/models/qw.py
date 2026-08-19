@@ -18,6 +18,7 @@ class QW:
         self.qubit_counter = 0  # For auto-generating digit-only qubit IDs
 
     def _new_qubit_id(self):
+        """Generate the next auto-incrementing walker-state label."""
         self.qubit_counter += 1
         return f"q{self.qubit_counter}"
 

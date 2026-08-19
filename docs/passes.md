@@ -160,9 +160,9 @@ edges.
 
 #### Partitioning Process
 
-* **METIS partitioning:** The telegate graph is partitioned using the `nxmetis` library, which provides Python bindings to the highly efficient METIS graph partitioning tool.
+* **METIS partitioning:** The telegate graph is partitioned using the [`metis`](https://pypi.org/project/metis/) package (a ctypes binding to the METIS C library — see the [installation notes](../README.md#installation) for the system dependency it needs).
     * If METIS is unavailable, the algorithm automatically falls back to the Kernighan-Lin bisection algorithm from NetworkX.
-    * METIS attempts to respect capacity constraints through the `tpwgts` (target partition weights) and `ubvec` (unbalance vector) parameters.
+    * METIS is run unconstrained (no target partition weights); capacity is enforced entirely by the overflow repair step below.
 * **Overflow repair:** Since METIS does not guarantee perfectly balanced partitions, a greedy rebalancing algorithm (`_repair_overflow`) is used to adjust the partitions and ensure that no bin exceeds its qubit capacity.
     * The repair algorithm uses a heuristic gain function (`_best_move_for_node`) to choose which qubits to move between bins.
     * It prioritizes moving qubits that minimize the increase in cut edges.

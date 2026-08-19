@@ -7,6 +7,20 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from .hdh import HDH
 
 def plot_hdh(hdh, save_path="hdh_plot.svg"):
+    """Render an HDH as a time-vs-qubit/bit diagram.
+
+    Nodes are laid out with time on one axis and qubit/classical-bit index
+    on the other; hyperedges are drawn connecting the nodes they touch.
+
+    Args:
+        hdh: The `HDH` to visualize.
+        save_path: Where to save the plot (extension determines format, e.g.
+            `.svg`/`.png`). Pass `None` to instead display it interactively
+            via `matplotlib.pyplot.show()` without saving.
+
+    Returns:
+        None.
+    """
     nodes = list(hdh.S)
     edges = [tuple(e) for e in hdh.C]
 
