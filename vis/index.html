@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
     
       <script>
         // Current page data
@@ -52,6 +53,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../why/">Why HDHs?</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../models/">Quantum Computational Model mappings to HDHs</a>
                 </li>
               </ul>
@@ -63,6 +68,10 @@
               </ul>
               <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../passes/">Partitioning HDHs for distribution</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
                 </li>
               </ul>
               <ul>
@@ -94,10 +103,12 @@
               
                 <h1 id="visualising-hdhs">Visualising HDHs</h1>
 <p><code>plot_hdh</code> renders an HDH as a time-vs-index diagram, showing how <code>q</code>uantum and <code>c</code>lassical states evolve across timesteps and how hyperedges connect them.</p>
-<pre><code class="language-python">plot_hdh(hdh: HDH, save_path: str | None = None) -&gt; None
+<pre><code class="language-python">plot_hdh(hdh: HDH, save_path: str | None = &quot;hdh_plot.svg&quot;) -&gt; None
 </code></pre>
-<p>The function returns nothing, and shows the HDH in a python window unless a <code>save_path = hdh.png</code> is set.
-In this case the image will be directly saved to the input path.</p>
+<p>The function returns nothing. By default it saves the plot to <code>hdh_plot.svg</code>
+in the current directory; pass a different path (e.g. <code>save_path="hdh.png"</code>)
+to save elsewhere, or <code>save_path=None</code> to instead show the plot in a Python
+window without saving it.</p>
 <p>It can be used on any HDH, after it is generated from model instructions:</p>
 <pre><code class="language-python">import hdh
 from hdh.models.qca import QCA

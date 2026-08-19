@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
     
       <script>
         // Current page data
@@ -49,6 +50,10 @@
               </ul>
               <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../hdh/">A brief introduction to HDHs</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../why/">Why HDHs?</a>
                 </li>
               </ul>
               <ul>
@@ -117,6 +122,10 @@
     <li class="toctree-l2"><a class="reference internal" href="#notes-on-evaluating-partitioners-on-random-circuits">Notes on Evaluating Partitioners on Random Circuits</a>
     </li>
     </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
                 </li>
               </ul>
               <ul>
@@ -257,9 +266,9 @@ edges.</p>
 </ul>
 <h4 id="partitioning-process">Partitioning Process</h4>
 <ul>
-<li><strong>METIS partitioning:</strong> The telegate graph is partitioned using the <code>nxmetis</code> library, which provides Python bindings to the highly efficient METIS graph partitioning tool.<ul>
+<li><strong>METIS partitioning:</strong> The telegate graph is partitioned using the <a href="https://pypi.org/project/metis/"><code>metis</code></a> package (a ctypes binding to the METIS C library — see the <a href="https://github.com/grageragarces/HDH#installation">installation notes</a> for the system dependency it needs).<ul>
 <li>If METIS is unavailable, the algorithm automatically falls back to the Kernighan-Lin bisection algorithm from NetworkX.</li>
-<li>METIS attempts to respect capacity constraints through the <code>tpwgts</code> (target partition weights) and <code>ubvec</code> (unbalance vector) parameters.</li>
+<li>METIS is run unconstrained (no target partition weights); capacity is enforced entirely by the overflow repair step below.</li>
 </ul>
 </li>
 <li><strong>Overflow repair:</strong> Since METIS does not guarantee perfectly balanced partitions, a greedy rebalancing algorithm (<code>_repair_overflow</code>) is used to adjust the partitions and ensure that no bin exceeds its qubit capacity.<ul>
@@ -352,7 +361,7 @@ To versions are included (qubit and node based):</p>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../vis/" class="btn btn-neutral float-left" title="Visualizing HDHs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../literature/" class="btn btn-neutral float-right" title="Related publications and information">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../api/" class="btn btn-neutral float-right" title="API Reference">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -378,7 +387,7 @@ To versions are included (qubit and node based):</p>
       <span><a href="../vis/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../literature/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../api/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

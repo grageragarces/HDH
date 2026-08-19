@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
     
       <script>
         // Current page data
@@ -51,6 +52,10 @@
                 <li class="toctree-l1"><a class="reference internal" href="../hdh/">A brief introduction to HDHs</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../why/">Why HDHs?</a>
+                </li>
+              </ul>
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Quantum Computational Model mappings to HDHs</a>
     <ul class="current">
@@ -77,6 +82,10 @@
               </ul>
               <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../passes/">Partitioning HDHs for distribution</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../api/">API Reference</a>
                 </li>
               </ul>
               <ul>
@@ -341,7 +350,7 @@ import qiskit
 from qiskit import QuantumCircuit
 from hdh.converters import from_qiskit
 from hdh.visualize import plot_hdh
-from hdh.passes.cut import compute_cut, cost, partition_sizes, compute_parallelism_by_time
+from hdh.passes.cut import compute_cut, cost, partition_size, compute_parallelism_by_time
 
 # Qiskit circuit
 qc = QuantumCircuit(3)
@@ -351,14 +360,14 @@ qc.ccx(1, 2, 0)
 qc.measure_all()
 
 hdh_graph = from_qiskit(qc) # Generate HDH
-fig = plot_hdh(hdh) # Visualize HDH
+fig = plot_hdh(hdh_graph) # Visualize HDH
 </code></pre>
 <h3 id="reconverting-partitioned-hdhs-back-to-qiskit">Reconverting partitioned HDHs back to Qiskit</h3>
 <p><em>Note this is a feature under construction and may fail</em></p>
 <p>After partitioning an HDH you can recover one Qiskit <code>QuantumCircuit</code> per QPU using <code>partitions_to_qiskit</code>.
 Each sub-circuit contains only the gates whose qubits are entirely local to that partition; cross-partition gates are excluded (they become teledata/telegate communication primitives in a full DQC implementation).</p>
 <pre><code class="language-python">from qiskit import QuantumCircuit
-from hdh.converters.qiskit_converter import from_qiskit, partitions_to_qiskit
+from hdh.converters import from_qiskit, partitions_to_qiskit
 from hdh.passes.cut import compute_cut
 
 # 1. Build and convert a Qiskit circuit
@@ -370,8 +379,10 @@ qc.cx(2, 3)
 
 hdh = from_qiskit(qc)
 
-# 2. Partition into k=2 QPUs with a capacity of 2 qubits each
-partitions, cut_cost = compute_cut(hdh, k=2, cap=2)
+# 2. Partition into k=2 QPUs with a capacity of 3 qubits each
+# (cap must leave the greedy heuristic some slack above n_qubits/k to find a
+# feasible assignment; compute_cut raises RuntimeError if it can't)
+partitions, cut_cost = compute_cut(hdh, k=2, cap=3)
 print(f&quot;Cut cost: {cut_cost} cross-partition edges&quot;)
 
 # 3. Recover one Qiskit sub-circuit per partition
@@ -383,15 +394,15 @@ for i, sub_qc in enumerate(sub_circuits):
     print(f&quot;  Gates: {len(sub_qc.data)}&quot;)
     print(sub_qc.draw())
 </code></pre>
-<p>If you only need to convert a single HDH back to Qiskit without partitioning, use <code>hdh_to_qiskit</code> directly:</p>
-<pre><code class="language-python">from hdh.converters.qiskit_converter import from_qiskit, hdh_to_qiskit
+<p>If you only need to convert a single HDH back to Qiskit without partitioning, use <code>to_qiskit</code> directly:</p>
+<pre><code class="language-python">from hdh.converters import from_qiskit, to_qiskit
 
 qc = QuantumCircuit(2)
 qc.h(0)
 qc.cx(0, 1)
 
 hdh = from_qiskit(qc)
-qc_reconstructed = hdh_to_qiskit(hdh)
+qc_reconstructed = to_qiskit(hdh)
 print(qc_reconstructed.draw())
 </code></pre>
 <p>Note that gate parameters (angles for <code>rx</code>, <code>ry</code>, <code>rz</code> etc.) are not preserved through the HDH representation and will default to 0 on reconstruction.</p>
@@ -698,7 +709,7 @@ class Circuit:
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../hdh/" class="btn btn-neutral float-left" title="A brief introduction to HDHs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../why/" class="btn btn-neutral float-left" title="Why HDHs?"><span class="icon icon-circle-arrow-left"></span> Previous</a>
         <a href="../vis/" class="btn btn-neutral float-right" title="Visualizing HDHs">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
@@ -722,7 +733,7 @@ class Circuit:
   <span class="rst-current-version" data-toggle="rst-current-version">
     
     
-      <span><a href="../hdh/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../why/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
       <span><a href="../vis/" style="color: #fcfcfc">Next &raquo;</a></span>
