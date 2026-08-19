@@ -91,7 +91,8 @@ def _process_if_else_op(qc, instr, circuit):
         # Process true_body (blocks[0]) - executes when condition == 1
         if len(instr.blocks) > 0:
             true_body = instr.blocks[0]
-            for inner_instr, inner_qargs, inner_cargs in true_body.data:
+            for inner_item in true_body.data:
+                inner_instr, inner_qargs = inner_item.operation, inner_item.qubits
                 # Skip metadata instructions
                 if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
                     continue
@@ -127,7 +128,10 @@ def _process_if_else_op(qc, instr, circuit):
         # add_conditional_gate doesn't support negated conditions yet
         if len(instr.blocks) > 1 and instr.blocks[1] is not None:
             false_body = instr.blocks[1]
-            for inner_instr, inner_qargs, inner_cargs in false_body.data:
+            for inner_item in false_body.data:
+                inner_instr, inner_qargs, inner_cargs = (
+                    inner_item.operation, inner_item.qubits, inner_item.clbits
+                )
                 # Skip metadata instructions
                 if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
                     continue
@@ -176,7 +180,8 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
     """
     circuit = Circuit()
 
-    for instr, qargs, cargs in qc.data:
+    for item in qc.data:
+        instr, qargs, cargs = item.operation, item.qubits, item.clbits
         # Skip metadata instructions
         if instr.name in {"barrier", "snapshot", "delay", "label"}:
             continue
