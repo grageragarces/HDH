@@ -751,7 +751,15 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
             if not placed:
                 # Node is truly unplaceable, mark it and try next node
                 unplaceable_nodes.add(node)
-    
+
+    if unplaceable_nodes:
+        raise RuntimeError(
+            f"compute_cut: the greedy heuristic could not place {len(unplaceable_nodes)} "
+            f"node(s) within the given capacity constraints (k={k}, cap={cap}). Returning "
+            f"a partial partition would silently under-report the cut cost, so this is "
+            f"raised instead. Try a larger `cap` and/or `k`."
+        )
+
     # Compute cost (count cut hyperedges)
     node_assignment = {}
     for partition_idx, partition_nodes in enumerate(partitions):

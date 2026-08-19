@@ -24,9 +24,7 @@ site/
 
 # Other test docs
 .tests/private_test.py
-note_update.tex
+notes.text
 
 # Database workload files
 database/Workloads/Circuit/MQTBench/
-
-# Big unzipped database 

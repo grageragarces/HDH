@@ -20,12 +20,20 @@ class HDH:
         self.phi: Dict[frozenset, EdgeReal] = {} # hyperedge realization 
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
         self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
+        self.gate_params: Dict[frozenset, List[float]] = {}  # maps hyperedge → rotation params, if any
         self.edge_args: Dict[frozenset, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
         self.edge_role: Dict[frozenset, Literal["teledata", "telegate"]] = {}  # tracks nature edges -> for primitive implementation
         self.motifs = {}  
         self.edge_metadata: Dict[frozenset, Dict] = {}
 
     def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep, node_real: NodeReal = "a"):
+        existing_type = self.sigma.get(node_id)
+        if existing_type is not None and existing_type != node_type:
+            raise ValueError(
+                f"Node '{node_id}' already exists with type '{existing_type}'; "
+                f"cannot redefine it as type '{node_type}'. This usually means two "
+                f"different logical values were mapped to the same node ID."
+            )
         self.S.add(node_id)
         self.sigma[node_id] = node_type
         self.time_map[node_id] = time

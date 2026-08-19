@@ -7,8 +7,8 @@ from hdh.hdh import HDH
 class Circuit:
     def __init__(self):
         self.instructions: List[
-            Tuple[str, List[int], List[int], List[bool], Literal["a", "p"]]
-        ] = []  # (name, qubits, bits, modifies_flags, cond_flag)
+            Tuple[str, List[int], List[int], List[bool], Literal["a", "p"], Optional[List[float]]]
+        ] = []  # (name, qubits, bits, modifies_flags, cond_flag, params)
 
     def add_instruction(
         self,
@@ -16,7 +16,8 @@ class Circuit:
         qubits: List[int],
         bits: Optional[List[int]] = None,
         modifies_flags: Optional[List[bool]] = None,
-        cond_flag: Literal["a", "p"] = "a"
+        cond_flag: Literal["a", "p"] = "a",
+        params: Optional[List[float]] = None,
     ):
         name = name.lower()
 
@@ -26,7 +27,7 @@ class Circuit:
             bits = bits or []
             modifies_flags = modifies_flags or [True] * len(qubits)
 
-        self.instructions.append((name, qubits, bits, modifies_flags, cond_flag))
+        self.instructions.append((name, qubits, bits, modifies_flags, cond_flag, params))
 
     def add_conditional_gate(
         self,
@@ -34,20 +35,21 @@ class Circuit:
         target_qubit: int,
         gate_name: str,
         additional_qubits: Optional[List[int]] = None,
-        modifies_flags: Optional[List[bool]] = None
+        modifies_flags: Optional[List[bool]] = None,
+        params: Optional[List[float]] = None,
     ):
         gate_name = gate_name.lower()
-        
+
         # Build the qubit list
         if additional_qubits is None:
             qubits = [target_qubit]
         else:
             qubits = [target_qubit] + additional_qubits
-        
+
         # Set default modifies_flags
         if modifies_flags is None:
             modifies_flags = [True] * len(qubits)
-        
+
         # Add the instruction with cond_flag="p" (positive condition)
         # and the classical bit in the bits list
         self.add_instruction(
@@ -55,7 +57,8 @@ class Circuit:
             qubits=qubits,
             bits=[classical_bit],
             modifies_flags=modifies_flags,
-            cond_flag="p"
+            cond_flag="p",
+            params=params,
         )
 
     def build_hdh(self, hdh_cls=HDH) -> HDH:
@@ -64,7 +67,7 @@ class Circuit:
         bit_time: Dict[int, int] = {}
         last_gate_input_time: Dict[int, int] = {}
 
-        for name, qargs, cargs, modifies_flags, cond_flag in self.instructions:
+        for name, qargs, cargs, modifies_flags, cond_flag, params in self.instructions:
             # --- Canonicalize inputs ---
             qargs = list(qargs or [])
             if name == "measure":
@@ -156,6 +159,8 @@ class Circuit:
                 c_with_time = [(ctrl, c_latest + 1)]  # next-free convention; adjust if you track exact
                 for e in edges:
                     hdh.edge_args[e] = (q_with_time, c_with_time, modifies_flags or [True] * len(qargs))
+                    if params:
+                        hdh.gate_params[e] = params
 
                 continue
 
@@ -283,5 +288,7 @@ class Circuit:
             c_with_time = [(c, bit_time.get(c, 0)) for c in cargs]
             for edge in edges:
                 hdh.edge_args[edge] = (q_with_time, c_with_time, modifies_flags)
+                if params:
+                    hdh.gate_params[edge] = params
 
         return hdh

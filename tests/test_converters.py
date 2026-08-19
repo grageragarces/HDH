@@ -16,7 +16,13 @@ from hdh.passes.cut import compute_cut
 
 N_QUBITS = 10
 K = 2
-CAP = 5
+# NOTE: cap=5 (== N_QUBITS / K exactly) makes every qubit mandatory to place
+# with zero slack, which is the hardest possible case for the greedy heuristic
+# and can leave it unable to find a feasible assignment (see
+# TestCutCorrectness.test_compute_cut_raises_instead_of_silently_dropping_nodes
+# and JOSS review issue #69). cap=6 leaves enough slack for the heuristic to
+# succeed while still forcing a real partition.
+CAP = 6
 
 
 def _build_pipeline_circuit():
@@ -206,6 +212,35 @@ class TestQiskitRoundtrip:
         assert qc2.num_qubits == 0
         assert len(qc2.data) == 0
 
+    def test_roundtrip_preserves_gate_parameters(self):
+        # Regression test for JOSS review issue #69: rotation angles used to be
+        # discarded by the HDH representation and silently reset to 0.
+        qc = QuantumCircuit(1)
+        qc.rx(1.2345, 0)
+
+        qc2 = to_qiskit(from_qiskit(qc))
+
+        assert qc2.data[0].operation.name == "rx"
+        assert qc2.data[0].operation.params[0] == pytest.approx(1.2345)
+
+    def test_partitions_to_qiskit_uses_local_qubit_count(self):
+        # Regression test for JOSS review issue #69: a partition holding qubits
+        # {2, 3} used to produce a 4-qubit circuit (max_index + 1) instead of a
+        # 2-qubit circuit local to that partition.
+        qc = QuantumCircuit(4)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.cx(1, 2)
+        qc.cx(2, 3)
+        hdh = from_qiskit(qc)
+
+        q_re = re.compile(r"^q(\d+)_t\d+$")
+        part_high = {n for n in hdh.S if (m := q_re.match(n)) and int(m.group(1)) in {2, 3}}
+
+        sub_circuits = partitions_to_qiskit(hdh, [set(hdh.S) - part_high, part_high])
+
+        assert sub_circuits[1].num_qubits == 2
+
 
 # ---------------------------------------------------------------------------
 # TestConverterExports
@@ -350,6 +385,59 @@ class TestComputeCut:
     def test_cut_cost_less_than_total_edges(self, pipeline):
         _, hdh, _, cut_cost, _ = pipeline
         assert cut_cost < len(hdh.C)
+
+
+# ---------------------------------------------------------------------------
+# TestCutCorrectness  (JOSS review issue #69: node dropping / cost misreporting)
+# ---------------------------------------------------------------------------
+
+def _true_cut_cost(hdh, partitions):
+    """Recompute cut cost from scratch, independent of hdh.passes.cut internals."""
+    node_to_bin = {}
+    for i, part in enumerate(partitions):
+        for n in part:
+            node_to_bin[n] = i
+    cut = 0
+    for edge in hdh.C:
+        bins_touched = {node_to_bin[n] for n in edge if n in node_to_bin}
+        if len(bins_touched) > 1:
+            cut += 1
+    return cut
+
+
+class TestCutCorrectness:
+    def test_all_nodes_assigned_and_cost_matches_ground_truth(self):
+        # A 4-qubit chain: h(0); cx(0,1); cx(1,2); cx(2,3), with enough slack
+        # (cap=3 for 4 qubits over k=2) for the greedy heuristic to succeed.
+        qc = QuantumCircuit(4)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.cx(1, 2)
+        qc.cx(2, 3)
+        hdh = from_qiskit(qc)
+
+        partitions, reported_cost = compute_cut(hdh, k=2, cap=3)
+
+        assigned = set().union(*partitions)
+        assert assigned == hdh.S, "every HDH node must be assigned to a partition"
+        assert reported_cost == _true_cut_cost(hdh, partitions), (
+            "compute_cut must report the true cut cost of the partition it returns"
+        )
+
+    def test_compute_cut_raises_instead_of_silently_dropping_nodes(self):
+        # Same chain circuit, but capacity is tight enough (cap == n_qubits / k
+        # exactly) that the greedy heuristic can strand a qubit with nowhere
+        # left to go. Before the fix, compute_cut silently dropped that qubit's
+        # nodes and under-reported the cut cost instead of failing.
+        qc = QuantumCircuit(4)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.cx(1, 2)
+        qc.cx(2, 3)
+        hdh = from_qiskit(qc)
+
+        with pytest.raises(RuntimeError):
+            compute_cut(hdh, k=2, cap=2)
 
 
 # ---------------------------------------------------------------------------

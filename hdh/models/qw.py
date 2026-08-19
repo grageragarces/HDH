@@ -5,6 +5,13 @@ from hdh.hdh import HDH
 
 # Quantum Walks (QW) model
 class QW:
+    """Discrete-time quantum walk (coin + shift + measurement) pattern builder.
+
+    Each step is (op_type, input_label, output_label); ``build_hdh`` turns the
+    labels into typed node IDs based on what the operation actually produces,
+    so the label strings themselves don't need a "q"/"c" prefix.
+    """
+
     def __init__(self, hdh_cls=HDH):
         self.steps = []  # (type, a, b)
         self.hdh_cls = hdh_cls
@@ -15,19 +22,28 @@ class QW:
         return f"q{self.qubit_counter}"
 
     def add_coin(self, a: str):
+        """Apply a coin operation to walker state `a`; returns the new state label."""
         a_prime = self._new_qubit_id()
         self.steps.append(("K", a, a_prime))
         return a_prime
 
     def add_shift(self, a_prime: str):
+        """Apply a shift operation to walker state `a_prime`; returns the new state label."""
         b = self._new_qubit_id()
         self.steps.append(("R", a_prime, b))
         return b
 
     def add_measurement(self, a: str, b: str):
+        """Measure walker state `a`, writing the result to classical label `b`.
+
+        `b` must be a label distinct from any quantum state label already in
+        use (e.g. ``"c0"``) — it becomes a *classical* node, so reusing an
+        existing quantum label here would try to redefine that node's type.
+        """
         self.steps.append(("M", a, b))
 
     def build_hdh(self) -> HDH:
+        """Translate the recorded coin/shift/measurement steps into an HDH."""
         hdh = self.hdh_cls()
         time_map: Dict[str, int] = {}
         

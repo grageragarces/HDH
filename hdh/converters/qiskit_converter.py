@@ -97,14 +97,20 @@ def _process_if_else_op(qc, instr, circuit):
                     continue
                     
                 inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
-                
+                inner_params = getattr(inner_instr, "params", None) or []
+                try:
+                    inner_params = [float(p) for p in inner_params] or None
+                except (TypeError, ValueError):
+                    inner_params = None
+
                 # Use add_conditional_gate for cleaner code
                 if len(inner_qidx) == 1:
                     # Single-qubit gate
                     circuit.add_conditional_gate(
                         classical_bit=bit_index,
                         target_qubit=inner_qidx[0],
-                        gate_name=inner_instr.name
+                        gate_name=inner_instr.name,
+                        params=inner_params,
                     )
                 else:
                     # Multi-qubit gate
@@ -112,7 +118,8 @@ def _process_if_else_op(qc, instr, circuit):
                         classical_bit=bit_index,
                         target_qubit=inner_qidx[0],
                         gate_name=inner_instr.name,
-                        additional_qubits=inner_qidx[1:]
+                        additional_qubits=inner_qidx[1:],
+                        params=inner_params,
                     )
         
         # Process false_body (blocks[1]) - executes when condition == 0
@@ -127,7 +134,12 @@ def _process_if_else_op(qc, instr, circuit):
                     
                 inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
                 inner_cidx = [qc.clbits.index(c) for c in inner_cargs] if inner_cargs else []
-                
+                inner_params = getattr(inner_instr, "params", None) or []
+                try:
+                    inner_params = [float(p) for p in inner_params] or None
+                except (TypeError, ValueError):
+                    inner_params = None
+
                 # Use add_instruction with negated condition for else block
                 # TODO: Consider adding add_conditional_gate_negated() method
                 circuit.add_instruction(
@@ -135,7 +147,8 @@ def _process_if_else_op(qc, instr, circuit):
                     inner_qidx,
                     bits=[bit_index],
                     modifies_flags=[True] * len(inner_qidx),
-                    cond_flag="n"  # Negated condition
+                    cond_flag="n",  # Negated condition
+                    params=inner_params,
                 )
     else:
         # For expr.Expr conditions, would need additional handling
@@ -179,10 +192,16 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
 
         # Handle standard instructions
         if instr.name == "measure":
-            circuit.add_instruction("measure", q_indices, None)  
+            circuit.add_instruction("measure", q_indices, None)
         else:
             modifies_flags = [True] * len(q_indices)
-            circuit.add_instruction(instr.name, q_indices, c_indices, modifies_flags)
+            raw_params = getattr(instr, "params", None) or []
+            try:
+                params = [float(p) for p in raw_params] or None
+            except (TypeError, ValueError):
+                # Unbound symbolic Parameter objects can't be stored as floats.
+                params = None
+            circuit.add_instruction(instr.name, q_indices, c_indices, modifies_flags, params=params)
 
     return circuit.build_hdh()
 
@@ -288,8 +307,12 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
         if c is not None:
             bit_indices.add(c)
 
-    n_qubits = max(qubit_indices) + 1 if qubit_indices else 0
-    n_bits   = max(bit_indices)   + 1 if bit_indices   else 0
+    # Map global qubit/bit indices to a dense local range so a partition holding
+    # e.g. qubits {2, 3} produces a 2-qubit circuit, not a 4-qubit one.
+    qubit_map = {q: i for i, q in enumerate(sorted(qubit_indices))}
+    bit_map   = {c: i for i, c in enumerate(sorted(bit_indices))}
+    n_qubits  = len(qubit_map)
+    n_bits    = len(bit_map)
 
     if n_qubits == 0:
         return QuantumCircuit()
@@ -315,10 +338,10 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
                 continue
             q_idx = _parse_qubit(q_nodes[0])
             c_idx = _parse_cbit(c_nodes[0])
-            if q_idx is None or c_idx is None:
+            if q_idx is None or c_idx is None or q_idx not in qubit_map or c_idx not in bit_map:
                 continue
             sort_time = hdh.time_map.get(c_nodes[0], 0)
-            records.append((sort_time, "measure", [q_idx], [c_idx], False))
+            records.append((sort_time, "measure", [qubit_map[q_idx]], [bit_map[c_idx]], False, None))
             continue
 
         # Stages 1 and 3 only carry wire continuity; stage 2 holds the real gate.
@@ -335,12 +358,12 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
 
         q_with_time, c_with_time, _ = args
         actual_name = raw_name[:-7] if raw_name.endswith("_stage2") else raw_name
-        q_indices   = [q for q, _ in q_with_time]
-        c_indices   = [c for c, _ in c_with_time]
+        q_indices   = [qubit_map[q] for q, _ in q_with_time if q in qubit_map]
+        c_indices   = [bit_map[c] for c, _ in c_with_time if c in bit_map]
         sort_time   = min((t for _, t in q_with_time), default=0)
         is_cond     = hdh.phi.get(edge) == "p"
 
-        records.append((sort_time, actual_name, q_indices, c_indices, is_cond))
+        records.append((sort_time, actual_name, q_indices, c_indices, is_cond, hdh.gate_params.get(edge)))
 
     records.sort(key=lambda r: r[0])
 
@@ -348,19 +371,19 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
     seen: Set[tuple] = set()
     unique_records: List[tuple] = []
     for rec in records:
-        sort_time, name, q_indices, c_indices, is_cond = rec
+        sort_time, name, q_indices, c_indices, is_cond, params = rec
         dedup_key = (sort_time, name, tuple(q_indices))
         if dedup_key not in seen:
             seen.add(dedup_key)
             unique_records.append(rec)
 
-    for sort_time, name, q_indices, c_indices, is_cond in unique_records:
+    for sort_time, name, q_indices, c_indices, is_cond, params in unique_records:
         if name == "measure":
             for qi, ci in zip(q_indices, c_indices):
                 qc.measure(qi, ci)
             continue
 
-        gate = _make_gate(name)
+        gate = _make_gate(name, params)
         if gate is None:
             print(f"[WARNING] Unrecognised gate '{name}' at t={sort_time} on qubits {q_indices} - skipped.")
             continue
@@ -413,6 +436,8 @@ def _project_hdh(hdh: HDH, node_set: Set[str]) -> HDH:
         )
         if edge in hdh.edge_args:
             sub.edge_args[edge] = hdh.edge_args[edge]
+        if edge in hdh.gate_params:
+            sub.gate_params[edge] = hdh.gate_params[edge]
 
     return sub
 

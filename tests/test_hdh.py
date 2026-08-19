@@ -26,6 +26,19 @@ class TestHDHBasics:
         assert hdh.tau[edge] == "q"
         assert hdh.gate_name[edge] == "h"
     
+    def test_add_node_rejects_type_mismatch(self):
+        """Re-adding an existing node ID with a different type must fail loudly.
+
+        Regression test: HDH.add_node used to silently overwrite sigma[node_id],
+        which let a classical output accidentally clobber an existing quantum
+        node that happened to share the same ID (see JOSS review issue #69).
+        """
+        hdh = HDH()
+        hdh.add_node("q2_t2", "q", 2)
+
+        with pytest.raises(ValueError):
+            hdh.add_node("q2_t2", "c", 2)
+
     def test_get_num_qubits(self):
         """Test qubit counting"""
         hdh = HDH()
