@@ -52,6 +52,28 @@ It provides a unified structure that makes it easier to:
 ```bash
 pip install hdh
 ```
+
+Qiskit conversion works out of the box. Cirq, PennyLane, Amazon Braket, and
+the KaHyPar/METIS partitioners are optional and installed via extras:
+
+```bash
+pip install hdh[cirq]        # Cirq conversion (needs Python >=3.11)
+pip install hdh[pennylane]   # PennyLane conversion (needs Python >=3.11)
+pip install hdh[braket]      # Amazon Braket conversion (needs Python >=3.11)
+pip install hdh[kahypar]     # KaHyPar-based partitioning
+pip install hdh[metis]       # METIS-based partitioning (metis_telegate)
+pip install hdh[all]         # everything above (needs Python >=3.11)
+```
+
+Tested against Cirq 1.7, PennyLane 0.45, and amazon-braket-sdk 1.125 — all
+three now require Python >=3.11 upstream, so those extras aren't installable
+on Python 3.10.
+`hdh[metis]` installs the Python binding only — it talks to a
+system-installed METIS C library via ctypes, so METIS itself must already be
+available on your machine (e.g. via your OS package manager or built from
+source). Without it, `metis_telegate` automatically falls back to a
+Kernighan-Lin partition and reports which method it used.
+
 ---
 ## Quickstart
 

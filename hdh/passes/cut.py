@@ -34,6 +34,12 @@ from networkx.algorithms.community import kernighan_lin_bisection
 _Q_RE   = re.compile(r"^q(\d+)_t\d+$")
 _C_RE   = re.compile(r"^c(\d+)_t\d+$")
 
+# Bundled with the package (not looked up relative to the caller's CWD) so
+# kahypar_cutter's default config works regardless of where it's invoked from.
+_DEFAULT_KAHYPAR_CONFIG = os.path.join(
+    os.path.dirname(__file__), "kahypar_config", "km1_kKaHyPar_sea20.ini"
+)
+
 # ------------------------------ KaHyPar cutter (qubit-level -> HDH node-level) ------------------------------
 
 def kahypar_cutter(
@@ -149,13 +155,11 @@ def kahypar_cutter(
 
     # --- KaHyPar context/config ---
     if config_path is None:
-        # Prefer a local config if user has one, otherwise force them to provide.
-        candidate = "kahypar/config/km1_kKaHyPar_sea20.ini"
-        if os.path.exists(candidate):
-            config_path = candidate
-        else:
+        config_path = _DEFAULT_KAHYPAR_CONFIG
+        if not os.path.exists(config_path):
             raise FileNotFoundError(
-                "KaHyPar needs an INI configuration file. "
+                "KaHyPar needs an INI configuration file, and the bundled default "
+                f"({_DEFAULT_KAHYPAR_CONFIG}) is missing. "
                 "Pass `config_path=...` (e.g. a KaHyPar .ini file)."
             )
 
@@ -297,12 +301,12 @@ def kahypar_cutter_nodebalanced(
     vertex_weights = [1] * n
 
     if config_path is None:
-        candidate = "kahypar/config/km1_kKaHyPar_sea20.ini"
-        if os.path.exists(candidate):
-            config_path = candidate
-        else:
+        config_path = _DEFAULT_KAHYPAR_CONFIG
+        if not os.path.exists(config_path):
             raise FileNotFoundError(
-                "KaHyPar needs an INI configuration file. Pass `config_path=...` (a KaHyPar .ini file)."
+                "KaHyPar needs an INI configuration file, and the bundled default "
+                f"({_DEFAULT_KAHYPAR_CONFIG}) is missing. "
+                "Pass `config_path=...` (e.g. a KaHyPar .ini file)."
             )
 
     context = kahypar.Context()
@@ -1034,9 +1038,13 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
 
     used_metis = False
     try:
-        import nxmetis  # type: ignore
+        import metis  # type: ignore
+        node_order = list(G.nodes())
+        _, part_ids = metis.part_graph(G, nparts=partitions)
+        qubit_parts = [set() for _ in range(partitions)]
+        for node, p in zip(node_order, part_ids):
+            qubit_parts[p].add(node)
         used_metis = True
-        _, qubit_parts = nxmetis.partition(G, partitions)
     except Exception:
         qubit_parts = _kl_fallback_partition(G, partitions)
 
