@@ -98,7 +98,7 @@ def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
 
         # conditional op (qml.cond -> Conditional container)
         if isinstance(op, Conditional):
-            then = op.then_op
+            then = op.base
             mval = op.meas_val
             mps = getattr(mval, "measurements", None)
             if not mps:
