@@ -49,6 +49,13 @@ cirq = {version = "^1.7", python = ">=3.11,<3.14"}
 amazon-braket-sdk = {version = "^1.125", python = ">=3.11,<3.14"}
 metis = "0.2a5"
 
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.6"
+mkdocstrings = {version = "^0.27", extras = ["python"]}
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

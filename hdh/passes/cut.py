@@ -588,14 +588,22 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         k: Number of partitions (QPUs)
         cap: Capacity per partition (max unique qubits, not nodes)
         beam_k: Beam width for frontier selection (default 3)
-        
-        The following parameters are accepted for compatibility but currently not used:
-        backtrack_window, polish_1swap_budget, restarts, 
-        reserve_frac, predictive_reject, seed
-    
+        backtrack_window: Accepted for compatibility; currently unused.
+        polish_1swap_budget: Accepted for compatibility; currently unused.
+        restarts: Accepted for compatibility; currently unused.
+        reserve_frac: Accepted for compatibility; currently unused.
+        predictive_reject: Accepted for compatibility; currently unused.
+        seed: Accepted for compatibility; currently unused.
+
     Returns:
         partitions: List of k sets, each containing node IDs assigned to that partition
         cost: Total communication cost (number of cut hyperedges)
+
+    Raises:
+        RuntimeError: If the greedy heuristic can't place every node within
+            the given `k`/`cap` capacity constraints. This means no feasible
+            full assignment was found — try a larger `cap` and/or `k` rather
+            than relying on a partial, silently-wrong result.
     """
     if not hdh_graph.S or not hdh_graph.C:
         return [set() for _ in range(k)], 0

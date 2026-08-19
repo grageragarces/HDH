@@ -160,7 +160,7 @@ edges.
 
 #### Partitioning Process
 
-* **METIS partitioning:** The telegate graph is partitioned using the [`metis`](https://pypi.org/project/metis/) package (a ctypes binding to the METIS C library — see the [installation notes](../README.md#installation) for the system dependency it needs).
+* **METIS partitioning:** The telegate graph is partitioned using the [`metis`](https://pypi.org/project/metis/) package (a ctypes binding to the METIS C library — see the [installation notes](https://github.com/grageragarces/HDH#installation) for the system dependency it needs).
     * If METIS is unavailable, the algorithm automatically falls back to the Kernighan-Lin bisection algorithm from NetworkX.
     * METIS is run unconstrained (no target partition weights); capacity is enforced entirely by the overflow repair step below.
 * **Overflow repair:** Since METIS does not guarantee perfectly balanced partitions, a greedy rebalancing algorithm (`_repair_overflow`) is used to adjust the partitions and ensure that no bin exceeds its qubit capacity.

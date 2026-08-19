@@ -3,12 +3,25 @@ nav:
   - Home: index.md
   - An introduction to DQC: intro.md
   - A brief introduction to HDHs: hdh.md
+  - Why HDHs?: why.md
   - Quantum Computational Model mappings to HDHs: models.md
   - Visualizing HDHs: vis.md
   - Partitioning HDHs for distribution: passes.md
+  - API Reference: api.md
   # - Contribution guide: contribution.md
   - Related publications and information: literature.md
 theme: readthedocs
 
 markdown_extensions:
   - attr_list
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            heading_level: 3
