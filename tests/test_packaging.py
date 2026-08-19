@@ -71,7 +71,7 @@ class TestOptionalConverterExports:
     def test_optional_converters_are_present_or_none(self):
         import hdh.converters as converters
 
-        for name in ("from_cirq", "from_pennylane", "from_braket"):
+        for name in ("from_cirq", "from_pennylane", "to_pennylane", "from_braket"):
             assert hasattr(converters, name), f"hdh.converters is missing {name}"
 
 

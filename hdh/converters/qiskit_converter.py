@@ -297,8 +297,9 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
         QuantumCircuit: Qiskit representation
 
     Note:
-        Gate parameters (rotation angles) are not preserved by the HDH
-        representation and default to 0 on reconstruction.
+        Gate parameters (rotation angles) are preserved via `hdh.gate_params`
+        when the HDH was built from a source that recorded them (e.g.
+        `from_qiskit`); otherwise they default to 0.
     """
     qubit_indices: Set[int] = set()
     bit_indices:   Set[int] = set()

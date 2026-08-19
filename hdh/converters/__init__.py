@@ -10,9 +10,10 @@ except ImportError:
     from_cirq = None
 
 try:
-    from .pennylane_converter import from_pennylane
+    from .pennylane_converter import from_pennylane, to_pennylane
 except ImportError:
     from_pennylane = None
+    to_pennylane = None
 
 try:
     from .braket_converter import from_braket
