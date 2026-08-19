@@ -8,7 +8,6 @@ tags:
 authors:
   - name: Maria Gragera Garces
     orcid: 0009-0000-9018-7435
-    equal-contrib: true
     affiliation: 1
 affiliations:
  - name: University of Edinburgh
@@ -17,6 +16,12 @@ date: 15 December 2025
 bibliography: paper.bib
 
 ---
+
+ # Summary
+
+Today's quantum computers are limited by how many qubits a single device can hold. Distributed quantum computing (DQC) works around this by linking multiple smaller devices together so they can jointly run computations too large for any one of them alone, which first requires deciding how to split, or partition, a computation across those devices.
+
+`HDH` (Hybrid Dependency Hypergraphs) is a Python library that gives researchers a common representation to develop and compare partitioning strategies against. It converts a quantum computation — expressed as a circuit, a measurement-based pattern, a quantum walk, or a quantum cellular automaton — into a hypergraph that captures every way the computation could be split across devices, including hard constraints such as per-device qubit limits that prior abstractions treat as soft penalties rather than requirements. Researchers can run their own partitioning heuristics directly on this representation, or use `HDH`'s built-in capacity-aware baseline, and compare results on a consistent, model-agnostic footing. `HDH` also converts to and from popular quantum SDKs (Qiskit, Cirq, PennyLane, Amazon Braket), so partitioned results can be turned back into runnable circuits.
 
  # State of the Field 
 
@@ -27,9 +32,10 @@ It is believed that the path towards these scales will come from distribution, m
 The main goal behind Distributed Quantum Computing (DQC) is to allocate sub-partitions of large quantum computations across multiple devices smaller than the computation itself. 
 Existing approaches abstract computations to hypergraphs which are then partitioned, using [Balanced Hypergraph Partitioning]{.smallcaps} solvers such as KaHyPar [@schlag2023high].
 
-This framing has two fundamental limitations: \\
-1) It reduces distribution to a balanced partitioning problem that ignores a hard physical constraint: individual QPUs have fixed qubit capacities, and a valid distribution must respect these limits strictly rather than treating them as soft penalties. \\
-2) Existing hypergraph abstractions are model-specific and encode only a subset of possible partition cuts, meaning partitioning strategies are routinely evaluated on inconsistent abstractions, making cross-comparison unreliable and hindering the systematic development of improved heuristics.
+This framing has two fundamental limitations:
+
+1. It reduces distribution to a balanced partitioning problem that ignores a hard physical constraint: individual QPUs have fixed qubit capacities, and a valid distribution must respect these limits strictly rather than treating them as soft penalties.
+2. Existing hypergraph abstractions are model-specific and encode only a subset of possible partition cuts, meaning partitioning strategies are routinely evaluated on inconsistent abstractions, making cross-comparison unreliable and hindering the systematic development of improved heuristics.
 
 The `HDH` library aims to tackle both of these problems, providing a unified and accessible starting point for the research of DQC partitioners.
 
