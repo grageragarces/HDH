@@ -25,7 +25,7 @@
 
 ## What is a HDH?
 
-**HDH (Hybrid Dependency Hypergraph)** is an intermediate directed hypergraph-based representation designed to encode the dependecies arising in any quantum workload.
+**HDH (Hybrid Dependency Hypergraph)** is an intermediate directed hypergraph-based representation designed to encode the dependencies arising in any quantum workload.
 It provides a unified structure that makes it easier to:
 
 - Translate quantum programs (e.g., a circuit or a mbqc pattern) into a unified hypergraph format

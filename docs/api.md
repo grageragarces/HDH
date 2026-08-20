@@ -34,6 +34,8 @@ Auto-generated from the library's docstrings.
 
 ::: hdh.converters.pennylane_converter.from_pennylane
 
+::: hdh.converters.pennylane_converter.to_pennylane
+
 ::: hdh.converters.braket_converter.from_braket
 
 ## Partitioning

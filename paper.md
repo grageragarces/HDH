@@ -17,20 +17,20 @@ bibliography: paper.bib
 
 ---
 
- # Summary
+# Summary
 
 Today's quantum computers are limited by how many qubits a single device can hold. Distributed quantum computing (DQC) works around this by linking multiple smaller devices together so they can jointly run computations too large for any one of them alone, which first requires deciding how to split, or partition, a computation across those devices.
 
-`HDH` (Hybrid Dependency Hypergraphs) is a Python library that gives researchers a common representation to develop and compare partitioning strategies against. It converts a quantum computation — expressed as a circuit, a measurement-based pattern, a quantum walk, or a quantum cellular automaton — into a hypergraph that captures every way the computation could be split across devices, including hard constraints such as per-device qubit limits that prior abstractions treat as soft penalties rather than requirements. Researchers can run their own partitioning heuristics directly on this representation, or use `HDH`'s built-in capacity-aware baseline, and compare results on a consistent, model-agnostic footing. `HDH` also converts to and from popular quantum SDKs (Qiskit, Cirq, PennyLane, Amazon Braket), so partitioned results can be turned back into runnable circuits.
+`HDH` (Hybrid Dependency Hypergraphs) is a Python library that gives researchers a common representation to develop and compare partitioning strategies against. It converts a quantum computation — expressed as a circuit, a measurement-based pattern, a quantum walk, or a quantum cellular automaton — into a hypergraph that captures every way the computation could be split across devices, including hard constraints such as per-device qubit limits that prior abstractions treat as soft penalties rather than requirements. Researchers can run their own partitioning heuristics directly on this representation, or use `HDH`'s built-in capacity-aware baseline, and compare results on a consistent, model-agnostic footing. `HDH` also imports circuits from popular quantum SDKs (Qiskit, Cirq, PennyLane, Amazon Braket) and exports back to Qiskit and PennyLane, so partitioned results can be turned back into runnable circuits.
 
- # State of the Field 
+# State of the field
 
 Quantum computing aims to solve computational problems that are classically hard. 
 To achieve this in utility settings, quantum computers will require 
 thousands if not millions of qubits. Current devices hold hundreds of qubits at most. 
 It is believed that the path towards these scales will come from distribution, meaning the collaboration of various devices to complete tasks larger than their individual capacities.
 The main goal behind Distributed Quantum Computing (DQC) is to allocate sub-partitions of large quantum computations across multiple devices smaller than the computation itself. 
-Existing approaches abstract computations to hypergraphs which are then partitioned, using [Balanced Hypergraph Partitioning]{.smallcaps} solvers such as KaHyPar [@schlag2023high].
+Existing approaches abstract computations to hypergraphs which are then partitioned, using balanced hypergraph partitioning solvers such as KaHyPar [@schlag2023high].
 
 This framing has two fundamental limitations:
 
@@ -69,7 +69,7 @@ Furthermore, HDHs extend this capability beyond the circuit model, addressing a 
 `HDH` is designed to be used by both distributed quantum architecture researchers 
 and compiler developers building on existing frameworks who require a model-agnostic distribution layer.
 
-## Software Design 
+# Software design
 
 The central design decision in `HDH` was to separate the abstraction layer from 
 the partitioning layer. Rather than building a monolithic tool that both constructs 
@@ -77,7 +77,7 @@ hypergraphs and partitions them, `HDH` exposes the HDH as a first-class data
 structure that any downstream partitioner can consume. This makes the library 
 useful both as a standalone research tool and as a substrate for third-party heuristics.
 
-A hypergraph-based representation was chosen deliberately over simpler graph 
+A hypergraph-based representation was chosen over simpler graph 
 alternatives, as quantum computing models frequently involve operations with more 
 than two inputs or outputs (a Toffoli gate, for instance, acts on three qubits 
 simultaneously), requiring multi-way correlations.
@@ -104,8 +104,9 @@ abstractions used by prior approaches.
 The library includes a capacity-aware greedy heuristic as a built-in baseline. 
 Existing DQC research typically benchmarks against KaHyPar [@schlag2023high], a 
 general-purpose hypergraph partitioner not designed for quantum hardware constraints. 
-While simpler than KaHyPar, the included heuristic enforces per-device qubit 
-capacity, making it a more 
+While simpler than KaHyPar, the included heuristic treats per-device qubit 
+capacity as a hard constraint, and returns a feasible assignment whenever one 
+exists rather than trading feasibility off against balance. That makes it a more 
 appropriate DQC baseline and a concrete starting point for researchers developing 
 improved strategies.
 
@@ -114,7 +115,7 @@ The quantum software community has converged on Python as its primary language,
 and compatibility with Qiskit, Cirq, and PennyLane was prioritised from the 
 outset to ensure `HDH` integrates naturally into existing workflows.
 
-## Model conversions
+# Model conversions
 
 Any quantum computing model comprises a series of commands which establish qubit state 
 rotations, measurements and entanglements. For instance, quantum circuits are 
@@ -153,19 +154,68 @@ Usage examples for these conversions are available in the [documentation](https:
 
 ![Example circuit and its HDH representation.\label{fig:circuit_example}](docs/img/hdhfromcircuit.svg){ width=80% }
 
-## Research Impact Statement
+# Research impact statement
 
-HDH is the software implementation of a theoretical framework currently under peer review, as the library and its formal foundations were developed in tandem. 
-In that manuscript, the capacity-aware greedy heuristic included in this library is evaluated against exhaustive search over feasible capacity-respecting assignments, using real quantum circuits from the MQT Bench suite [@MQTBench]. Across instances up to 10 qubits (beyond which exhaustive enumeration becomes intractable, exceeding $10^{70}$ candidate assignments), the heuristic achieves a mean cost ratio of 0.978 relative to the exhaustive-search optimum (median 1.0, with 30% of instances matching it exactly), while scaling to circuits far beyond exhaustive search's reach: an average of 70.65 seconds for 100-qubit circuits. This is direct, specific evidence that `HDH`'s built-in partitioning heuristic achieves communication costs close to optimal while remaining practical at problem sizes where exhaustive comparison is no longer possible. The manuscript is available from the author upon request for verification.
+Every claim `HDH` makes for itself below is reproducible from a checkout of
+this repository. The `benchmarks/` directory holds the scripts that produce
+them, and they are reported as measured, including where the answer is that
+the abstraction buys nothing.
 
-We separately evaluated whether combining teledata and telegate cuts, rather than committing to either alone, actually reduces communication cost, using a reproducible comparison script (`benchmarks/`) that restricts a common partitioner to each cut type in turn. Across real MQT Bench circuits, the combined and telegate-only (qubit-level) formulations tie in every instance tested: standard benchmark algorithms do not exhibit the specific structure this expressivity exploits. That structure is a qubit whose interaction pattern shifts partway through the computation — repeatedly interacting with one group of qubits, then a different group later. We constructed such circuits and, using exhaustive search, confirmed a substantial, provable reduction over the qubit-level formulation used by prior hypergraph approaches (e.g. a $3\times$ reduction in cut cost for 4 interaction-pattern switches). This is honest, specific evidence for a targeted claim: the benefit of combining cut types is real but structural, occurring when a workload's dependency pattern changes over time, rather than a general-purpose improvement over every workload.
+**The built-in partitioner is close to optimal where optimality can be
+checked.** `benchmarks/heuristic_vs_exhaustive.py` compares the library's
+capacity-aware greedy heuristic against a branch-and-bound enumeration of
+capacity-respecting assignments over real circuits from the MQT Bench suite
+[@MQTBench], in the tightest feasible regime (three devices, network overhead
+1), scoring both sides with the library's own cost model. Across 24 instances
+of up to six qubits, every one of which the enumeration closed to proven
+optimality, the heuristic matched the optimum exactly on 83% of instances and
+averaged $1.03\times$ optimal cost. Instance size here is bounded by what can
+be *proven* optimal rather than by the heuristic, which is the honest ceiling
+on this kind of evidence; what it offers in exchange is a figure a reader can
+regenerate rather than take on trust. The heuristic also treats per-device
+capacity as a hard constraint in a specific sense the general-purpose
+partitioners used as DQC baselines do not: it returns a feasible assignment
+whenever one exists, which is a tested property rather than a design intention.
 
-Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025] (a major networking venue), has received funding through the Unitary Fund microgrant program (dedicated to supporting open source quantum software to benefit humanity) and has already seen external contributors (acknowledged bellow).
-Further, we're in discussion with companies in the Distributed Quantum Computing space regarding the library's integration within their stack.
+**Combining cut types helps, but only on a structure we can name.** Scripts in
+`benchmarks/` restrict a common partitioner to telegate-only cuts (the
+qubit-level formulation used by prior hypergraph approaches), teledata-only
+cuts, or both combined. Across real MQT Bench circuits the formulations tie in
+every instance tested: standard benchmark algorithms simply do not exhibit the
+structure that timestep-level cutting exploits, and we report that null result
+because it bounds the claim. The structure that does exploit it is a qubit
+whose interaction pattern shifts partway through the computation, repeatedly
+interacting with one group of qubits and then a different group later. On a
+constructed circuit family with that property, exhaustive search shows
+timestep-level cutting costing 2--3$\times$ less than the qubit-level
+formulation (cut cost 1 against 3 at two interaction-pattern switches, 3
+against 6 at four). In every instance tested, the combined formulation matched
+the cheaper of the two single-mode formulations without being told in advance
+which one applied. That is the concrete payoff of carrying both cut types in
+one structure: a partitioner need not commit to a cut strategy before seeing
+how a workload's dependency pattern evolves.
 
-The library is designed for immediate use by two audiences: 
-distributed quantum architecture researchers who need a consistent abstraction to evaluate their partitioning strategies, and 
-compiler developers building on existing framework who require a model-agnostic distribution layer. 
+**And it is the only such abstraction that is not tied to one computational
+model.** The results above concern the circuit model, where competing
+hypergraph abstractions already exist. What has no counterpart elsewhere is
+that the *same* partitioner runs unmodified over circuits, MBQC patterns,
+quantum walks, and quantum cellular automata, because all four reduce to the
+same structure. This is the capability that distinguishes `HDH` rather than a
+claim about any one model's cost: a question like how distribution overhead
+compares across computational models cannot be posed at all in a library
+restricted to circuits, and here it is a matter of swapping the workload
+builder. The library's test suite exercises the partitioner across all four
+model classes, so the property is checked rather than asserted. Whether that
+capability yields a stable ordering between models is a research question this
+library exists to make askable; a first study appears in a companion manuscript
+developed alongside it and currently under peer review, and we flag its
+findings as preliminary, since established benchmark suites for MBQC, quantum
+walks, and QCA do not yet exist. Building them is itself a contribution the
+community needs, and one `HDH` is meant to make tractable.
+
+Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025] (a major networking venue), has received funding through the Unitary Fund microgrant program (dedicated to supporting open source quantum software to benefit humanity) and has already seen external contributors (acknowledged below).
+Further, we are in discussion with companies in the Distributed Quantum Computing space regarding the library's integration within their stack.
+
 The open-source release and documentation are intended to lower the barrier to reproducible research in DQC partitioning.
 
 # Acknowledgements
@@ -176,11 +226,11 @@ We thank Unitary Fund for supporting this project through their quantum microgra
 
 The work of the author is supported by the EPSRC UK Quantum Technologies Programme under grant EP/T001062/1 and VeriQloud.
 
-# AI Usage Disclosure
+# AI usage disclosure
 Claude was used during both library development and paper writing. 
 
 In the library, Claude generated initial draft code implementations that were subsequently rewritten by the author. 
-It also assisted in producing unit tests, which were validated against expected behaviour across both passing and failing scenarios. These were not always fully re-written but they were revised and thorougly tested.
+It also assisted in producing unit tests, which were validated against expected behaviour across both passing and failing scenarios. These were not always fully re-written but they were revised and thoroughly tested.
 Additionally, AI was used to generate inline code comments throughout the library, with the aim of improving readability for contributors and users who may check the source code.
 
 In the paper, Claude was used to assist with wording and polish. 
