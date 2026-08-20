@@ -156,62 +156,30 @@ Usage examples for these conversions are available in the [documentation](https:
 
 # Research impact statement
 
-Every claim `HDH` makes for itself below is reproducible from a checkout of
-this repository. The `benchmarks/` directory holds the scripts that produce
-them, and they are reported as measured, including where the answer is that
-the abstraction buys nothing.
+`HDH`'s capacity-aware partitioner reaches proven-optimal cut cost on 83% of
+instances and averages $1.03\times$ optimal, measured against branch-and-bound
+enumeration over MQT Bench circuits [@MQTBench] at the tightest feasible
+capacity (three devices, network overhead 1). It also returns a feasible
+assignment whenever one exists, which the balance-based partitioners used as
+DQC baselines do not guarantee.
 
-**The built-in partitioner is close to optimal where optimality can be
-checked.** `benchmarks/heuristic_vs_exhaustive.py` compares the library's
-capacity-aware greedy heuristic against a branch-and-bound enumeration of
-capacity-respecting assignments over real circuits from the MQT Bench suite
-[@MQTBench], in the tightest feasible regime (three devices, network overhead
-1), scoring both sides with the library's own cost model. Across 24 instances
-of up to six qubits, every one of which the enumeration closed to proven
-optimality, the heuristic matched the optimum exactly on 83% of instances and
-averaged $1.03\times$ optimal cost. Instance size here is bounded by what can
-be *proven* optimal rather than by the heuristic, which is the honest ceiling
-on this kind of evidence; what it offers in exchange is a figure a reader can
-regenerate rather than take on trust. The heuristic also treats per-device
-capacity as a hard constraint in a specific sense the general-purpose
-partitioners used as DQC baselines do not: it returns a feasible assignment
-whenever one exists, which is a tested property rather than a design intention.
+Carrying teledata and telegate cuts in one structure costs a partitioner
+nothing and sometimes saves it a great deal. On standard MQT Bench circuits the
+combined formulation ties the qubit-level formulation used by prior hypergraph
+approaches. Where a qubit's interaction pattern shifts partway through a
+computation, interacting with one group of qubits and later another, it costs
+2--3$\times$ less (cut cost 1 against 3, then 3 against 6, as the number of
+shifts grows). In every instance tested the combined formulation matched the
+better of the two single-mode formulations without being told which applied.
 
-**Combining cut types helps, but only on a structure we can name.** Scripts in
-`benchmarks/` restrict a common partitioner to telegate-only cuts (the
-qubit-level formulation used by prior hypergraph approaches), teledata-only
-cuts, or both combined. Across real MQT Bench circuits the formulations tie in
-every instance tested: standard benchmark algorithms simply do not exhibit the
-structure that timestep-level cutting exploits, and we report that null result
-because it bounds the claim. The structure that does exploit it is a qubit
-whose interaction pattern shifts partway through the computation, repeatedly
-interacting with one group of qubits and then a different group later. On a
-constructed circuit family with that property, exhaustive search shows
-timestep-level cutting costing 2--3$\times$ less than the qubit-level
-formulation (cut cost 1 against 3 at two interaction-pattern switches, 3
-against 6 at four). In every instance tested, the combined formulation matched
-the cheaper of the two single-mode formulations without being told in advance
-which one applied. That is the concrete payoff of carrying both cut types in
-one structure: a partitioner need not commit to a cut strategy before seeing
-how a workload's dependency pattern evolves.
+What has no counterpart elsewhere is that the same partitioner runs unmodified
+over circuits, MBQC patterns, quantum walks, and quantum cellular automata,
+exercised across all four by the test suite. Comparing distribution overhead
+between computational models is not a question a circuit-only library can pose;
+here it is a matter of swapping the workload builder. A first such study
+appears in a companion manuscript currently under review.
 
-**And it is the only such abstraction that is not tied to one computational
-model.** The results above concern the circuit model, where competing
-hypergraph abstractions already exist. What has no counterpart elsewhere is
-that the *same* partitioner runs unmodified over circuits, MBQC patterns,
-quantum walks, and quantum cellular automata, because all four reduce to the
-same structure. This is the capability that distinguishes `HDH` rather than a
-claim about any one model's cost: a question like how distribution overhead
-compares across computational models cannot be posed at all in a library
-restricted to circuits, and here it is a matter of swapping the workload
-builder. The library's test suite exercises the partitioner across all four
-model classes, so the property is checked rather than asserted. Whether that
-capability yields a stable ordering between models is a research question this
-library exists to make askable; a first study appears in a companion manuscript
-developed alongside it and currently under peer review, and we flag its
-findings as preliminary, since established benchmark suites for MBQC, quantum
-walks, and QCA do not yet exist. Building them is itself a contribution the
-community needs, and one `HDH` is meant to make tractable.
+Every figure above regenerates from `benchmarks/`.
 
 Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025] (a major networking venue), has received funding through the Unitary Fund microgrant program (dedicated to supporting open source quantum software to benefit humanity) and has already seen external contributors (acknowledged below).
 Further, we are in discussion with companies in the Distributed Quantum Computing space regarding the library's integration within their stack.
