@@ -25,6 +25,10 @@ site/
 # Other test docs
 .tests/private_test.py
 notes.text
+.tests/cut_type_comparison.py
 
 # Database workload files
 database/Workloads/Circuit/MQTBench/
+
+# Regeneratable benchmark output (run benchmarks/*.py to reproduce)
+benchmarks/results/

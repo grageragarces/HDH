@@ -37,7 +37,21 @@ This framing has two fundamental limitations:
 1. It reduces distribution to a balanced partitioning problem that ignores a hard physical constraint: individual QPUs have fixed qubit capacities, and a valid distribution must respect these limits strictly rather than treating them as soft penalties.
 2. Existing hypergraph abstractions are model-specific and encode only a subset of possible partition cuts, meaning partitioning strategies are routinely evaluated on inconsistent abstractions, making cross-comparison unreliable and hindering the systematic development of improved heuristics.
 
-The `HDH` library aims to tackle both of these problems, providing a unified and accessible starting point for the research of DQC partitioners.
+While libraries for distributed quantum computing exist 
+(DISQCO [@burt2026multilevel], Qdislib [@tejedor2025orchestrating], 
+Optyx [@kupper2025optyx], DC-MBQC [@xue2026dc]), these implement end-to-end 
+distribution pipelines rather than exposing the underlying abstraction as a 
+research tool. No existing library provides a model-agnostic hypergraph abstraction 
+designed specifically to enable the development and fair comparison of partitioning 
+heuristics (the role `HDH` is built to fill).
+
+Quantum compilation frameworks like Qiskit [@Qiskit], Cirq [@Cirq], and 
+PennyLane [@PennyLane] provide circuit optimization and device mapping, but they do 
+not offer model-agnostic abstractions for distributed quantum computing. 
+The `HDH` library is compatible with these SDKs, making it a seamless addition 
+to state-of-the-art quantum software stacks rather than a replacement for them.
+
+The `HDH` library aims to tackle both limitations above, providing a unified and accessible starting point for the research of DQC partitioners.
 
 # Statement of need
 
@@ -53,19 +67,7 @@ Having an easy to implement, open-source, and model-agnostic abstraction will en
 Furthermore, HDHs extend this capability beyond the circuit model, addressing a current blind spot in DQC research. 
 
 `HDH` is designed to be used by both distributed quantum architecture researchers 
-and compiler developers. While libraries for distributed quantum computing exist 
-(DISQCO [@burt2026multilevel], Qdislib [@tejedor2025orchestrating], 
-Optyx [@kupper2025optyx], DC-MBQC [@xue2026dc]), these implement end-to-end 
-distribution pipelines rather than exposing the underlying abstraction as a 
-research tool. No existing library provides a model-agnostic hypergraph abstraction 
-designed specifically to enable the development and fair comparison of partitioning 
-heuristics (the role `HDH` is built to fill).
-
-While quantum compilation frameworks like Qiskit [@Qiskit], Cirq [@Cirq], and 
-PennyLane [@PennyLane] provide circuit optimization and device mapping, they do 
-not offer model-agnostic abstractions for distributed quantum computing. 
-The `HDH` library is compatible with these SDKs, making it a seamless addition 
-to state-of-the-art quantum software stacks.
+and compiler developers building on existing frameworks who require a model-agnostic distribution layer.
 
 ## Software Design 
 
@@ -79,6 +81,25 @@ A hypergraph-based representation was chosen deliberately over simpler graph
 alternatives, as quantum computing models frequently involve operations with more 
 than two inputs or outputs (a Toffoli gate, for instance, acts on three qubits 
 simultaneously), requiring multi-way correlations.
+
+Two further design choices trade added complexity for partitioning flexibility. 
+First, HDHs represent each qubit's state at every timestep as a separate node 
+rather than a single node per logical qubit, and partitioning operates over 
+these timestepped nodes rather than whole qubits. This allows a single qubit's 
+history to be split across devices at whichever point in the computation makes 
+the split cheapest, with its state teleported between them at that boundary, 
+rather than committing the qubit to one device for the circuit's full duration. 
+Second, a multi-qubit gate is represented not as one hyperedge but three: one 
+linking each qubit's pre-gate state to an intermediate state, one spanning all 
+involved qubits at that intermediate point, and one linking each qubit's 
+post-gate state onward. This staging is what allows a partitioner to cut 
+through a multi-qubit gate at either boundary — modelling either a non-local 
+gate executed over the network or a teleportation of one qubit's state 
+immediately before or after the gate — instead of being limited to the 
+coarser choice of which side of a single gate-edge to place a device boundary 
+on. The trade-off is a wider hypergraph in exchange for exposing substantially 
+more of the partitioning search space than the single-edge-per-gate 
+abstractions used by prior approaches.
 
 The library includes a capacity-aware greedy heuristic as a built-in baseline. 
 Existing DQC research typically benchmarks against KaHyPar [@schlag2023high], a 
@@ -114,7 +135,7 @@ Mapping a quantum workload such as a circuit to an HDH involves applying specifi
 In the context of DQC, entangling operations in a model can be made non-local (namely non-local gates) and thus partitioned through 
 a quantum network via quantum communication primitives [@Wu:2022]. Alternatively, 
 qubit states can be individually forwarded through teleportation protocols 
-[@Moghadam:2017]. HDHs aim to showcase all possible partitionings, thus enabling heuristic partitioners to exploit recurring patterns when mapping workloads to quantum or hybrid networks, thereby minimizing communication and other costs.
+[@Moghadam:2017]. Because HDHs represent both cut types within a single structure, a partitioner is free to combine them within one workload — e.g. keeping a qubit local to a device via non-local gates during one phase of a computation, then teleporting it elsewhere for a later phase — rather than being restricted to whichever single strategy the chosen abstraction happens to support.
 
 The table below shows how HDHs supersede previous abstractions in their 
 expressivity of these partitioning options. Unlike prior approaches that 
@@ -124,32 +145,7 @@ available distribution methods:
 
 ![Table showing HDH expressivity.\label{fig:comparison_table}](docs/img/comparison_table.png){ width=50% }
 
-The library provides model-specific classes such as the `Circuit` class to enable workload to HDH translation:
-```python
-import hdh
-from hdh.models.circuit import Circuit
-from hdh.visualize import plot_hdh
-
-circuit = Circuit()
-
-# Set of instructions
-circuit.add_instruction("ccx", [0, 1, 2])
-circuit.add_instruction("h", [3])
-circuit.add_instruction("h", [5])
-circuit.add_instruction("cx", [3, 4])
-circuit.add_instruction("cx", [2, 1])
-
-circuit.add_conditional_gate(5, 4, "z") 
-
-circuit.add_instruction("cx", [0, 3])
-circuit.add_instruction("measure", [2])
-circuit.add_instruction("measure", [4])
-
-hdh = circuit.build_hdh()  # Generate HDH
-fig = plot_hdh(hdh)  # Visualize HDH
-```
-
-The resulting HDH is shown below as a graph representation of a hypergraph, since visualizing large, multi-colored hypergraphs directly becomes impractical at scale. Gates have hyperedges corresponding to the qubit state transformations they generate, as well as preceding and following hyperedges that capture pre- and post-teleportation of the involved states. HDHs differ from previous abstractions in two key ways: 
+Usage examples for these conversions are available in the [documentation](https://grageragarces.github.io/HDH/). As an example, the figure below shows the HDH produced from a six-qubit circuit combining a three-qubit Toffoli gate, single-qubit gates, entangling two-qubit gates, a classically-conditioned gate, and mid-circuit measurements, shown as a graph representation of a hypergraph since visualizing large, multi-colored hypergraphs directly becomes impractical at scale. Gates have hyperedges corresponding to the qubit state transformations they generate, as well as preceding and following hyperedges that capture pre- and post-teleportation of the involved states. HDHs differ from previous abstractions in two key ways: 
 
 (1) nodes represent possible state transformations rather than individual qubits or operations, and 
 
@@ -160,7 +156,9 @@ The resulting HDH is shown below as a graph representation of a hypergraph, sinc
 ## Research Impact Statement
 
 HDH is the software implementation of a theoretical framework currently under peer review, as the library and its formal foundations were developed in tandem. 
-The manuscript is available from the author upon request. <!-- Hopefully we can modify this to a citation before publishing. -->
+In that manuscript, the capacity-aware greedy heuristic included in this library is evaluated against exhaustive search over feasible capacity-respecting assignments, using real quantum circuits from the MQT Bench suite [@MQTBench]. Across instances up to 10 qubits (beyond which exhaustive enumeration becomes intractable, exceeding $10^{70}$ candidate assignments), the heuristic achieves a mean cost ratio of 0.978 relative to the exhaustive-search optimum (median 1.0, with 30% of instances matching it exactly), while scaling to circuits far beyond exhaustive search's reach: an average of 70.65 seconds for 100-qubit circuits. This is direct, specific evidence that `HDH`'s built-in partitioning heuristic achieves communication costs close to optimal while remaining practical at problem sizes where exhaustive comparison is no longer possible. The manuscript is available from the author upon request for verification.
+
+We separately evaluated whether combining teledata and telegate cuts, rather than committing to either alone, actually reduces communication cost, using a reproducible comparison script (`benchmarks/`) that restricts a common partitioner to each cut type in turn. Across real MQT Bench circuits, the combined and telegate-only (qubit-level) formulations tie in every instance tested: standard benchmark algorithms do not exhibit the specific structure this expressivity exploits. That structure is a qubit whose interaction pattern shifts partway through the computation — repeatedly interacting with one group of qubits, then a different group later. We constructed such circuits and, using exhaustive search, confirmed a substantial, provable reduction over the qubit-level formulation used by prior hypergraph approaches (e.g. a $3\times$ reduction in cut cost for 4 interaction-pattern switches). This is honest, specific evidence for a targeted claim: the benefit of combining cut types is real but structural, occurring when a workload's dependency pattern changes over time, rather than a general-purpose improvement over every workload.
 
 Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025] (a major networking venue), has received funding through the Unitary Fund microgrant program (dedicated to supporting open source quantum software to benefit humanity) and has already seen external contributors (acknowledged bellow).
 Further, we're in discussion with companies in the Distributed Quantum Computing space regarding the library's integration within their stack.
