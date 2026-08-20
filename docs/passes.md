@@ -22,11 +22,15 @@ The main partitioning function is `compute_cut`, which implements the **Capacity
 
 #### Default cut algorithm
 
-The default capacity-aware HDH partitioning algorithm operates in three phases. 
+The default capacity-aware HDH partitioning algorithm operates in three phases.
+
+Before describing them, one piece of accounting governs all three. Capacity is charged **per (bin, qubit) pair**, so a qubit whose timeline is split across bins occupies a slot in *each* of them. Splitting is therefore budgeted rather than free: of the `k × cap` available slots, one is reserved for every qubit not yet placed anywhere, and only the surplus may be spent on splits. At zero slack (`k × cap == n_qubits`) no splits are affordable and the algorithm degenerates to qubit-level assignment, which is the only feasible shape; slack is what buys the freedom to cut a qubit's timeline. This budget is what guarantees `compute_cut` returns a complete assignment whenever `k × cap ≥ n_qubits`.
 
 ##### Phase 1: Greedy bin filling via temporal expansion
 
-The algorithm begins by selecting the earliest unassigned HDH node as a seed and opening a new bin associated with a target QPU. The bin is expanded forward in time: at each step, the algorithm identifies a frontier of unassigned nodes connected to the current bin via time-respecting HDH dependencies. From this frontier, it selects the node whose inclusion minimizes the incremental communication cost, subject to the bin's capacity constraint. Candidates that would exceed capacity are excluded.
+The algorithm opens a new bin for a target QPU and seeds it with the earliest unassigned node **whose qubit no bin owns yet**. Seeding on an already-placed qubit would open the bin with a split, and thus spend a slot before the bin has done any work; if only such nodes remain, they cost nothing to absorb into the bin that already holds them and are left to Phase 3.
+
+The bin is then expanded forward in time: at each step, the algorithm identifies a frontier of unassigned nodes connected to the current bin via time-respecting HDH dependencies. From this frontier, it selects the node whose inclusion minimizes the incremental communication cost. A candidate is excluded if it would introduce a new qubit into a bin already at `cap`, or if it would create a split the remaining slot budget cannot cover.
 Ties are broken in the following order: 
 (1) nodes on the same qubit as the seed are preferred, 
 (2) among remaining ties, earlier nodes are selected first. 
@@ -34,17 +38,13 @@ If an operation produces multiple successor nodes, each is evaluated independent
 
 ##### Phase 2: Sequential bin construction
 
-Once no further admissible expansions remain (either due to capacity saturation or an exhausted frontier) the current bin is closed and the next bin is opened for the next available QPU. This repeats until all QPUs have been assigned or no unassigned nodes remain.
+Expansion continues until the frontier holds no admissible candidate — **not** until the bin reaches `cap` distinct qubits. A bin at its qubit cap can still absorb further nodes of the qubits it already holds, because those cost no capacity, and stopping at the cap would leave exactly those nodes behind to be picked up as the next bin's seed, splitting a qubit that never needed splitting. Once no admissible expansion remains the bin is closed and the next is opened for the next available QPU. This repeats until all QPUs have been used or no unassigned nodes remain.
 
 ##### Phase 3: Residual assignment
 
-If unassigned nodes remain after all bins have been instantiated, the algorithm attempts to place them in 
-a best-fit procedure (assigning the next remaining node minimum incremental cost).
-A node is assigned to a bin only if doing so does not introduce a new qubit beyond the bin’s remaining capacity.
-Nodes that cannot be placed in any bin without violating capacity constraints are left unassigned. 
-This occurs when the remaining nodes cannot be placed without exceeding the available capacity of all devices.
-of a given network prior to partitioning, avoiding infeasible instances.
-This phase ensures completeness of the assignment under the imposed capacity constraints.
+If unassigned nodes remain after all bins have been instantiated, the algorithm places them by best fit, taking the next remaining node and assigning it at minimum incremental cost. A node may go to a bin only if doing so neither introduces a new qubit beyond that bin's remaining capacity nor creates a split the slot budget cannot cover. Among bins of equal incremental cost, one that already owns the node's qubit wins, since that placement is free where any other spends a slot.
+
+Because the slot budget is maintained throughout, a node can only be left unplaced when the instance admits no assignment at all — that is, when `k × cap` is smaller than the number of distinct qubits in the workload. Rather than return a partial partition, which would silently under-report the cut cost, `compute_cut` raises `RuntimeError` in that case.
 
 ---
 

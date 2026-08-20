@@ -424,20 +424,57 @@ class TestCutCorrectness:
             "compute_cut must report the true cut cost of the partition it returns"
         )
 
-    def test_compute_cut_raises_instead_of_silently_dropping_nodes(self):
-        # Same chain circuit, but capacity is tight enough (cap == n_qubits / k
-        # exactly) that the greedy heuristic can strand a qubit with nowhere
-        # left to go. Before the fix, compute_cut silently dropped that qubit's
-        # nodes and under-reported the cut cost instead of failing.
+    def _chain_hdh(self):
         qc = QuantumCircuit(4)
         qc.h(0)
         qc.cx(0, 1)
         qc.cx(1, 2)
         qc.cx(2, 3)
-        hdh = from_qiskit(qc)
+        return from_qiskit(qc)
+
+    def test_compute_cut_solves_zero_slack_instance(self):
+        # cap * k == n_qubits exactly: every qubit gets one slot and none are
+        # left over for splitting a timeline across bins. {q0,q1}/{q2,q3} cuts
+        # a single gate. The greedy used to strand a qubit here and raise,
+        # because it spent slots splitting qubits that never needed splitting.
+        hdh = self._chain_hdh()
+
+        partitions, _ = compute_cut(hdh, k=2, cap=2)
+
+        assert set().union(*partitions) == hdh.S, "every node must be placed"
+        qubits_per_bin = [
+            {int(n[1:].split("_")[0]) for n in part if n.startswith("q")}
+            for part in partitions
+        ]
+        assert sorted(sorted(b) for b in qubits_per_bin) == [[0, 1], [2, 3]]
+        for bin_qubits in qubits_per_bin:
+            assert len(bin_qubits) <= 2, "capacity must hold"
+
+    def test_compute_cut_does_not_split_qubits_without_slack(self):
+        # With zero slack no qubit may appear in more than one bin, or some
+        # other qubit is left without a slot.
+        hdh = self._chain_hdh()
+
+        partitions, _ = compute_cut(hdh, k=2, cap=2)
+
+        seen = {}
+        for idx, part in enumerate(partitions):
+            for node in part:
+                if not node.startswith("q"):
+                    continue
+                qubit = int(node[1:].split("_")[0])
+                assert seen.setdefault(qubit, idx) == idx, (
+                    f"qubit {qubit} was split across bins despite zero slack"
+                )
+
+    def test_compute_cut_raises_when_capacity_genuinely_insufficient(self):
+        # k * cap < n_qubits: no assignment exists at all. Returning a partial
+        # partition would silently under-report the cut cost, so this must
+        # raise rather than drop nodes.
+        hdh = self._chain_hdh()
 
         with pytest.raises(RuntimeError):
-            compute_cut(hdh, k=2, cap=2)
+            compute_cut(hdh, k=2, cap=1)
 
 
 # ---------------------------------------------------------------------------

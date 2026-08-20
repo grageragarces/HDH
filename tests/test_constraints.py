@@ -709,3 +709,133 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+# ---------------------------------------------------------------------------
+# Capacity feasibility of the greedy partitioner
+# ---------------------------------------------------------------------------
+
+import re
+
+from hdh.passes.cut import compute_cut
+
+_Q = re.compile(r"^q(\d+)_t\d+$")
+
+
+def _qubits_in(partition):
+    return {int(m.group(1)) for m in (_Q.match(n) for n in partition) if m}
+
+
+def _chain(n_qubits):
+    """Linear entangling chain: q0-q1-...-q(n-1)."""
+    circuit = Circuit()
+    circuit.add_instruction("h", [0])
+    for i in range(n_qubits - 1):
+        circuit.add_instruction("cx", [i, i + 1])
+    return circuit.build_hdh()
+
+
+def _star(n_qubits):
+    """One control entangling with every other qubit in turn."""
+    circuit = Circuit()
+    circuit.add_instruction("h", [0])
+    for i in range(1, n_qubits):
+        circuit.add_instruction("cx", [0, i])
+    return circuit.build_hdh()
+
+
+class TestPartitionerCapacityFeasibility:
+    """Whenever k * cap >= n_qubits a valid assignment exists, so the greedy
+    must produce one. It previously spent capacity slots splitting qubit
+    timelines across bins and could strand a qubit with nowhere to go, raising
+    RuntimeError on instances that were plainly satisfiable."""
+
+    @pytest.mark.parametrize("builder", [_chain, _star])
+    @pytest.mark.parametrize("n_qubits", [4, 6, 8])
+    def test_places_every_node_whenever_capacity_suffices(self, builder, n_qubits):
+        hdh = builder(n_qubits)
+        for k in (2, 3, 4):
+            for cap in range(1, n_qubits + 1):
+                if k * cap < n_qubits:
+                    continue  # genuinely infeasible; covered separately
+                partitions, _ = compute_cut(hdh, k, cap)
+
+                assert set().union(*partitions) == hdh.S, (
+                    f"nodes dropped at k={k}, cap={cap}"
+                )
+                for partition in partitions:
+                    assert len(_qubits_in(partition)) <= cap, (
+                        f"capacity exceeded at k={k}, cap={cap}"
+                    )
+
+    def test_no_gratuitous_split_at_zero_slack(self):
+        # k * cap == n_qubits leaves no spare slot, so no qubit may occupy more
+        # than one bin.
+        hdh = _chain(6)
+        partitions, _ = compute_cut(hdh, k=3, cap=2)
+
+        owner = {}
+        for idx, partition in enumerate(partitions):
+            for qubit in _qubits_in(partition):
+                assert owner.setdefault(qubit, idx) == idx, (
+                    f"qubit {qubit} split across bins with no slack to spare"
+                )
+
+    def test_raises_when_no_assignment_exists(self):
+        hdh = _chain(6)
+        with pytest.raises(RuntimeError):
+            compute_cut(hdh, k=2, cap=2)  # 4 slots for 6 qubits
+
+
+class TestPartitionerIsModelAgnostic:
+    """The same partitioner must run unmodified over every computational model
+    the library represents — that is the point of a model-agnostic
+    abstraction, and it is the claim the paper makes for it."""
+
+    @staticmethod
+    def _circuit_hdh(n_qubits):
+        return _chain(n_qubits)
+
+    @staticmethod
+    def _mbqc_hdh(n_qubits):
+        from hdh.models.mbqc import MBQC
+
+        mbqc = MBQC()
+        for i in range(n_qubits):
+            mbqc.add_operation("N", [], f"q{i}")
+        for i in range(n_qubits - 1):
+            mbqc.add_operation("E", [f"q{i}", f"q{i+1}"], f"q{i+1}")
+        return mbqc.build_hdh()
+
+    @staticmethod
+    def _qw_hdh(steps):
+        from hdh.models.qw import QW
+
+        walk = QW()
+        node = "q0"
+        for _ in range(steps):
+            node = walk.add_shift(walk.add_coin(node))
+        return walk.build_hdh()
+
+    @staticmethod
+    def _qca_hdh(n_cells):
+        from hdh.models.qca import QCA
+
+        topology = {f"q{i}": [f"q{(i + 1) % n_cells}"] for i in range(n_cells)}
+        return QCA(topology=topology, measurements=set(), steps=2).build_hdh()
+
+    @pytest.mark.parametrize(
+        "builder",
+        ["_circuit_hdh", "_mbqc_hdh", "_qw_hdh", "_qca_hdh"],
+    )
+    def test_compute_cut_runs_on_every_model(self, builder):
+        hdh = getattr(self, builder)(6)
+        n_qubits = len(
+            {n.split("_")[0] for n in hdh.S if n.startswith("q")}
+        )
+        cap = max(1, -(-n_qubits // 3))  # ceil, three devices
+
+        partitions, _ = compute_cut(hdh, 3, cap)
+
+        assert set().union(*partitions) == hdh.S
+        for partition in partitions:
+            assert len(_qubits_in(partition)) <= cap

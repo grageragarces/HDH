@@ -506,13 +506,12 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
         if node in unassigned and node not in rejected:
             candidates.append(node)
     
-    # Put back only the nodes we examined but didn't select as candidates
-    for item in examined:
-        _, _, node = item
-        if node not in candidates and node in unassigned and node not in rejected:
-            heapq.heappush(frontier, item)
-    
     if not candidates:
+        # Nothing selectable: restore everything we popped and give up.
+        for item in examined:
+            _, _, node = item
+            if node in unassigned and node not in rejected:
+                heapq.heappush(frontier, item)
         return None
     
     # Score each candidate by (delta_cost, qubit_not_in_bin, time, node_id)
@@ -570,11 +569,11 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
                 seed: int = 0) -> Tuple[List[Set[str]], int]:
     """
     Capacity-aware temporal greedy partitioner for HDH graphs.
-    
+
     Implements the algorithm from the paper with cost-aware improvements:
     - Cost-aware greedy frontier selection using delta cost evaluation
     - Best-fit residual round-robin placement
-    
+
     Works directly on the HDH hypergraph structure:
     - Partitions at the NODE level (nodes like "q0_t1", "q1_t2", etc.)
     - Uses temporal hyperedge connectivity from HDH.C
@@ -582,7 +581,27 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     - Allows teledata cuts (same qubit in different partitions)
     - Priority queue selects earliest-time unassigned neighbors
     - Delta cost guides selection among top-k frontier candidates
-        
+
+    Capacity accounting and the split budget:
+        Capacity is charged per (bin, qubit) pair, so a qubit whose timeline is
+        split across bins occupies a slot in *each* of them. Splitting is
+        therefore a budgeted decision, not a free one: of the ``k * cap``
+        available slots, one is reserved for every qubit not yet placed
+        anywhere, and only the surplus may be spent on splits. Three rules
+        follow from that budget, and together they guarantee a complete
+        assignment whenever ``k * cap >= n_qubits``:
+
+        - A bin keeps absorbing nodes of qubits it already holds even after it
+          reaches ``cap`` distinct qubits, since those cost no capacity.
+        - A new bin is seeded on a qubit no bin owns yet, so opening a bin
+          never itself creates a split.
+        - A split is permitted only while the remaining slots still cover
+          every qubit that has not been placed anywhere.
+
+        At zero slack (``k * cap == n_qubits``) this degenerates to
+        qubit-level assignment, which is the only feasible shape; slack is
+        what buys the freedom to cut a qubit's timeline.
+
     Args:
         hdh_graph: HDH object with .S (nodes), .C (hyperedges), .time_map
         k: Number of partitions (QPUs)
@@ -600,10 +619,12 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         cost: Total communication cost (number of cut hyperedges)
 
     Raises:
-        RuntimeError: If the greedy heuristic can't place every node within
-            the given `k`/`cap` capacity constraints. This means no feasible
-            full assignment was found — try a larger `cap` and/or `k` rather
-            than relying on a partial, silently-wrong result.
+        RuntimeError: If no complete assignment could be built. Because the
+            split budget above keeps the search feasible whenever one exists,
+            in practice this means the instance itself is infeasible —
+            ``k * cap`` is smaller than the number of distinct qubits. Returning
+            a partial partition would silently under-report the cut cost, so
+            this is raised instead. Increase `cap` and/or `k`.
     """
     if not hdh_graph.S or not hdh_graph.C:
         return [set() for _ in range(k)], 0
@@ -616,7 +637,37 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     unassigned = set(hdh_graph.S)
     partition_qubits = [set() for _ in range(k)]  # Track unique qubits per partition
     used = [0] * k  # Track number of unique qubits used per partition
-    
+
+    # Capacity is charged per (bin, qubit) pair, so a qubit whose timeline is
+    # split across bins occupies a slot in each one. That makes splits a scarce
+    # resource: of the k*cap slots, one is needed per still-unplaced qubit and
+    # only the surplus can be spent on splitting. Tracking that surplus is what
+    # keeps the greedy from splitting itself into a state where some qubit has
+    # nowhere left to go.
+    all_qubits = {q for q in (_extract_qubit_id(n) for n in hdh_graph.S)
+                  if q is not None}
+    assigned_qubits: Set[int] = set()   # qubits held by at least one bin
+    total_slots = k * cap
+    slots_used = 0                      # == sum(len(pq) for pq in partition_qubits)
+
+    def _split_is_safe() -> bool:
+        """Whether one more split still leaves every unplaced qubit a slot."""
+        return (total_slots - slots_used - 1) >= (len(all_qubits) - len(assigned_qubits))
+
+    def _place(node: str, bin_idx: int) -> None:
+        """Assign a node to a bin, keeping qubit and slot bookkeeping in step."""
+        nonlocal slots_used
+        partitions[bin_idx].add(node)
+        unassigned.discard(node)
+        q = _extract_qubit_id(node)
+        if q is None:
+            return
+        if q not in partition_qubits[bin_idx]:
+            partition_qubits[bin_idx].add(q)
+            used[bin_idx] = len(partition_qubits[bin_idx])
+            slots_used += 1
+        assigned_qubits.add(q)
+
     # QPU order (for now, just sequential; could be topology-aware)
     qpu_order = list(range(k))
     
@@ -627,27 +678,32 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         if not unassigned:
             break
         
-        # Select seed: lowest-index unassigned node
-        seed_node = min(unassigned, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
-        
+        # Seed on a qubit no bin owns yet. Seeding on an already-placed qubit
+        # opens the bin with a split, which is what used to strand later qubits
+        # when capacity was tight. If only such nodes remain they cost nothing
+        # to absorb into the bin that already holds them, so leave them to the
+        # residual phase.
+        seed_pool = [n for n in unassigned
+                     if _extract_qubit_id(n) not in assigned_qubits]
+        if not seed_pool:
+            break
+        seed_node = min(seed_pool, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
+
         # Initialize bin with seed - update partitions immediately
-        partitions[bin_idx].add(seed_node)
-        unassigned.remove(seed_node)
-        
-        # Track qubits in this bin
-        seed_qubit = _extract_qubit_id(seed_node)
-        if seed_qubit is not None:
-            partition_qubits[bin_idx].add(seed_qubit)
-            used[bin_idx] = len(partition_qubits[bin_idx])
-        
+        _place(seed_node, bin_idx)
+
         # Initialize frontier with seed's neighbors
         frontier = []  # Min-heap of (time, counter, node)
         counter = [0]  # Counter for tie-breaking
         rejected = set()  # Nodes rejected due to capacity in this bin
         _push_next_valid_neighbors(hdh_graph, seed_node, frontier, unassigned, inc, pins, counter)
         
-        # Greedy temporal expansion with cost-aware selection
-        while used[bin_idx] < cap:
+        # Greedy temporal expansion with cost-aware selection. Deliberately not
+        # bounded by `used[bin_idx] < cap`: a bin holding `cap` qubits can still
+        # absorb further nodes of those same qubits at zero capacity cost, and
+        # stopping at the cap left exactly those nodes behind to be picked up as
+        # the next bin's seed - splitting a qubit that never needed splitting.
+        while True:
             # Select best node from frontier using delta cost (excluding rejected)
             next_node = _select_best_from_frontier_with_rejected(frontier, unassigned, rejected,
                                                                   bin_idx, partitions, inc, pins, beam_k,
@@ -658,23 +714,19 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
             
             # Check if adding this node would exceed capacity
             next_qubit = _extract_qubit_id(next_node)
-            if next_qubit is not None:
-                # Would this introduce a new qubit?
-                if next_qubit not in partition_qubits[bin_idx]:
-                    if used[bin_idx] + 1 > cap:
-                        # Would exceed capacity, reject and try next candidate
-                        rejected.add(next_node)
-                        continue
-            
-            # Add node to partition immediately (not just to local variable)
-            partitions[bin_idx].add(next_node)
-            unassigned.remove(next_node)
-            
-            # Update qubit tracking
             if next_qubit is not None and next_qubit not in partition_qubits[bin_idx]:
-                partition_qubits[bin_idx].add(next_qubit)
-                used[bin_idx] = len(partition_qubits[bin_idx])
-            
+                if used[bin_idx] + 1 > cap:
+                    # Would exceed capacity, reject and try next candidate
+                    rejected.add(next_node)
+                    continue
+                if next_qubit in assigned_qubits and not _split_is_safe():
+                    # This split would claim the last slot some unplaced qubit needs
+                    rejected.add(next_node)
+                    continue
+
+            # Add node to partition immediately (not just to local variable)
+            _place(next_node, bin_idx)
+
             # Push this node's neighbors to frontier
             _push_next_valid_neighbors(hdh_graph, next_node, frontier, unassigned, inc, pins, counter)
     
@@ -690,41 +742,38 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         node = min(remaining, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
         node_qubit = _extract_qubit_id(node)
         
-        # Compute delta cost for each bin and find best fit
+        # Compute delta cost for each bin and find best fit. Among bins with
+        # equal delta, prefer one that already owns the qubit: that placement is
+        # free, where any other bin spends a capacity slot on a split.
         best_bin = None
-        best_delta = float('inf')
-        
+        best_score = None
+
         for bin_idx in range(k):
             # Check capacity constraint
-            can_add = True
-            if node_qubit is not None:
-                if node_qubit not in partition_qubits[bin_idx]:
-                    if used[bin_idx] >= cap:
-                        can_add = False
-            
-            if can_add:
-                delta = _compute_delta_cost_simple(node, bin_idx, partitions, inc, pins)
-                if delta < best_delta:
-                    best_delta = delta
-                    best_bin = bin_idx
-        
+            is_split = False
+            if node_qubit is not None and node_qubit not in partition_qubits[bin_idx]:
+                if used[bin_idx] >= cap:
+                    continue
+                is_split = node_qubit in assigned_qubits
+                if is_split and not _split_is_safe():
+                    continue
+
+            delta = _compute_delta_cost_simple(node, bin_idx, partitions, inc, pins)
+            score = (delta, 1 if is_split else 0, bin_idx)
+            if best_score is None or score < best_score:
+                best_score = score
+                best_bin = bin_idx
+
         # Place node in best bin
         if best_bin is not None:
-            partitions[best_bin].add(node)
-            unassigned.remove(node)
-            
-            # Update qubit tracking only if this is a new qubit for this bin
-            if node_qubit is not None and node_qubit not in partition_qubits[best_bin]:
-                partition_qubits[best_bin].add(node_qubit)
-                used[best_bin] = len(partition_qubits[best_bin])
+            _place(node, best_bin)
         else:
             # Try teledata fallback: find a bin where this qubit already exists
             placed = False
             if node_qubit is not None:
                 for b in range(k):
                     if node_qubit in partition_qubits[b]:
-                        partitions[b].add(node)
-                        unassigned.remove(node)
+                        _place(node, b)
                         placed = True
                         break
             
