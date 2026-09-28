@@ -34,6 +34,22 @@ combining teledata and telegate cuts.
   reached in the time allowed. Only rows with `exhaustive_timed_out ==
   False` have a proven optimum as the denominator.
 
-Run either sweep directly (`python -m benchmarks.mqtbench_sweep` /
-`python -m benchmarks.switching_sweep`) from the repo root; each writes a
-CSV and a PNG to `benchmarks/results/` (gitignored — regenerate on demand).
+Run each script from the repo root; each writes a CSV and a PNG to
+`benchmarks/results/` (gitignored — regenerate on demand).
+
+## Where each number in the paper comes from
+
+Every quantitative claim in the paper's Research Impact Statement
+regenerates from one of these commands. The scripts are deterministic.
+
+| Command | Output | Paper claim |
+|---|---|---|
+| `python -m benchmarks.heuristic_vs_exhaustive --max-qubits 6` | `heuristic_vs_exhaustive_summary.csv` | share of instances where `compute_cut` is proven optimal, and its mean cost ratio |
+| `python -m benchmarks.mqtbench_sweep` | `mqtbench_summary.csv` | combined vs single-mode cut costs on MQT Bench, and placement-unit counts |
+| `python -m benchmarks.switching_sweep` | `switching_sweep.csv` | exact cut costs as a qubit's interaction pattern shifts |
+
+`mqtbench_sweep.csv` and `switching_sweep.csv` record, per row, the number
+of placement units each mode exposes (`units_<mode>`): the atomic groups of
+HDH nodes the placer assigns. `combined` places every node on its own,
+`telegate_only` contracts each qubit's timeline into one unit, and
+`teledata_only` each multi-qubit gate's nodes.

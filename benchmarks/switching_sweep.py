@@ -59,6 +59,7 @@ def run(switch_counts=range(1, 5), k=2, cap=2, time_limit_s=60):
             cost, timed_out, n_units = exhaustive_optimal(hdh, k, cap, mode, time_limit_s)
             row[mode] = cost
             row[f"{mode}_timed_out"] = timed_out
+            row[f"units_{mode}"] = n_units
             if timed_out:
                 print(
                     f"  WARNING: switches={switches} mode={mode} did not finish "

@@ -52,6 +52,14 @@ CIRCUITS = ["ghz", "graphstate", "wstate", "qft", "qftentangled", "qpeexact"]
 SIZES = [3, 4, 5, 6, 7, 8, 9, 10]
 K_DEVICES = 3
 
+# MQT Bench's graphstate builds a random regular graph unless seeded, so an
+# unseeded run gives different circuits (and cut costs) every time.
+GRAPH_SEED = 0
+
+
+def _benchmark_kwargs(name):
+    return {"seed": GRAPH_SEED} if name == "graphstate" else {}
+
 
 def _qubit_of(node_id: str):
     """Qubit index a node belongs to, or None for classical nodes (which do
@@ -172,7 +180,8 @@ def run(sizes=SIZES, circuits=CIRCUITS, k=K_DEVICES, time_limit_s=60.0):
             # network overhead 1: total capacity across k devices == circuit width
             cap = math.ceil(n_qubits / k)
             try:
-                qc = get_benchmark(name, BenchmarkLevel.INDEP, circuit_size=n_qubits)
+                qc = get_benchmark(name, BenchmarkLevel.INDEP, circuit_size=n_qubits,
+                                   **_benchmark_kwargs(name))
             except Exception as exc:  # size unsupported for this benchmark
                 print(f"{name:13s} n={n_qubits}: skipped ({exc})")
                 continue
@@ -206,23 +215,44 @@ def run(sizes=SIZES, circuits=CIRCUITS, k=K_DEVICES, time_limit_s=60.0):
 
 
 def summarize(rows):
+    """Exact summary statistics. Only rows whose search completed have a
+    proven optimum, so "optimal" figures are reported over those alone;
+    the all-rows figures compare against the best assignment the capped
+    search reached."""
     ratios = [r["cost_ratio"] for r in rows if r["cost_ratio"] is not None]
     if not ratios:
         return {}
-    completed = [r for r in rows if not r["exhaustive_timed_out"] and r["cost_ratio"] is not None]
+    completed = [r["cost_ratio"] for r in rows
+                 if not r["exhaustive_timed_out"] and r["cost_ratio"] is not None]
+    optimal = sum(1 for r in completed if abs(r - 1.0) < 1e-9)
     return {
         "instances": len(ratios),
         "mean_cost_ratio": round(statistics.mean(ratios), 4),
         "median_cost_ratio": round(statistics.median(ratios), 4),
+        "max_cost_ratio": round(max(ratios), 4),
         "pct_matching_exactly": round(
             100 * sum(1 for r in ratios if abs(r - 1.0) < 1e-9) / len(ratios), 1
         ),
         "instances_search_completed": len(completed),
+        "instances_proven_optimal": optimal,
+        "pct_proven_optimal_of_completed": (
+            round(100 * optimal / len(completed), 1) if completed else None
+        ),
         "mean_cost_ratio_completed_only": (
-            round(statistics.mean([r["cost_ratio"] for r in completed]), 4)
-            if completed else None
+            round(statistics.mean(completed), 4) if completed else None
+        ),
+        "max_cost_ratio_completed_only": (
+            round(max(completed), 4) if completed else None
         ),
     }
+
+
+def save_summary(summary, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["statistic", "value"])
+        writer.writerows(summary.items())
 
 
 def save_csv(rows, path):
@@ -277,8 +307,10 @@ def main():
         return
     save_csv(rows, OUT_DIR / "heuristic_vs_exhaustive.csv")
     save_plot(rows, OUT_DIR / "heuristic_vs_exhaustive.png")
+    summary = summarize(rows)
+    save_summary(summary, OUT_DIR / "heuristic_vs_exhaustive_summary.csv")
     print("\nSummary:")
-    for key, value in summarize(rows).items():
+    for key, value in summary.items():
         print(f"  {key}: {value}")
 
 
