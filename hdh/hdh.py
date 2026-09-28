@@ -72,15 +72,18 @@ class HDH:
     built by `add_node`. Hyperedges connect a set of such nodes to represent
     one operation's effect on the states it touches.
 
+    Each core attribute has a readable name and a formal one matching the
+    notation of the HDH paper; both refer to the same object.
+
     Attributes:
-        S: All node IDs in the hypergraph.
-        C: All hyperedges, each a `frozenset` of node IDs.
-        T: All distinct timesteps that appear in `time_map`.
-        sigma: Node ID -> `"q"` (quantum) or `"c"` (classical).
-        tau: Hyperedge -> `"q"` or `"c"`, mirroring `sigma` for edges.
-        upsilon: Node ID -> `"a"` (actualized) or `"p"` (potential/predicted,
-            e.g. a state that only exists if a classical condition holds).
-        phi: Hyperedge -> `"a"` or `"p"`, mirroring `upsilon` for edges.
+        nodes (S): All node IDs in the hypergraph.
+        hyperedges (C): All hyperedges, each a frozenset of node IDs.
+        timesteps (T): All distinct timesteps that appear in `time_map`.
+        node_types (sigma): Node ID -> `"q"` (quantum) or `"c"` (classical).
+        hyperedge_types (tau): Hyperedge -> `"q"` or `"c"`.
+        node_realisation (upsilon): Node ID -> `"a"` (actualized) or `"p"`
+            (predicted: only exists if a classical condition holds).
+        hyperedge_realisation (phi): Hyperedge -> `"a"` or `"p"`.
         time_map: Node ID -> the timestep it occurs at.
         wire_of: Node ID -> the wire (qubit, bit, or model label) it is a
             state of. Partitioners count capacity per quantum wire.
@@ -113,6 +116,43 @@ class HDH:
         self.edge_role: Dict[Hyperedge, str] = {}  # an EdgeRole value -> for primitive implementation
         self.motifs = {}
         self.edge_metadata: Dict[Hyperedge, Dict] = {}
+
+    # Readable names for the formal attributes above (same objects, not copies).
+
+    @property
+    def nodes(self) -> Set[NodeID]:
+        """All node IDs (`S` in the paper's notation)."""
+        return self.S
+
+    @property
+    def hyperedges(self) -> Set[Hyperedge]:
+        """All hyperedges (`C`)."""
+        return self.C
+
+    @property
+    def timesteps(self) -> Set[TimeStep]:
+        """All distinct timesteps (`T`)."""
+        return self.T
+
+    @property
+    def node_types(self) -> Dict[NodeID, str]:
+        """Node ID -> `"q"` or `"c"` (`sigma`)."""
+        return self.sigma
+
+    @property
+    def hyperedge_types(self) -> Dict[Hyperedge, str]:
+        """Hyperedge -> `"q"` or `"c"` (`tau`)."""
+        return self.tau
+
+    @property
+    def node_realisation(self) -> Dict[NodeID, str]:
+        """Node ID -> `"a"` or `"p"` (`upsilon`)."""
+        return self.upsilon
+
+    @property
+    def hyperedge_realisation(self) -> Dict[Hyperedge, str]:
+        """Hyperedge -> `"a"` or `"p"` (`phi`)."""
+        return self.phi
 
     @staticmethod
     def node_id(wire: str, time: TimeStep) -> NodeID:

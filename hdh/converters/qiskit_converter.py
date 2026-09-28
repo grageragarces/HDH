@@ -307,7 +307,7 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
     qubit_indices: Set[int] = set()
     bit_indices:   Set[int] = set()
 
-    for node_id in hdh.S:
+    for node_id in hdh.nodes:
         q = _parse_qubit(node_id)
         if q is not None:
             qubit_indices.add(q)
@@ -330,17 +330,17 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
 
     records: List[tuple] = []
 
-    for edge in hdh.C:
+    for edge in hdh.hyperedges:
         raw_name  = hdh.gate_name.get(edge, "")
-        edge_type = hdh.tau.get(edge, "q")
+        edge_type = hdh.hyperedge_types.get(edge, "q")
 
         if raw_name == "measure":
             q_nodes = sorted(
-                (n for n in edge if hdh.sigma.get(n) == "q"),
+                (n for n in edge if hdh.node_types.get(n) == "q"),
                 key=lambda n: hdh.time_map.get(n, 0),
             )
             c_nodes = sorted(
-                (n for n in edge if hdh.sigma.get(n) == "c"),
+                (n for n in edge if hdh.node_types.get(n) == "c"),
                 key=lambda n: hdh.time_map.get(n, 0),
             )
             if not q_nodes or not c_nodes:
@@ -370,7 +370,7 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
         q_indices   = [qubit_map[q] for q, _ in q_with_time if q in qubit_map]
         c_indices   = [bit_map[c] for c, _ in c_with_time if c in bit_map]
         sort_time   = min((t for _, t in q_with_time), default=0)
-        is_cond     = hdh.phi.get(edge) == "p"
+        is_cond     = hdh.hyperedge_realisation.get(edge) == "p"
 
         records.append((sort_time, actual_name, q_indices, c_indices, is_cond, hdh.gate_params.get(edge)))
 
@@ -429,18 +429,18 @@ def _project_hdh(hdh: HDH, node_set: Set[str]) -> HDH:
     sub = HDH()
 
     for nid in node_set:
-        if nid not in hdh.S:
+        if nid not in hdh.nodes:
             continue
-        sub.add_node(hdh.wire_of[nid], hdh.time_map[nid], hdh.sigma[nid], node_real=hdh.upsilon.get(nid, "a"))
+        sub.add_node(hdh.wire_of[nid], hdh.time_map[nid], hdh.node_types[nid], node_real=hdh.node_realisation.get(nid, "a"))
 
-    for edge in hdh.C:
+    for edge in hdh.hyperedges:
         if not edge.issubset(node_set):
             continue
         sub.add_hyperedge(
             set(edge),
-            hdh.tau[edge],
+            hdh.hyperedge_types[edge],
             name=hdh.gate_name.get(edge),
-            node_real=hdh.phi.get(edge, "a"),
+            node_real=hdh.hyperedge_realisation.get(edge, "a"),
             role=hdh.edge_role.get(edge),
         )
         if edge in hdh.edge_args:

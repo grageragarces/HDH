@@ -43,7 +43,7 @@ def _qubit_of(hdh, node: NodeID) -> Optional[str]:
     Read from the HDH (`sigma` and `wire_of`) rather than parsed from the node
     ID, so capacity is charged correctly whatever labels a model uses.
     """
-    if hdh.sigma.get(node) != "q":
+    if hdh.node_types.get(node) != "q":
         return None
     return hdh.wire_of[node]
 
@@ -53,7 +53,7 @@ def _attach_classical(hdh, classical_nodes: Iterable[NodeID],
     """Place each classical node with a quantum wire it shares a hyperedge
     with (they carry no capacity cost), or in block 0 if it touches none."""
     incident = defaultdict(set)
-    for edge in hdh.C:
+    for edge in hdh.hyperedges:
         wires = {_qubit_of(hdh, n) for n in edge} - {None}
         for n in edge:
             incident[n] |= wires
@@ -82,7 +82,7 @@ def kahypar_cutter(
     """Partition an HDH using the kahypar Python package.
 
     Args:
-        hdh: HDH object with .S (nodes) and .C (hyperedges)
+        hdh: The HDH to partition.
         k: number of partitions
         cap: max unique qubits per partition
         seed: RNG seed passed to KaHyPar (if supported)
@@ -109,7 +109,7 @@ def kahypar_cutter(
     qubit_nodes = defaultdict(list)  # q -> [node ids]
     classical_nodes: List[str] = []
 
-    for nid in getattr(hdh, "S", set()):
+    for nid in hdh.nodes:
         q = _qubit_of(hdh, nid)
         if q is not None:
             qubits.add(q)
@@ -145,7 +145,7 @@ def kahypar_cutter(
     hedge_pins: List[List[int]] = []
     hedge_weights: List[int] = []
 
-    for e in getattr(hdh, "C", set()):
+    for e in hdh.hyperedges:
         qs = {_qubit_of(hdh, nid) for nid in e} - {None}
         if len(qs) >= 2:
             hedge_pins.append([q_to_vid[q] for q in sorted(qs)])
@@ -277,7 +277,7 @@ def kahypar_cutter_nodebalanced(
     if k <= 0:
         raise ValueError("k must be >= 1")
 
-    nodes = sorted(list(getattr(hdh, "S", set())))
+    nodes = sorted(list(hdh.nodes))
     n = len(nodes)
     if n == 0:
         return [set() for _ in range(k)], 0
@@ -290,7 +290,7 @@ def kahypar_cutter_nodebalanced(
     # Build undirected hyperedges as pins (vertex IDs)
     hedge_pins: List[List[int]] = []
     hedge_weights: List[int] = []
-    for e in getattr(hdh, "C", set()):
+    for e in hdh.hyperedges:
         pins = [nid_to_vid[nid] for nid in e if nid in nid_to_vid]
         pins = sorted(set(pins))
         if len(pins) >= 2:
@@ -380,10 +380,10 @@ def _build_temporal_incidence(hdh) -> Tuple[Incidence, Pins]:
         inc: {node -> [(hyperedge, edge_time), ...]}
         pins: {hyperedge -> {nodes}}
     """
-    pins = {e: set(e) for e in hdh.C}
+    pins = {e: set(e) for e in hdh.hyperedges}
     inc = defaultdict(list)
     
-    for edge in hdh.C:
+    for edge in hdh.hyperedges:
         # Compute edge time as max of node times
         edge_times = [hdh.time_map.get(node, 0) for node in edge]
         edge_time = max(edge_times) if edge_times else 0
@@ -554,7 +554,7 @@ def _compute_cut_cost(hdh, node_assignment: Dict[str, int]) -> int:
     """
     cut_count = 0
     
-    for hyperedge in hdh.C:
+    for hyperedge in hdh.hyperedges:
         partitions_in_edge = set()
         for node in hyperedge:
             if node in node_assignment:
@@ -584,7 +584,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
 
     Works directly on the HDH hypergraph structure:
     - Partitions at the NODE level (nodes like "q0_t1", "q1_t2", etc.)
-    - Uses temporal hyperedge connectivity from HDH.C
+    - Uses temporal hyperedge connectivity from `HDH.hyperedges`
     - Respects capacity by counting unique QUBITS per partition
     - Allows teledata cuts (same qubit in different partitions)
     - Priority queue selects earliest-time unassigned neighbors
@@ -611,7 +611,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         what buys the freedom to cut a qubit's timeline.
 
     Args:
-        hdh_graph: HDH object with .S (nodes), .C (hyperedges), .time_map
+        hdh_graph: The HDH to partition.
         k: Number of partitions (QPUs)
         cap: Capacity per partition (max unique qubits, not nodes)
         beam_k: Beam width for frontier selection (default 3)
@@ -634,7 +634,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
             a partial partition would silently under-report the cut cost, so
             this is raised instead. Increase `cap` and/or `k`.
     """
-    if not hdh_graph.S or not hdh_graph.C:
+    if not hdh_graph.nodes or not hdh_graph.hyperedges:
         return [set() for _ in range(k)], 0
     
     # Build temporal incidence structure
@@ -642,7 +642,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     
     # Initialize partitions and tracking structures
     partitions = [set() for _ in range(k)]
-    unassigned = set(hdh_graph.S)
+    unassigned = set(hdh_graph.nodes)
     partition_qubits = [set() for _ in range(k)]  # Track unique qubits per partition
     used = [0] * k  # Track number of unique qubits used per partition
 
@@ -652,7 +652,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     # only the surplus can be spent on splitting. Tracking that surplus is what
     # keeps the greedy from splitting itself into a state where some qubit has
     # nowhere left to go.
-    all_qubits = {q for q in (_qubit_of(hdh_graph, n) for n in hdh_graph.S)
+    all_qubits = {q for q in (_qubit_of(hdh_graph, n) for n in hdh_graph.nodes)
                   if q is not None}
     assigned_qubits: Set[str] = set()   # qubits held by at least one bin
     total_slots = k * cap
@@ -822,7 +822,7 @@ def cost(hdh_graph, partitions) -> Tuple[float, float]:
             cost_q: number of quantum hyperedges that span multiple partitions
             cost_c: number of classical hyperedges that span multiple partitions
     """
-    if not partitions or not hasattr(hdh_graph, 'C'):
+    if not partitions or not hasattr(hdh_graph, 'hyperedges'):
         return 0.0, 0.0
     
     # Create mapping from node to partition index
@@ -835,7 +835,7 @@ def cost(hdh_graph, partitions) -> Tuple[float, float]:
     cost_q = 0  # Quantum cost
     cost_c = 0  # Classical cost
     
-    for edge in hdh_graph.C:
+    for edge in hdh_graph.hyperedges:
         # Get partitions of all nodes in this hyperedge
         edge_partitions = set()
         for node in edge:
@@ -851,8 +851,8 @@ def cost(hdh_graph, partitions) -> Tuple[float, float]:
             
             # Determine if edge is quantum or classical
             edge_type = 'q'  # Default to quantum
-            if hasattr(hdh_graph, 'tau'):
-                edge_type = hdh_graph.tau.get(edge, 'q')
+            if hasattr(hdh_graph, 'hyperedge_types'):
+                edge_type = hdh_graph.hyperedge_types.get(edge, 'q')
             
             if edge_type == 'q':
                 cost_q += edge_weight
@@ -933,13 +933,13 @@ def telegate_hdh(hdh: "HDH") -> nx.Graph:
     """
     G = nx.Graph()
 
-    for n in hdh.S:
+    for n in hdh.nodes:
         q = _qubit_of(hdh, n)
         if q is not None:
             G.add_node(q)
 
-    for e in hdh.C:
-        if hasattr(hdh, "tau") and hdh.tau.get(e, None) != "q":
+    for e in hdh.hyperedges:
+        if hasattr(hdh, "tau") and hdh.hyperedge_types.get(e, None) != "q":
             continue
         qs = {_qubit_of(hdh, node) for node in e} - {None}
         for u, v in itertools.combinations(sorted(qs), 2):
@@ -1117,7 +1117,7 @@ def participation(hdh_graph, partitions) -> Dict[str, float]:
     
     # Count active partitions per timestep
     timestep_participation = []
-    for t in sorted(hdh_graph.T):
+    for t in sorted(hdh_graph.timesteps):
         active_partitions = set()
         for node, time in hdh_graph.time_map.items():
             if time == t and node in node_to_partition:
@@ -1125,7 +1125,7 @@ def participation(hdh_graph, partitions) -> Dict[str, float]:
         timestep_participation.append(len(active_partitions))
     
     # Calculate metrics
-    num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
+    num_timesteps = len(hdh_graph.timesteps) if hdh_graph.timesteps else 1
     max_participation = max(timestep_participation) if timestep_participation else 0
     avg_participation = sum(timestep_participation) / num_timesteps if num_timesteps > 0 else 0
     
@@ -1179,7 +1179,7 @@ def parallelism(hdh_graph, partitions) -> Dict[str, float]:
     
     # Map each edge to its timestep based on its constituent nodes
     edge_to_time = {}
-    for edge in hdh_graph.C:
+    for edge in hdh_graph.hyperedges:
         # Get the timestep(s) of nodes in this edge
         edge_times = set()
         for node in edge:
@@ -1194,21 +1194,21 @@ def parallelism(hdh_graph, partitions) -> Dict[str, float]:
     timestep_operations = []
     total_operations = 0
     
-    for t in sorted(hdh_graph.T):
+    for t in sorted(hdh_graph.timesteps):
         # Count τ-edges executing at this timestep
         operations_at_t = 0
         
         for edge, edge_time in edge_to_time.items():
             if edge_time == t:
                 # Only count edges with a type defined (operations)
-                if hasattr(hdh_graph, 'tau') and edge in hdh_graph.tau:
+                if hasattr(hdh_graph, 'hyperedge_types') and edge in hdh_graph.hyperedge_types:
                     operations_at_t += 1
         
         timestep_operations.append(operations_at_t)
         total_operations += operations_at_t
     
     # Calculate metrics
-    num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
+    num_timesteps = len(hdh_graph.timesteps) if hdh_graph.timesteps else 1
     max_parallelism = max(timestep_operations) if timestep_operations else 0
     avg_parallelism = sum(timestep_operations) / num_timesteps if num_timesteps > 0 else 0
     
@@ -1277,7 +1277,7 @@ def fair_parallelism(hdh_graph, partitions, capacities: Optional[List[int]] = No
     # Map each edge to its timestep and partition
     edge_to_time = {}
     edge_to_partition = {}
-    for edge in hdh_graph.C:
+    for edge in hdh_graph.hyperedges:
         # Get the timestep(s) and partition(s) of nodes in this edge
         edge_times = set()
         edge_partitions = set()
@@ -1298,14 +1298,14 @@ def fair_parallelism(hdh_graph, partitions, capacities: Optional[List[int]] = No
     total_operations = 0
     total_raw_parallelism = 0
     
-    for t in sorted(hdh_graph.T):
+    for t in sorted(hdh_graph.timesteps):
         # Count operations per partition at this timestep
         partition_ops = [0] * len(partitions)
         
         for edge, edge_time in edge_to_time.items():
             if edge_time == t:
                 # Only count edges with a type defined (operations)
-                if hasattr(hdh_graph, 'tau') and edge in hdh_graph.tau:
+                if hasattr(hdh_graph, 'hyperedge_types') and edge in hdh_graph.hyperedge_types:
                     if edge in edge_to_partition:
                         p = edge_to_partition[edge]
                         partition_ops[p] += 1
@@ -1330,7 +1330,7 @@ def fair_parallelism(hdh_graph, partitions, capacities: Optional[List[int]] = No
         timestep_fair_parallelism.append(fair_p)
     
     # Calculate metrics
-    num_timesteps = len(hdh_graph.T) if hdh_graph.T else 1
+    num_timesteps = len(hdh_graph.timesteps) if hdh_graph.timesteps else 1
     max_fair_parallelism = max(timestep_fair_parallelism) if timestep_fair_parallelism else 0
     avg_fair_parallelism = sum(timestep_fair_parallelism) / num_timesteps if num_timesteps > 0 else 0
     avg_raw_parallelism = total_raw_parallelism / num_timesteps if num_timesteps > 0 else 0

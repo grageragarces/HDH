@@ -76,7 +76,7 @@ DEFAULT_PRIMITIVES = {
 #     for hdh in partitioned_hdhs:
 #         qc = QuantumCircuit(hdh.get_num_qubits())
         
-#         for edge in hdh.C:
+#         for edge in hdh.hyperedges:
 #             if hdh.edge_role.get(edge) in {"teledata", "telegate"}:
 #                 label = hdh.gate_name.get(edge)
 #                 if label in primitives:

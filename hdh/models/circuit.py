@@ -174,7 +174,7 @@ class Circuit:
                     q_in = f"q{qubit}_t{t_in}"
                     
                     # Check if node already exists - preserve its potential status
-                    if q_in not in hdh.S:
+                    if q_in not in hdh.nodes:
                         hdh.add_node(f"q{qubit}", t_in, "q", node_real="a")  # Default to actual
 
                     bit = cargs[i]

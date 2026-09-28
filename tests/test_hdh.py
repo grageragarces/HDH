@@ -208,3 +208,35 @@ class TestGetNumQubits:
         hdh.add_node("q0", 0)
         hdh.add_node("q9", 1, "c")
         assert hdh.get_num_qubits() == 1
+
+
+class TestReadableNames:
+    """Readable attribute names alias the paper-notation ones."""
+
+    PAIRS = [("nodes", "S"), ("hyperedges", "C"), ("timesteps", "T"),
+             ("node_types", "sigma"), ("hyperedge_types", "tau"),
+             ("node_realisation", "upsilon"), ("hyperedge_realisation", "phi")]
+
+    @pytest.mark.parametrize("readable, formal", PAIRS)
+    def test_same_object(self, readable, formal):
+        hdh = HDH()
+        assert getattr(hdh, readable) is getattr(hdh, formal)
+
+    def test_contents_match_after_building(self):
+        hdh = HDH()
+        a = hdh.add_node("q0", 0)
+        b = hdh.add_node("c0", 1, "c", node_real="p")
+        edge = hdh.add_hyperedge({a, b}, "c", node_real="p")
+
+        assert hdh.nodes == {a, b}
+        assert hdh.hyperedges == {edge}
+        assert hdh.timesteps == {0, 1}
+        assert hdh.node_types == {a: "q", b: "c"}
+        assert hdh.hyperedge_types == {edge: "c"}
+        assert hdh.node_realisation[b] == "p"
+        assert hdh.hyperedge_realisation[edge] == "p"
+
+    @pytest.mark.parametrize("readable, formal", PAIRS)
+    def test_read_only(self, readable, formal):
+        with pytest.raises(AttributeError):
+            setattr(HDH(), readable, set())

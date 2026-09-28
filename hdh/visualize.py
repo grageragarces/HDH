@@ -21,8 +21,8 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
     Returns:
         None.
     """
-    nodes = list(hdh.S)
-    edges = [tuple(e) for e in hdh.C]
+    nodes = list(hdh.nodes)
+    edges = [tuple(e) for e in hdh.hyperedges]
 
     if not nodes:
         print("Nothing to plot: the HDH has no nodes.")
@@ -61,8 +61,8 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
     for node in involved_nodes:
         if node in node_positions:
             x, y = node_positions[node]
-            node_type = hdh.sigma.get(node, "q")
-            is_predicted = hdh.upsilon.get(node, "a") == "p"
+            node_type = hdh.node_types.get(node, "q")
+            is_predicted = hdh.node_realisation.get(node, "a") == "p"
             color = {
                 "q": "black",
                 "ctrl": "black",
@@ -81,13 +81,13 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
     for edge in edges:
         edge_nodes = [n for n in edge if n in node_positions]
 
-        edge_type = hdh.tau.get(frozenset(edge))
+        edge_type = hdh.hyperedge_types.get(frozenset(edge))
         if edge_type is None:
-            node_types = [hdh.sigma.get(n, "q") for n in edge]
+            node_types = [hdh.node_types.get(n, "q") for n in edge]
             edge_type = "c" if all(t == "c" for t in node_types) else "q"
 
         color = "orange" if edge_type == "c" else "black"
-        is_predicted = hdh.phi.get(frozenset(edge), "a") == "p"
+        is_predicted = hdh.hyperedge_realisation.get(frozenset(edge), "a") == "p"
         line_style = '--' if is_predicted else '-'
 
         for i in range(len(edge_nodes)):
@@ -98,8 +98,8 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
                 if t1 == t2:
                     continue
 
-                type1 = hdh.sigma.get(n1, "q")
-                type2 = hdh.sigma.get(n2, "q")
+                type1 = hdh.node_types.get(n1, "q")
+                type2 = hdh.node_types.get(n2, "q")
                 if type1 == "ctrl" and type2 == "ctrl":
                     continue
 

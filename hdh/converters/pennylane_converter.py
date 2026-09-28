@@ -170,7 +170,7 @@ def to_pennylane(hdh: HDH) -> QuantumScript:
         QuantumScript: PennyLane representation.
     """
     qubit_indices: Set[int] = set()
-    for node_id in hdh.S:
+    for node_id in hdh.nodes:
         q = _parse_qubit(node_id)
         if q is not None:
             qubit_indices.add(q)
@@ -183,17 +183,17 @@ def to_pennylane(hdh: HDH) -> QuantumScript:
     # (sort_time, name, wires, cbit, is_cond, params)
     records: List[tuple] = []
 
-    for edge in hdh.C:
+    for edge in hdh.hyperedges:
         raw_name = hdh.gate_name.get(edge, "")
-        edge_type = hdh.tau.get(edge, "q")
+        edge_type = hdh.hyperedge_types.get(edge, "q")
 
         if raw_name == "measure":
             q_nodes = sorted(
-                (n for n in edge if hdh.sigma.get(n) == "q"),
+                (n for n in edge if hdh.node_types.get(n) == "q"),
                 key=lambda n: hdh.time_map.get(n, 0),
             )
             c_nodes = sorted(
-                (n for n in edge if hdh.sigma.get(n) == "c"),
+                (n for n in edge if hdh.node_types.get(n) == "c"),
                 key=lambda n: hdh.time_map.get(n, 0),
             )
             if not q_nodes or not c_nodes:
@@ -222,7 +222,7 @@ def to_pennylane(hdh: HDH) -> QuantumScript:
         actual_name = raw_name[:-7] if raw_name.endswith("_stage2") else raw_name
         wires = [qubit_map[q] for q, _ in q_with_time if q in qubit_map]
         sort_time = min((t for _, t in q_with_time), default=0)
-        is_cond = hdh.phi.get(edge) == "p"
+        is_cond = hdh.hyperedge_realisation.get(edge) == "p"
         cbit = c_with_time[0][0] if (is_cond and c_with_time) else None
 
         records.append((sort_time, actual_name, wires, cbit, is_cond, hdh.gate_params.get(edge)))

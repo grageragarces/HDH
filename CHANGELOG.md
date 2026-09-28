@@ -34,3 +34,7 @@
 - `NodeType`, `Realisation` and `EdgeRole` enums; `add_node` and
   `add_hyperedge` reject invalid values (#76).
 - `HDH.node_id(wire, time)` returns the ID `add_node` would build.
+- Readable names for the core attributes: `nodes`, `hyperedges`, `timesteps`,
+  `node_types`, `hyperedge_types`, `node_realisation` and
+  `hyperedge_realisation` alias `S`, `C`, `T`, `sigma`, `tau`, `upsilon` and
+  `phi`, which remain as the paper's notation (#79).
