@@ -1,4 +1,5 @@
 from collections import defaultdict
+import numbers
 from enum import Enum
 from typing import Dict, FrozenSet, Set, Tuple, List, Union, Optional
 
@@ -66,10 +67,10 @@ class HDH:
     `hdh.converters.qiskit_converter.from_qiskit` (or the Cirq/PennyLane/Braket
     equivalents).
 
-    Node IDs are strings of the form ``q{index}_t{timestep}`` (quantum) or
-    ``c{index}_t{timestep}`` (classical) — the prefix must always match the
-    node's `sigma` type, and hyperedges connect a set of such nodes to
-    represent one operation's effect on the states it touches.
+    Each node is the state of one *wire* (a qubit, a classical bit, or a
+    model-specific label) at one timestep, with ID ``"<wire>_t<time>"``
+    built by `add_node`. Hyperedges connect a set of such nodes to represent
+    one operation's effect on the states it touches.
 
     Attributes:
         S: All node IDs in the hypergraph.
@@ -81,6 +82,8 @@ class HDH:
             e.g. a state that only exists if a classical condition holds).
         phi: Hyperedge -> `"a"` or `"p"`, mirroring `upsilon` for edges.
         time_map: Node ID -> the timestep it occurs at.
+        wire_of: Node ID -> the wire (qubit, bit, or model label) it is a
+            state of. Partitioners count capacity per quantum wire.
         gate_name: Hyperedge -> the gate/operation name that produced it
             (e.g. ``"h"``, ``"cx_stage2"``, ``"measure"``).
         gate_params: Hyperedge -> rotation angles / gate parameters, for
@@ -103,6 +106,7 @@ class HDH:
         self.upsilon: Dict[NodeID, str] = {} # node realization, a Realisation value
         self.phi: Dict[Hyperedge, str] = {} # hyperedge realization, a Realisation value
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
+        self.wire_of: Dict[NodeID, str] = {}  # node -> the wire it is a state of
         self.gate_name: Dict[Hyperedge, str] = {}  # maps hyperedge → gate name string
         self.gate_params: Dict[Hyperedge, List[float]] = {}  # maps hyperedge → rotation params, if any
         self.edge_args: Dict[Hyperedge, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
@@ -110,37 +114,69 @@ class HDH:
         self.motifs = {}
         self.edge_metadata: Dict[Hyperedge, Dict] = {}
 
-    def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep, node_real: NodeReal = "a"):
-        """Add a node, or no-op if an identical node already exists.
+    @staticmethod
+    def node_id(wire: str, time: TimeStep) -> NodeID:
+        """The ID `add_node` gives the state of `wire` at `time`: ``"<wire>_t<time>"``."""
+        return f"{wire}_t{time}"
+
+    def add_node(self, wire: str, time: TimeStep, node_type: NodeType = NodeType.QUANTUM,
+                 node_real: NodeReal = Realisation.ACTUAL) -> NodeID:
+        """Add the state of `wire` at `time` and return its node ID.
+
+        The ID is built for you (see `node_id`), and the wire is recorded in
+        `wire_of`, so nothing about the node is passed twice. Adding the same
+        wire and time again is a no-op apart from updating `node_real`.
+
+        Example:
+            >>> hdh = HDH()
+            >>> hdh.add_node("q0", 1)
+            'q0_t1'
+            >>> hdh.add_node("c0", 2, "c")
+            'c0_t2'
 
         Args:
-            node_id: Node ID, e.g. ``"q0_t0"`` or ``"c1_t2"``. The leading
-                letter must match `node_type` ("q"/"c") — see `sigma`.
+            wire: The qubit, classical bit or other carrier this state belongs
+                to, e.g. ``"q0"``, ``"c1"`` or an MBQC label like ``"a"``.
+                Partitioners count capacity per quantum wire.
+            time: Timestep this state occurs at.
             node_type: A `NodeType`, or its value `"q"` / `"c"`.
-            time: Timestep this node occurs at.
             node_real: A `Realisation`, or its value `"a"` / `"p"`.
 
+        Returns:
+            NodeID: the node's ID, ``"<wire>_t<time>"``.
+
         Raises:
-            ValueError: If `node_type` or `node_real` is not a valid value,
-                or if `node_id` already exists with a *different*
-                `node_type`. Re-adding the same ID with the same type is
-                fine (e.g. a later gate referencing an already-created
-                input node) and simply leaves the existing node untouched.
+            TypeError: If called with the pre-0.5 signature
+                ``add_node(node_id, node_type, time)``.
+            ValueError: If `node_type` or `node_real` is not a valid value, or
+                the node already exists with a different `node_type`.
         """
+        if not isinstance(time, numbers.Integral) or isinstance(time, bool):
+            raise TypeError(
+                f"add_node(wire, time, node_type) expects an integer time, got {time!r}. "
+                f"Since hdh 0.5 the node ID is built from the wire and time: "
+                f"write add_node('q0', 1, 'q') instead of add_node('q0_t1', 'q', 1)."
+            )
+        if not isinstance(wire, str) or not wire:
+            raise TypeError(f"wire must be a non-empty string, got {wire!r}")
+        time = int(time)
         node_type = _coerce(NodeType, node_type, "node type")
         node_real = _coerce(Realisation, node_real, "node realisation")
+        node_id = self.node_id(wire, time)
         existing_type = self.sigma.get(node_id)
         if existing_type is not None and existing_type != node_type:
             raise ValueError(
                 f"Node '{node_id}' already exists with type '{existing_type}'; "
                 f"cannot redefine it as type '{node_type}'. This usually means two "
-                f"different logical values were mapped to the same node ID."
+                f"different logical values were mapped to the same wire label."
             )
         self.S.add(node_id)
         self.sigma[node_id] = node_type
+        self.wire_of[node_id] = wire
         self.time_map[node_id] = time
         self.T.add(time)
         self.upsilon[node_id] = node_real
+        return node_id
 
     def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, node_real: EdgeReal = "a", role: Optional[EdgeRole] = None) -> Hyperedge:
         """Add a hyperedge connecting `node_ids`, representing one operation.
@@ -210,24 +246,18 @@ class HDH:
         return False
 
     def get_num_qubits(self) -> int:
-        """Return the number of logical qubits, inferred from node IDs.
+        """Return the number of logical qubits (quantum wires).
 
-        Computed as `max(qubit_index) + 1` over every quantum node's index
-        (e.g. ``"q4_t2"`` -> qubit 4), not a stored count — so it reflects
-        the highest qubit index actually used, not necessarily how many
-        distinct qubits are involved (a circuit that only uses qubit 0 and
-        qubit 4 still reports 5).
+        Circuit-style wires ``q<index>`` report `max(index) + 1`, so a circuit
+        using only qubits 0 and 4 reports 5, matching the register size a
+        converter needs. If any quantum wire is named otherwise (MBQC or QCA
+        labels), the count of distinct quantum wires is returned instead.
 
         Returns:
             int: number of qubits, or 0 if there are no quantum nodes.
         """
-        qubit_indices = set()
-        for node_id in self.S:
-            if self.sigma[node_id] == 'q':
-                try:
-                    base = node_id.split('_')[0]  # e.g. "q4"
-                    idx = int(base[1:])  # skip 'q'
-                    qubit_indices.add(idx)
-                except:
-                    continue
-        return max(qubit_indices) + 1 if qubit_indices else 0
+        wires = {self.wire_of[n] for n in self.S if self.sigma[n] == NodeType.QUANTUM}
+        indices = [int(w[1:]) for w in wires if w[:1] == "q" and w[1:].isdigit()]
+        if len(indices) != len(wires):
+            return len(wires)
+        return max(indices) + 1 if indices else 0

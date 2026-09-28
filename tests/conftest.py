@@ -24,7 +24,7 @@ def empty_hdh():
 def simple_hdh():
     """Fixture for simple HDH with a few nodes"""
     hdh = HDH()
-    hdh.add_node("q0_t0", "q", 0)
-    hdh.add_node("q0_t1", "q", 1)
+    hdh.add_node("q0", 0, "q")
+    hdh.add_node("q0", 1, "q")
     hdh.add_hyperedge({"q0_t0", "q0_t1"}, "q", name="h")
     return hdh

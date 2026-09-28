@@ -795,10 +795,10 @@ def _detached_segment_hdh():
     the residual phase also meets q0_t5 before them.
     """
     hdh = HDH()
-    nodes = [("q0_t0", 0), ("q0_t1", 1), ("q1_t0", 0), ("q1_t1", 1), ("q0_t5", 5),
-             ("q2_t6", 6), ("q2_t7", 7), ("q3_t6", 6), ("q3_t7", 7)]
-    for node, t in nodes:
-        hdh.add_node(node, "q", t)
+    states = [("q0", 0), ("q0", 1), ("q1", 0), ("q1", 1), ("q0", 5),
+              ("q2", 6), ("q2", 7), ("q3", 6), ("q3", 7)]
+    for wire, t in states:
+        hdh.add_node(wire, t, "q")
     for edge in [("q0_t0", "q0_t1"), ("q1_t0", "q1_t1"), ("q1_t1", "q0_t5"),
                  ("q2_t6", "q2_t7"), ("q3_t6", "q3_t7")]:
         hdh.add_hyperedge(set(edge), "q")
@@ -844,9 +844,9 @@ class TestCost:
         # q0_t0 -q- q0_t1 -q- q1_t1 (a 3-node quantum edge with q2_t1),
         # and a classical edge from q1_t1 to c0_t2.
         hdh = HDH()
-        for node, kind, t in [("q0_t0", "q", 0), ("q0_t1", "q", 1), ("q1_t1", "q", 1),
-                              ("q2_t1", "q", 1), ("c0_t2", "c", 2)]:
-            hdh.add_node(node, kind, t)
+        for wire, kind, t in [("q0", "q", 0), ("q0", "q", 1), ("q1", "q", 1),
+                              ("q2", "q", 1), ("c0", "c", 2)]:
+            hdh.add_node(wire, t, kind)
         hdh.add_hyperedge({"q0_t0", "q0_t1"}, "q")
         hdh.add_hyperedge({"q0_t1", "q1_t1", "q2_t1"}, "q")
         hdh.add_hyperedge({"q1_t1", "c0_t2"}, "c")
@@ -890,53 +890,86 @@ class TestCost:
 class TestPartitionerIsModelAgnostic:
     """The same partitioner must run unmodified over every computational model
     the library represents — that is the point of a model-agnostic
-    abstraction, and it is the claim the paper makes for it."""
+    abstraction, and it is the claim the paper makes for it.
+
+    Each fixture declares its quantum and classical wire labels up front, and
+    capacity is checked against those declarations: a node's wire is found by
+    matching the fixture's own labels, never by reading `wire_of` or parsing a
+    ``q<int>`` pattern. MBQC and QCA deliberately use non-``q<int>`` labels,
+    which the partitioner used to ignore when counting capacity.
+    """
 
     @staticmethod
-    def _circuit_hdh(n_qubits):
-        return _chain(n_qubits)
+    def _circuit():
+        circuit = Circuit()
+        circuit.add_instruction("h", [0])
+        for i in range(5):
+            circuit.add_instruction("cx", [i, i + 1])
+        circuit.add_instruction("measure", [5], [0])
+        return circuit.build_hdh(), {f"q{i}" for i in range(6)}, {"c0"}
 
     @staticmethod
-    def _mbqc_hdh(n_qubits):
+    def _mbqc():
         from hdh.models.mbqc import MBQC
 
+        labels = ["a", "b", "c", "d", "e", "f"]
         mbqc = MBQC()
-        for i in range(n_qubits):
-            mbqc.add_operation("N", [], f"q{i}")
-        for i in range(n_qubits - 1):
-            mbqc.add_operation("E", [f"q{i}", f"q{i+1}"], f"q{i+1}")
-        return mbqc.build_hdh()
+        for label in labels:
+            mbqc.add_operation("N", [], label)
+        for x, y in zip(labels, labels[1:]):
+            mbqc.add_operation("E", [x, y], y)
+        mbqc.add_operation("M", ["a"], "m_a")
+        return mbqc.build_hdh(), set(labels), {"m_a"}
 
     @staticmethod
-    def _qw_hdh(steps):
+    def _qw():
         from hdh.models.qw import QW
 
         walk = QW()
-        node = "q0"
-        for _ in range(steps):
-            node = walk.add_shift(walk.add_coin(node))
-        return walk.build_hdh()
+        states = ["q0"]
+        for _ in range(3):
+            states.append(walk.add_coin(states[-1]))
+            states.append(walk.add_shift(states[-1]))
+        walk.add_measurement(states[-1], "m0")
+        return walk.build_hdh(), set(states), {"m0"}
 
     @staticmethod
-    def _qca_hdh(n_cells):
+    def _qca():
         from hdh.models.qca import QCA
 
-        topology = {f"q{i}": [f"q{(i + 1) % n_cells}"] for i in range(n_cells)}
-        return QCA(topology=topology, measurements=set(), steps=2).build_hdh()
+        cells = ["A", "B", "C", "D", "E", "F"]
+        topology = {c: [cells[(i + 1) % len(cells)]] for i, c in enumerate(cells)}
+        qca = QCA(topology=topology, measurements={"A", "C"}, steps=2)
+        return qca.build_hdh(), set(cells), {"c_A", "c_C"}
 
-    @pytest.mark.parametrize(
-        "builder",
-        ["_circuit_hdh", "_mbqc_hdh", "_qw_hdh", "_qca_hdh"],
-    )
-    def test_compute_cut_runs_on_every_model(self, builder):
-        hdh = getattr(self, builder)(6)
-        n_qubits = len(
-            {n.split("_")[0] for n in hdh.S if n.startswith("q")}
-        )
-        cap = max(1, -(-n_qubits // 3))  # ceil, three devices
+    @staticmethod
+    def _wire_by_label(node, labels):
+        """The declared label whose states look like ``<label>_t<int>``."""
+        matches = [l for l in labels
+                   if node.startswith(l + "_t") and node[len(l) + 2:].isdigit()]
+        assert len(matches) == 1, f"{node} matches labels {matches}"
+        return matches[0]
+
+    @pytest.mark.parametrize("builder", ["_circuit", "_mbqc", "_qw", "_qca"])
+    def test_compute_cut_respects_capacity_on_every_model(self, builder):
+        hdh, quantum, classical = getattr(self, builder)()
+        cap = -(-len(quantum) // 3)  # ceil: three devices, zero-ish slack
 
         partitions, _ = compute_cut(hdh, 3, cap)
 
         assert set().union(*partitions) == hdh.S
         for partition in partitions:
-            assert len(_qubits_in(partition)) <= cap
+            wires = {self._wire_by_label(n, quantum | classical) for n in partition}
+            assert len(wires & quantum) <= cap, (
+                f"{builder}: partition holds quantum wires {sorted(wires & quantum)} "
+                f"with cap={cap}"
+            )
+
+    @pytest.mark.parametrize("builder", ["_circuit", "_mbqc", "_qw", "_qca"])
+    def test_every_node_belongs_to_a_declared_wire(self, builder):
+        # Guards the fixtures themselves: a node outside the declared labels
+        # would be silently skipped by the capacity check above.
+        hdh, quantum, classical = getattr(self, builder)()
+        for node in hdh.S:
+            wire = self._wire_by_label(node, quantum | classical)
+            assert (wire in quantum) == (hdh.sigma[node] == "q"), node

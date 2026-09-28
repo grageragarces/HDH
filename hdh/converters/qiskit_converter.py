@@ -22,6 +22,9 @@ import re
 
 from hdh.models.circuit import Circuit
 
+# These converters target the circuit model only, whose HDHs name every
+# state q<index>_t<time> / c<index>_t<time>, so parsing the index is safe
+# here. Model-agnostic code should read `hdh.wire_of` instead.
 _Q_RE = re.compile(r'^q(\d+)_t\d+$')
 _C_RE = re.compile(r'^c(\d+)_t\d+$')
 
@@ -428,7 +431,7 @@ def _project_hdh(hdh: HDH, node_set: Set[str]) -> HDH:
     for nid in node_set:
         if nid not in hdh.S:
             continue
-        sub.add_node(nid, hdh.sigma[nid], hdh.time_map[nid], node_real=hdh.upsilon.get(nid, "a"))
+        sub.add_node(hdh.wire_of[nid], hdh.time_map[nid], hdh.sigma[nid], node_real=hdh.upsilon.get(nid, "a"))
 
     for edge in hdh.C:
         if not edge.issubset(node_set):

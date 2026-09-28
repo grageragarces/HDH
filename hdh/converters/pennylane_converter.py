@@ -18,6 +18,9 @@ def _wire_index_map(qs: QuantumScript) -> Dict[Any, int]:
     contiguous 0..n-1 qubit index, in wire-declaration order."""
     return {w: i for i, w in enumerate(qs.wires)}
 
+# These converters target the circuit model only, whose HDHs name every
+# state q<index>_t<time> / c<index>_t<time>, so parsing the index is safe
+# here. Model-agnostic code should read `hdh.wire_of` instead.
 _Q_RE = re.compile(r'^q(\d+)_t\d+$')
 _C_RE = re.compile(r'^c(\d+)_t\d+$')
 

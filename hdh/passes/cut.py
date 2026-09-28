@@ -20,7 +20,6 @@ Parallelism and Participation Metrics:
 # ------------------------------ Imports ------------------------------
 import math
 import os
-import re
 import itertools
 import random
 import heapq
@@ -36,10 +35,32 @@ Incidence = Dict[NodeID, List[Tuple[Hyperedge, int]]]
 Pins = Dict[Hyperedge, Set[NodeID]]
 from networkx.algorithms.community import kernighan_lin_bisection
 
-# ------------------------------ Regexes ------------------------------
-# useful for recognising qubit and bit IDs
-_Q_RE   = re.compile(r"^q(\d+)_t\d+$")
-_C_RE   = re.compile(r"^c(\d+)_t\d+$")
+# ------------------------------ Qubit identity ------------------------------
+
+def _qubit_of(hdh, node: NodeID) -> Optional[str]:
+    """The quantum wire `node` is a state of, or None for a classical node.
+
+    Read from the HDH (`sigma` and `wire_of`) rather than parsed from the node
+    ID, so capacity is charged correctly whatever labels a model uses.
+    """
+    if hdh.sigma.get(node) != "q":
+        return None
+    return hdh.wire_of[node]
+
+
+def _attach_classical(hdh, classical_nodes: Iterable[NodeID],
+                      block_of_qubit: Dict[str, int]) -> Dict[NodeID, int]:
+    """Place each classical node with a quantum wire it shares a hyperedge
+    with (they carry no capacity cost), or in block 0 if it touches none."""
+    incident = defaultdict(set)
+    for edge in hdh.C:
+        wires = {_qubit_of(hdh, n) for n in edge} - {None}
+        for n in edge:
+            incident[n] |= wires
+    return {
+        n: min((block_of_qubit[w] for w in incident[n] if w in block_of_qubit), default=0)
+        for n in classical_nodes
+    }
 
 # Bundled with the package (not looked up relative to the caller's CWD) so
 # kahypar_cutter's default config works regardless of where it's invoked from.
@@ -84,21 +105,17 @@ def kahypar_cutter(
         raise ValueError("k must be >= 1")
 
     # --- Build qubit vertex set ---
-    qubits: Set[int] = set()
+    qubits: Set[str] = set()
     qubit_nodes = defaultdict(list)  # q -> [node ids]
-    classical_nodes_by_idx = defaultdict(list)  # c -> [node ids]
+    classical_nodes: List[str] = []
 
     for nid in getattr(hdh, "S", set()):
-        qm = _Q_RE.match(nid)
-        if qm:
-            q = int(qm.group(1))
+        q = _qubit_of(hdh, nid)
+        if q is not None:
             qubits.add(q)
             qubit_nodes[q].append(nid)
-            continue
-        cm = _C_RE.match(nid)
-        if cm:
-            c = int(cm.group(1))
-            classical_nodes_by_idx[c].append(nid)
+        else:
+            classical_nodes.append(nid)
 
     qubit_list = sorted(qubits)
     n = len(qubit_list)
@@ -129,11 +146,7 @@ def kahypar_cutter(
     hedge_weights: List[int] = []
 
     for e in getattr(hdh, "C", set()):
-        qs = set()
-        for nid in e:
-            qm = _Q_RE.match(nid)
-            if qm:
-                qs.add(int(qm.group(1)))
+        qs = {_qubit_of(hdh, nid) for nid in e} - {None}
         if len(qs) >= 2:
             hedge_pins.append([q_to_vid[q] for q in sorted(qs)])
             hedge_weights.append(1)
@@ -142,11 +155,11 @@ def kahypar_cutter(
     if not hedge_pins:
         # Purely disconnected qubits: just pack sequentially.
         partitions = [set() for _ in range(k)]
-        for i, q in enumerate(qubit_list):
-            b = i % k
+        qubit_block = {q: i % k for i, q in enumerate(qubit_list)}
+        for q, b in qubit_block.items():
             partitions[b].update(qubit_nodes[q])
-            # Attach same-index classical nodes if present
-            partitions[b].update(classical_nodes_by_idx.get(q, []))
+        for nid, b in _attach_classical(hdh, classical_nodes, qubit_block).items():
+            partitions[b].add(nid)
         return partitions, _compute_cut_cost(hdh, {nid: b for b, part in enumerate(partitions) for nid in part})
 
     # Convert pins list to CSR-style arrays required by KaHyPar.
@@ -222,15 +235,9 @@ def kahypar_cutter(
 
     partitions: List[Set[str]] = [set() for _ in range(k)]
     for q, nodes in qubit_nodes.items():
-        b = qubit_block[q]
-        partitions[b].update(nodes)
-        # Attach same-index classical nodes if present
-        partitions[b].update(classical_nodes_by_idx.get(q, []))
-
-    # Any remaining classical nodes with indices not matching qubits go to block 0
-    for c_idx, nodes in classical_nodes_by_idx.items():
-        if c_idx not in qubit_nodes:
-            partitions[0].update(nodes)
+        partitions[qubit_block[q]].update(nodes)
+    for nid, b in _attach_classical(hdh, classical_nodes, qubit_block).items():
+        partitions[b].add(nid)
 
     node_assignment = {nid: b for b, part in enumerate(partitions) for nid in part}
     cut_cost = _compute_cut_cost(hdh, node_assignment)
@@ -365,12 +372,6 @@ def kahypar_cutter_nodebalanced(
 
 # ------------------------------- Greedy partitioning on HDH -------------------------------
 
-def _extract_qubit_id(node_id: str) -> Optional[int]:
-    """Extract qubit number from node ID like 'q5_t2' -> 5"""
-    m = _Q_RE.match(node_id)
-    return int(m.group(1)) if m else None
-
-
 def _build_temporal_incidence(hdh) -> Tuple[Incidence, Pins]:
     """
     Build temporal incidence structure for HDH.
@@ -477,7 +478,7 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
                                               inc: Incidence,
                                               pins: Pins,
                                               beam_k: int = 3,
-                                              partition_qubits: Optional[List[Set[int]]] = None,
+                                              partition_qubits: Optional[List[Set[str]]] = None,
                                               hdh_graph=None) -> Optional[str]:
     """
     Select next node from frontier using delta cost awareness, excluding rejected nodes.
@@ -526,7 +527,7 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
     scored = []
     for node in candidates:
         delta = _compute_delta_cost_simple(node, bin_idx, partitions, inc, pins)
-        node_qubit = _extract_qubit_id(node)
+        node_qubit = _qubit_of(hdh_graph, node) if hdh_graph is not None else None
         # 0 = qubit already in bin (preferred), 1 = new qubit
         qubit_in_bin = 0 if (partition_qubits is not None and node_qubit is not None
                              and node_qubit in partition_qubits[bin_idx]) else 1
@@ -651,9 +652,9 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
     # only the surplus can be spent on splitting. Tracking that surplus is what
     # keeps the greedy from splitting itself into a state where some qubit has
     # nowhere left to go.
-    all_qubits = {q for q in (_extract_qubit_id(n) for n in hdh_graph.S)
+    all_qubits = {q for q in (_qubit_of(hdh_graph, n) for n in hdh_graph.S)
                   if q is not None}
-    assigned_qubits: Set[int] = set()   # qubits held by at least one bin
+    assigned_qubits: Set[str] = set()   # qubits held by at least one bin
     total_slots = k * cap
     slots_used = 0                      # == sum(len(pq) for pq in partition_qubits)
 
@@ -666,7 +667,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         nonlocal slots_used
         partitions[bin_idx].add(node)
         unassigned.discard(node)
-        q = _extract_qubit_id(node)
+        q = _qubit_of(hdh_graph, node)
         if q is None:
             return
         if q not in partition_qubits[bin_idx]:
@@ -691,7 +692,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         # to absorb into the bin that already holds them, so leave them to the
         # residual phase.
         seed_pool = [n for n in unassigned
-                     if _extract_qubit_id(n) not in assigned_qubits]
+                     if _qubit_of(hdh_graph, n) not in assigned_qubits]
         if not seed_pool:
             break
         seed_node = min(seed_pool, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
@@ -720,7 +721,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
                 break  # No more valid neighbors
             
             # Check if adding this node would exceed capacity
-            next_qubit = _extract_qubit_id(next_node)
+            next_qubit = _qubit_of(hdh_graph, next_node)
             if next_qubit is not None and next_qubit not in partition_qubits[bin_idx]:
                 if used[bin_idx] + 1 > cap:
                     # Would exceed capacity, reject and try next candidate
@@ -747,7 +748,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
             break  # All remaining nodes are unplaceable
         
         node = min(remaining, key=lambda n: (hdh_graph.time_map.get(n, 0), n))
-        node_qubit = _extract_qubit_id(node)
+        node_qubit = _qubit_of(hdh_graph, node)
         
         # Compute delta cost for each bin and find best fit. Among bins with
         # equal delta, prefer one that already owns the qubit: that placement is
@@ -895,7 +896,7 @@ def partition_size(partitions) -> List[int]:
     return [len(partition) for partition in partitions]
 
 
-def partition_logical_qubit_size(partitions) -> List[int]:
+def partition_logical_qubit_size(hdh_graph, partitions) -> List[int]:
     """Return the number of *unique logical qubits* used in each partition.
 
     Notes
@@ -905,6 +906,7 @@ def partition_logical_qubit_size(partitions) -> List[int]:
     - In this codebase, capacity ``cap`` is defined in *logical qubits*.
 
     Args:
+        hdh_graph: The HDH the partitions were taken from.
         partitions: List[set[str]]; each set contains HDH node IDs.
 
     Returns:
@@ -915,11 +917,7 @@ def partition_logical_qubit_size(partitions) -> List[int]:
 
     sizes: List[int] = []
     for part in partitions:
-        qubits = set()
-        for nid in part:
-            m = _Q_RE.match(str(nid))
-            if m:
-                qubits.add(int(m.group(1)))
+        qubits = {_qubit_of(hdh_graph, nid) for nid in part} - {None}
         sizes.append(len(qubits))
     return sizes
 
@@ -929,30 +927,22 @@ def partition_logical_qubit_size(partitions) -> List[int]:
 def telegate_hdh(hdh: "HDH") -> nx.Graph:
     """
     Build the telegate graph of an HDH.
-    Nodes = qubits (as 'q{idx}').
+    Nodes = quantum wires (e.g. 'q0', or a model's own labels).
     Undirected edges = quantum operations between qubits (co-appearance in a quantum hyperedge).
     Edge attribute 'weight' counts multiplicity.
     """
     G = nx.Graph()
 
-    qubits_seen = set()
     for n in hdh.S:
-        m = _Q_RE.match(n)
-        if m:
-            qubits_seen.add(int(m.group(1)))
-    for q in qubits_seen:
-        G.add_node(f"q{q}")
+        q = _qubit_of(hdh, n)
+        if q is not None:
+            G.add_node(q)
 
     for e in hdh.C:
         if hasattr(hdh, "tau") and hdh.tau.get(e, None) != "q":
             continue
-        qs = []
-        for node in e:
-            m = _Q_RE.match(node)
-            if m:
-                qs.append(int(m.group(1)))
-        for a, b in itertools.combinations(sorted(set(qs)), 2):
-            u, v = f"q{a}", f"q{b}"
+        qs = {_qubit_of(hdh, node) for node in e} - {None}
+        for u, v in itertools.combinations(sorted(qs), 2):
             if G.has_edge(u, v):
                 G[u][v]["weight"] += 1
             else:

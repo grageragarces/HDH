@@ -74,6 +74,9 @@ available on your machine (e.g. via your OS package manager or built from
 source). Without it, `metis_telegate` automatically falls back to a
 Kernighan-Lin partition and reports which method it used.
 
+Upgrading from 0.4? `HDH.add_node` changed signature in 0.5 — see
+[CHANGELOG.md](CHANGELOG.md).
+
 ---
 ## Quickstart
 

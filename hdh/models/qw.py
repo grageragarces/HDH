@@ -52,15 +52,12 @@ class QW:
             in_time = time_map.get(a, 0)
             out_time = in_time + 1
 
-            in_id = f"{a}_t{in_time}"
-            out_id = f"{b}_t{out_time}"
-
             in_type = "q"
             out_type = "q" if op_type in {"K", "R"} else "c"
             edge_type = "q" if op_type in {"K", "R"} else "c"
 
-            hdh.add_node(in_id, in_type, in_time)
-            hdh.add_node(out_id, out_type, out_time)
+            in_id = hdh.add_node(a, in_time, in_type)
+            out_id = hdh.add_node(b, out_time, out_type)
             hdh.add_hyperedge({in_id, out_id}, edge_type, name=op_type.lower())
 
             time_map[b] = out_time  # set output time

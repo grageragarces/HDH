@@ -41,3 +41,16 @@ class TestVisualization:
         out = tmp_path / "plot.png"
         plot_hdh(hdh, save_path=str(out))
         assert out.exists()
+
+    def test_plot_non_circuit_labels(self, tmp_path):
+        """MBQC labels used to be skipped as an unrecognised format."""
+        from hdh.models.mbqc import MBQC
+
+        mbqc = MBQC()
+        mbqc.add_operation("N", [], "a")
+        mbqc.add_operation("N", [], "b")
+        mbqc.add_operation("E", ["a", "b"], "b")
+        mbqc.add_operation("M", ["a"], "m0")
+        out = tmp_path / "plot.png"
+        plot_hdh(mbqc.build_hdh(), save_path=str(out))
+        assert out.exists()

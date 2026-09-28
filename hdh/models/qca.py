@@ -49,21 +49,17 @@ class QCA:
             for node, neighbors in self.topology.items():
                 inputs = []
                 for n in neighbors + [node]:
-                    in_node = f"{n}_t{time_map[n]}"
-                    hdh.add_node(in_node, "q", time_map[n])
-                    inputs.append(in_node)
+                    inputs.append(hdh.add_node(n, time_map[n], "q"))
 
-                out_node = f"{node}_t{t}"
-                hdh.add_node(out_node, "q", t)
+                out_node = hdh.add_node(node, t, "q")
                 hdh.add_hyperedge(frozenset(inputs + [out_node]), "q", name="update")
                 time_map[node] = t
 
         # Add measurement edges
         for node in self.measurements:
             t_meas = self.steps + 1  # important!
-            out_node = f"{node}_t{self.steps}"
-            c_node = f"{self._classical_label(node)}_t{t_meas}"
-            hdh.add_node(c_node, "c", t_meas)
+            out_node = hdh.node_id(node, self.steps)
+            c_node = hdh.add_node(self._classical_label(node), t_meas, "c")
             hdh.add_hyperedge(frozenset({out_node, c_node}), "c", name="measure")
 
         return hdh

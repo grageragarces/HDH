@@ -19,9 +19,9 @@ class MBQC:
     necessarily correspond 1:1 with qubits, so there's no automatic
     ``q_``/``c_`` naming. By convention, though, a label's type must stay
     consistent across every operation that references it (e.g. always use
-    ``"c0"`` for a classical output, never reuse it as a quantum input) — HDH
-    node IDs still encode their `sigma` type via prefix, and `HDH.add_node`
-    raises if the same label is reused with a different inferred type.
+    ``"c0"`` for a classical output, never reuse it as a quantum input) —
+    each label is recorded as the node's wire, and `HDH.add_node` raises if
+    the same label is reused at the same timestep with a different type.
     """
 
     def __init__(self, hdh_cls=HDH):
@@ -68,11 +68,9 @@ class MBQC:
 
             for x in A:
                 t = time_map.get(x, 0)
-                hdh.add_node(f"{x}_t{t}", self._node_type(op_type, input=True), t)
-                in_nodes.add(f"{x}_t{t}")
+                in_nodes.add(hdh.add_node(x, t, self._node_type(op_type, input=True)))
 
-            hdh.add_node(f"{b}_t{op_time}", self._node_type(op_type, input=False), op_time)
-            out_nodes.add(f"{b}_t{op_time}")
+            out_nodes.add(hdh.add_node(b, op_time, self._node_type(op_type, input=False)))
             time_map[b] = op_time
 
             edge_nodes = in_nodes | out_nodes

@@ -411,12 +411,12 @@ class Circuit:
                     # Use current qubit time (default 0), do NOT advance it here
                     t_in = qubit_time.get(qubit, 0)
                     q_in = f"q{qubit}_t{t_in}"
-                    hdh.add_node(q_in, "q", t_in, node_real=cond_flag)
+                    hdh.add_node(f"q{qubit}", t_in, "q", node_real=cond_flag)
 
                     bit = cargs[i]
                     t_out = t_in + 1              # classical result at next tick
                     c_out = f"c{bit}_t{t_out}"
-                    hdh.add_node(c_out, "c", t_out, node_real=cond_flag)
+                    hdh.add_node(f"c{bit}", t_out, "c", node_real=cond_flag)
 
                     hdh.add_hyperedge({q_in, c_out}, "c", name="measure", node_real=cond_flag)
 
@@ -442,7 +442,7 @@ class Circuit:
                 # bit_time points to "next free" slot; the latest existing node is at t = bit_time-1
                 c_latest = bit_time.get(ctrl, 1) - 1
                 cnode = f"c{ctrl}_t{c_latest}"
-                hdh.add_node(cnode, "c", c_latest, node_real=cond_flag)
+                hdh.add_node(f"c{ctrl}", c_latest, "c", node_real=cond_flag)
 
                 edges = []
                 for tq in qargs:
@@ -453,7 +453,7 @@ class Circuit:
                     qout = f"{qname}_t{t_gate}"
 
                     # ensure the quantum output node exists at gate time
-                    hdh.add_node(qout, "q", t_gate, node_real=cond_flag)
+                    hdh.add_node(qname, t_gate, "q", node_real=cond_flag)
 
                     # add classical hyperedge feeding the quantum node
                     e = hdh.add_hyperedge({cnode, qout}, "c", name=name, node_real=cond_flag)
@@ -498,7 +498,7 @@ class Circuit:
                 t_in = qubit_time[qubit]
                 qname = f"q{qubit}"
                 in_id = f"{qname}_t{t_in}"
-                hdh.add_node(in_id, "q", t_in, node_real=cond_flag)
+                hdh.add_node(qname, t_in, "q", node_real=cond_flag)
                 #print(f"    [+] Node added: {in_id} (type q, time {t_in})")
                 #print(f"    [+] Node added: {in_id} (type q, time {t_in})")
                 in_nodes.append(in_id)
@@ -520,9 +520,9 @@ class Circuit:
                 final_id = f"{qname}_t{t2}"
                 post_id  = f"{qname}_t{t3}"
 
-                hdh.add_node(mid_id,   "q", t1, node_real=cond_flag)
-                hdh.add_node(final_id, "q", t2, node_real=cond_flag)
-                hdh.add_node(post_id,  "q", t3, node_real=cond_flag)
+                hdh.add_node(qname, t1, "q", node_real=cond_flag)
+                hdh.add_node(qname, t2, "q", node_real=cond_flag)
+                hdh.add_node(qname, t3, "q", node_real=cond_flag)
 
                 intermediate_nodes.append(mid_id)
                 final_nodes.append(final_id)
@@ -557,12 +557,12 @@ class Circuit:
                 for i, qubit in enumerate(qargs):
                     t_in = qubit_time.get(qubit, 0)
                     q_in = f"q{qubit}_t{t_in}"
-                    hdh.add_node(q_in, "q", t_in, node_real=cond_flag)
+                    hdh.add_node(f"q{qubit}", t_in, "q", node_real=cond_flag)
 
                     bit = cargs[i]
                     t_out = t_in + 1
                     c_out = f"c{bit}_t{t_out}"
-                    hdh.add_node(c_out, "c", t_out, node_real=cond_flag)
+                    hdh.add_node(f"c{bit}", t_out, "c", node_real=cond_flag)
 
                     hdh.add_hyperedge({q_in, c_out}, "c", name="measure", node_real=cond_flag)
                     bit_time[bit] = t_out + 1
@@ -573,7 +573,7 @@ class Circuit:
                     t = bit_time.get(bit, 0)
                     cname = f"c{bit}"
                     out_id = f"{cname}_t{t + 1}"
-                    hdh.add_node(out_id, "c", t + 1, node_real=cond_flag)
+                    hdh.add_node(cname, t + 1, "c", node_real=cond_flag)
                     out_nodes.append(out_id)
                     bit_time[bit] = t + 1
 
@@ -625,7 +625,7 @@ class Circuit:
                         # DEBUG
                         #print(f"[{name}] Q{qubit} t_in = {t_in}, expected from qubit_time = {qubit_time[qubit]}")
                         #print(f"[{name}] Q{qubit} t_in = {t_in}, expected from qubit_time = {qubit_time[qubit]}")
-                        hdh.add_node(out_id, "q", t_out, node_real=cond_flag)
+                        hdh.add_node(qname, t_out, "q", node_real=cond_flag)
                         # DEBUG
                         #print(f"    [+] Node added: {in_id} (type q, time {t_in})")
                         #print(f"    [+] Node added: {in_id} (type q, time {t_in})")

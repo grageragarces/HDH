@@ -24,47 +24,35 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
     nodes = list(hdh.S)
     edges = [tuple(e) for e in hdh.C]
 
-    node_positions = {}
-    node_timesteps = {}
-    node_qubits = {}
-    qubit_labels = set()
-    timesteps = set()
-    
-    for node in nodes:
-        if node.startswith("q") or node.startswith("c"):
-            match = re.match(r"[qc](\d+)_t(\d+)", node)
-            if match:
-                index, timestep = map(int, match.groups())
-                node_timesteps[node] = timestep
-                node_qubits[node] = index
-                qubit_labels.add(index)
-                timesteps.add(timestep)
-        else:
-            print(f"Skipping node due to unrecognized format: {node}")
-
-    if not qubit_labels:
-        print("No valid nodes found with q{{index}}_t{{step}} or c{{index}}_t{{step}} format.")
+    if not nodes:
+        print("Nothing to plot: the HDH has no nodes.")
         return
 
-    max_index = max(qubit_labels)
+    # One row per wire, read from the HDH rather than parsed from node IDs.
+    # Circuit wires q<i> and c<i> share row i (a qubit and the bit it is
+    # measured into); any other wire, e.g. an MBQC label, gets its own row.
+    def _row_key(wire):
+        m = re.fullmatch(r"[qc](\d+)", wire)
+        return int(m.group(1)) if m else wire
 
-    for node in nodes:
-        if node in node_timesteps and node in node_qubits:
-            timestep = node_timesteps[node]
-            flipped_index = max_index - node_qubits[node]
-            node_positions[node] = (timestep, flipped_index)
+    keys = {_row_key(hdh.wire_of[n]) for n in nodes}
+    numbered = sorted(k for k in keys if isinstance(k, int))
+    named = sorted(k for k in keys if not isinstance(k, int))
+    row_order = numbered + named
+    row_of = {key: len(row_order) - 1 - i for i, key in enumerate(row_order)}  # first row on top
 
-    qubit_ticks = sorted(qubit_labels)
-    flipped_ticks = [max_index - i for i in qubit_ticks]
-    timestep_ticks = sorted(timesteps)
+    node_positions = {
+        n: (hdh.time_map[n], row_of[_row_key(hdh.wire_of[n])]) for n in nodes
+    }
+    timestep_ticks = sorted({hdh.time_map[n] for n in nodes})
 
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.set_xlabel("Timestep",fontsize=16)
     ax.set_ylabel("Qubit/Clbit Index",fontsize=16)
     ax.set_xticks(timestep_ticks)
-    ax.set_yticks(flipped_ticks)
-    ax.set_yticklabels(qubit_ticks)
-    ax.set_ylim(min(flipped_ticks) - 1, max(flipped_ticks) + 1)
+    ax.set_yticks([row_of[k] for k in row_order])
+    ax.set_yticklabels([str(k) for k in row_order])
+    ax.set_ylim(-1, len(row_order))
 
     involved_nodes = set()
     for edge in edges:
@@ -105,7 +93,7 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
         for i in range(len(edge_nodes)):
             for j in range(i + 1, len(edge_nodes)):
                 n1, n2 = edge_nodes[i], edge_nodes[j]
-                t1, t2 = node_timesteps[n1], node_timesteps[n2]
+                t1, t2 = hdh.time_map[n1], hdh.time_map[n2]
 
                 if t1 == t2:
                     continue
