@@ -70,29 +70,21 @@ def _mk_op(name: str, params: List[Any], wires: List[int]):
 # ---------- from_pennylane ----------
 
 def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
-    """Convert a PennyLane `QuantumScript`/`OperationRecorder` to an HDH.
+    """Convert a PennyLane `QuantumScript` (or recorded operations) to an HDH.
 
-    Supports standard gates, mid-circuit measurements (`MidMeasureMP` and
-    the `ProbabilityMP`/`ExpectationMP`/`SampleMP` terminal measurements,
-    each treated as a "measure" instruction), and single-condition `qml.cond`
-    blocks (via PennyLane's `Conditional` operator).
-
-    Note: since PennyLane wires can be arbitrary labels (not necessarily
-    small contiguous integers), they're remapped via `_wire_index_map`
-    before being handed to `Circuit`. The resulting HDH's hyperedges are
-    correct, but for multi-qubit gates the resulting node layout may not
-    visually resemble the equivalent circuit built directly from small
-    integer wire indices (e.g. via `from_qiskit`).
-
-    Args:
-        circ_like: The PennyLane script/recorder to convert.
-
-    Returns:
-        HDH: the converted circuit.
+    Supports standard gates, mid-circuit and terminal measurements, and
+    `qml.cond` on a single measurement. Wire labels are renumbered
+    ``0..n-1`` in declaration order.
 
     Raises:
-        NotImplementedError: If a `qml.cond` condition isn't
-            `MeasurementValue`-based.
+        NotImplementedError: If a `qml.cond` condition is not a measurement.
+
+    Example:
+        >>> import pennylane as qml
+        >>> script = qml.tape.QuantumScript(
+        ...     [qml.Hadamard(0), qml.CNOT([0, 1])], [qml.probs(wires=1)])
+        >>> from_pennylane(script).get_num_qubits()
+        2
     """
     qs = circ_like
     wire2idx = _wire_index_map(qs)
@@ -151,23 +143,15 @@ def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
 def to_pennylane(hdh: HDH) -> QuantumScript:
     """Convert an HDH back into a PennyLane `QuantumScript`.
 
-    Mirrors `hdh.converters.qiskit_converter.to_qiskit`: multi-qubit gates
-    are stored in the HDH as three hyperedges (``<name>_stage1``, ``_stage2``,
-    ``_stage3``); only the ``_stage2`` edge carries the full gate, so stages
-    1 and 3 are skipped during reconstruction.
+    Each multi-qubit gate is rebuilt from its ``_stage2`` hyperedge, as in
+    `to_qiskit`. Measurements and conditional gates are replayed through
+    `qml.measure` and `qml.cond`.
 
-    Unlike `to_qiskit`, this doesn't build the script by appending to a
-    circuit object — mid-circuit measurement and `qml.cond` both need to be
-    *executed* (not just described) to enqueue correctly, so the HDH is
-    replayed as a sequence of real `qml.measure`/`qml.cond`/gate calls inside
-    a `qml.tape.make_qscript`-wrapped function, the same mechanism PennyLane
-    itself uses to build a script from a Python function.
-
-    Args:
-        hdh: HDH object
-
-    Returns:
-        QuantumScript: PennyLane representation.
+    Example:
+        >>> import pennylane as qml
+        >>> script = qml.tape.QuantumScript([qml.Hadamard(0), qml.CNOT([0, 1])])
+        >>> [op.name for op in to_pennylane(from_pennylane(script)).operations]
+        ['Hadamard', 'CNOT']
     """
     qubit_indices: Set[int] = set()
     for node_id in hdh.nodes:

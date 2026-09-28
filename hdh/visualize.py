@@ -7,19 +7,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from .hdh import HDH
 
 def plot_hdh(hdh, save_path="hdh_plot.svg"):
-    """Render an HDH as a time-vs-qubit/bit diagram.
+    """Plot an HDH with time on the x-axis and one row per wire.
 
-    Nodes are laid out with time on one axis and qubit/classical-bit index
-    on the other; hyperedges are drawn connecting the nodes they touch.
+    Circuit wires ``q<i>`` and ``c<i>`` share row ``i``; any other wire gets a
+    row of its own.
 
     Args:
-        hdh: The `HDH` to visualize.
-        save_path: Where to save the plot (extension determines format, e.g.
-            `.svg`/`.png`). Pass `None` to instead display it interactively
-            via `matplotlib.pyplot.show()` without saving.
+        hdh: The HDH to plot.
+        save_path: File to save to (the extension sets the format), or
+            ``None`` to show the plot instead.
 
-    Returns:
-        None.
+    Example:
+        >>> from hdh.models.circuit import Circuit
+        >>> c = Circuit()
+        >>> c.add_instruction("cx", [0, 1])
+        >>> plot_hdh(c.build_hdh(), save_path="cx.svg")  # doctest: +SKIP
     """
     nodes = list(hdh.nodes)
     edges = [tuple(e) for e in hdh.hyperedges]

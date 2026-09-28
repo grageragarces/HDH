@@ -5,11 +5,17 @@ from hdh.hdh import HDH
 
 # Quantum Walks (QW) model
 class QW:
-    """Discrete-time quantum walk (coin + shift + measurement) pattern builder.
+    """Discrete-time quantum walk builder: coin and shift steps, then measurement.
 
-    Each step is (op_type, input_label, output_label); ``build_hdh`` turns the
-    labels into typed node IDs based on what the operation actually produces,
-    so the label strings themselves don't need a "q"/"c" prefix.
+    `add_coin` and `add_shift` return the label of the new walker state, to
+    pass to the next step.
+
+    Example:
+        >>> w = QW()
+        >>> state = w.add_shift(w.add_coin("q0"))
+        >>> w.add_measurement(state, "m0")
+        >>> sorted(w.build_hdh().nodes)
+        ['m0_t3', 'q0_t0', 'q1_t1', 'q2_t2']
     """
 
     def __init__(self, hdh_cls=HDH):
@@ -35,11 +41,8 @@ class QW:
         return b
 
     def add_measurement(self, a: str, b: str):
-        """Measure walker state `a`, writing the result to classical label `b`.
-
-        `b` must be a label distinct from any quantum state label already in
-        use (e.g. ``"c0"``) — it becomes a *classical* node, so reusing an
-        existing quantum label here would try to redefine that node's type.
+        """Measure walker state `a` into classical label `b`, which must not already
+        be used for a quantum state.
         """
         self.steps.append(("M", a, b))
 

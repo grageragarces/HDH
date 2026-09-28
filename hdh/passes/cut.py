@@ -79,19 +79,29 @@ def kahypar_cutter(
     config_path: Optional[str] = None,
     suppress_output: bool = True,
 ):
-    """Partition an HDH using the kahypar Python package.
+    """Partition by qubit with KaHyPar, keeping each qubit on one device.
+
+    Each quantum wire is one KaHyPar vertex, and the balance tolerance is set
+    so no block exceeds `cap` qubits. Classical nodes go with a qubit they
+    share a hyperedge with. Requires the ``kahypar`` extra.
 
     Args:
-        hdh: The HDH to partition.
-        k: number of partitions
-        cap: max unique qubits per partition
-        seed: RNG seed passed to KaHyPar (if supported)
-        config_path: path to KaHyPar INI config; required by KaHyPar.
-        suppress_output: whether to silence KaHyPar stdout.
+        k: Number of devices.
+        cap: Qubits per device.
+        seed: Passed to KaHyPar when supported.
+        config_path: KaHyPar INI file; defaults to the bundled one.
+        suppress_output: Silence KaHyPar's output.
 
     Returns:
-        partitions: list[set[str]] length k; each set is HDH node-ids assigned to that partition
-        cut_cost: number of cut hyperedges in the original HDH (same definition as compute_cut)
+        ``(partitions, cut_cost)``, as in `compute_cut`.
+
+    Raises:
+        ImportError: If ``kahypar`` is not installed.
+        ValueError: If `k` exceeds the number of qubits, or `cap` is below
+            ``ceil(n_qubits / k)``.
+
+    Example:
+        >>> partitions, cut_cost = kahypar_cutter(hdh, k=2, cap=3)  # doctest: +SKIP
     """
     try:
         import kahypar  # type: ignore
@@ -253,19 +263,16 @@ def kahypar_cutter_nodebalanced(
     epsilon: float = 0.03,
     suppress_output: bool = True,
 ):
-    """Partition an HDH using KaHyPar with **node-balanced** constraints.
+    """Partition nodes with KaHyPar, balancing node counts and ignoring qubit
+    capacity.
 
-    This is intentionally the "capacity-oblivious" baseline:
-    - vertices = HDH nodes (q*_t* and c*_t*)
-    - vertex_weights = 1 for all vertices
-    - balance enforced by epsilon around equal-size blocks (in *nodes*, not logical qubits)
-
-    This is useful for measuring how often such a baseline violates a
-    *logical-qubit* capacity constraint when you evaluate it post-hoc.
+    A capacity-oblivious baseline: every node is a vertex of weight 1, and
+    blocks are balanced within `epsilon` in node count, not qubits. Useful for
+    measuring how often such a partitioner violates qubit capacity. Requires
+    the ``kahypar`` extra.
 
     Returns:
-        partitions: list[set[str]] of HDH node IDs per block
-        cut_cost: cut hyperedge count in the original HDH
+        ``(partitions, cut_cost)``, as in `compute_cut`.
     """
     try:
         import kahypar  # type: ignore
@@ -575,64 +582,39 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
                 reserve_frac: float = 0.08,
                 predictive_reject: bool = True,
                 seed: int = 0) -> Tuple[List[Set[str]], int]:
-    """
-    Capacity-aware temporal greedy partitioner for HDH graphs.
+    """Capacity-aware greedy partitioner: split an HDH across `k` devices of
+    `cap` qubits each, minimising cut hyperedges.
 
-    Implements the algorithm from the paper with cost-aware improvements:
-    - Cost-aware greedy frontier selection using delta cost evaluation
-    - Best-fit residual round-robin placement
-
-    Works directly on the HDH hypergraph structure:
-    - Partitions at the NODE level (nodes like "q0_t1", "q1_t2", etc.)
-    - Uses temporal hyperedge connectivity from `HDH.hyperedges`
-    - Respects capacity by counting unique QUBITS per partition
-    - Allows teledata cuts (same qubit in different partitions)
-    - Priority queue selects earliest-time unassigned neighbors
-    - Delta cost guides selection among top-k frontier candidates
-
-    Capacity accounting and the split budget:
-        Capacity is charged per (bin, qubit) pair, so a qubit whose timeline is
-        split across bins occupies a slot in *each* of them. Splitting is
-        therefore a budgeted decision, not a free one: of the ``k * cap``
-        available slots, one is reserved for every qubit not yet placed
-        anywhere, and only the surplus may be spent on splits. Three rules
-        follow from that budget, and together they guarantee a complete
-        assignment whenever ``k * cap >= n_qubits``:
-
-        - A bin keeps absorbing nodes of qubits it already holds even after it
-          reaches ``cap`` distinct qubits, since those cost no capacity.
-        - A new bin is seeded on a qubit no bin owns yet, so opening a bin
-          never itself creates a split.
-        - A split is permitted only while the remaining slots still cover
-          every qubit that has not been placed anywhere.
-
-        At zero slack (``k * cap == n_qubits``) this degenerates to
-        qubit-level assignment, which is the only feasible shape; slack is
-        what buys the freedom to cut a qubit's timeline.
+    It assigns nodes (timestepped states) rather than whole qubits, so a
+    qubit's history may be split between devices when that is cheaper.
+    Capacity counts distinct quantum wires per device, and a split qubit uses
+    a slot on each device it touches, so splits are only made while enough
+    slots remain for every qubit not yet placed. This guarantees a complete
+    assignment whenever ``k * cap >= n_qubits``. The remaining keyword
+    arguments are accepted for backwards compatibility and ignored.
 
     Args:
         hdh_graph: The HDH to partition.
-        k: Number of partitions (QPUs)
-        cap: Capacity per partition (max unique qubits, not nodes)
-        beam_k: Beam width for frontier selection (default 3)
-        backtrack_window: Accepted for compatibility; currently unused.
-        polish_1swap_budget: Accepted for compatibility; currently unused.
-        restarts: Accepted for compatibility; currently unused.
-        reserve_frac: Accepted for compatibility; currently unused.
-        predictive_reject: Accepted for compatibility; currently unused.
-        seed: Accepted for compatibility; currently unused.
+        k: Number of devices.
+        cap: Qubits per device.
+        beam_k: How many of the earliest frontier nodes to score per step.
 
     Returns:
-        partitions: List of k sets, each containing node IDs assigned to that partition
-        cost: Total communication cost (number of cut hyperedges)
+        ``(partitions, cost)``: `k` sets of node IDs, and the number of
+        hyperedges spanning more than one partition.
 
     Raises:
-        RuntimeError: If no complete assignment could be built. Because the
-            split budget above keeps the search feasible whenever one exists,
-            in practice this means the instance itself is infeasible —
-            ``k * cap`` is smaller than the number of distinct qubits. Returning
-            a partial partition would silently under-report the cut cost, so
-            this is raised instead. Increase `cap` and/or `k`.
+        RuntimeError: If no complete assignment exists, i.e. ``k * cap`` is
+            smaller than the number of qubits.
+
+    Example:
+        >>> from hdh.models.circuit import Circuit
+        >>> c = Circuit()
+        >>> for q in range(3):
+        ...     c.add_instruction("cx", [q, q + 1])
+        >>> partitions, cost = compute_cut(c.build_hdh(), k=2, cap=2)
+        >>> cost
+        1
     """
     if not hdh_graph.nodes or not hdh_graph.hyperedges:
         return [set() for _ in range(k)], 0
@@ -810,17 +792,22 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
 # ------------------------------- Cost Evaluation Functions -------------------------------
 
 def cost(hdh_graph, partitions) -> Tuple[float, float]:
-    """
-    Calculate the cost of a given partitioning of the HDH graph.
-    
-    Args:
-        hdh_graph: HDH graph object
-        partitions: List of sets, where each set contains node IDs in that partition
-    
+    """Count cut hyperedges, separately for quantum and classical ones.
+
+    A hyperedge is cut when its nodes lie in more than one partition; nodes
+    in no partition are ignored.
+
     Returns:
-        Tuple[float, float]: (cost_q, cost_c) - quantum and classical cut costs
-            cost_q: number of quantum hyperedges that span multiple partitions
-            cost_c: number of classical hyperedges that span multiple partitions
+        ``(quantum_cuts, classical_cuts)``, as floats.
+
+    Example:
+        >>> from hdh.models.circuit import Circuit
+        >>> c = Circuit()
+        >>> c.add_instruction("cx", [0, 1])
+        >>> hdh = c.build_hdh()
+        >>> q0 = {n for n in hdh.nodes if hdh.wire_of[n] == "q0"}
+        >>> cost(hdh, [q0, hdh.nodes - q0])
+        (1.0, 0.0)
     """
     if not partitions or not hasattr(hdh_graph, 'hyperedges'):
         return 0.0, 0.0
@@ -1056,9 +1043,30 @@ def _kl_fallback_partition(G: nx.Graph, k: int) -> List[Set[str]]:
     return parts
 
 def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[Set[str]], int, bool, str]:
-    """
-    Partition the telegate (qubit) graph via METIS (or KL fallback), with capacity on #qubits/bin.
-    Returns: (bins_qubits, cut_cost, respects_capacity, method['metis'|'kl'])
+    """Partition qubits with METIS on the telegate graph, then repair bins over
+    capacity.
+
+    The telegate graph has one vertex per quantum wire and edges weighted by
+    how many quantum operations two wires share. Falls back to
+    Kernighan-Lin bisection when METIS is unavailable.
+
+    Args:
+        partitions: Number of bins.
+        capacities: Qubits per bin.
+
+    Returns:
+        ``(bins, cut_cost, respects_capacity, method)``: sets of wire labels,
+        the number of cut graph edges, whether every bin fits, and
+        ``"metis"`` or ``"kl"``.
+
+    Example:
+        >>> from hdh.models.circuit import Circuit
+        >>> c = Circuit()
+        >>> c.add_instruction("cx", [0, 1])
+        >>> c.add_instruction("cx", [2, 3])
+        >>> bins, cut_cost, fits, method = metis_telegate(c.build_hdh(), 2, 2)
+        >>> sorted(sorted(b) for b in bins), cut_cost, fits
+        ([['q0', 'q1'], ['q2', 'q3']], 0, True)
     """
     G: nx.Graph = telegate_hdh(hdh)
 

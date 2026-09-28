@@ -62,17 +62,17 @@ def _is_measure(op: cirq.Operation) -> bool:
 # -------- main --------
 
 def from_cirq(c: cirq.Circuit) -> HDH:
-    """Convert a Cirq circuit to an HDH via `hdh.models.circuit.Circuit`.
+    """Convert a Cirq circuit to an HDH.
 
-    Supports standard gates and measurement, moment by moment. Classically
-    conditioned gates (Cirq's equivalent of Qiskit's `IfElseOp`) aren't
-    supported.
+    Supports standard gates and measurement. Classically controlled
+    operations are not supported.
 
-    Args:
-        c: The Cirq circuit to convert.
-
-    Returns:
-        HDH: the converted circuit.
+    Example:
+        >>> import cirq
+        >>> a, b = cirq.LineQubit.range(2)
+        >>> circuit = cirq.Circuit([cirq.H(a), cirq.CNOT(a, b), cirq.measure(b)])
+        >>> from_cirq(circuit).get_num_qubits()
+        2
     """
     circuit = Circuit()
     qmap = _qubit_index_map(c)

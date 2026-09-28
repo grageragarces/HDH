@@ -55,49 +55,44 @@ def _coerce(enum_cls, value, what: str) -> str:
         raise ValueError(f"Invalid {what} {value!r}; expected one of {allowed}.") from None
 
 class HDH:
-    """A Hybrid Dependency Hypergraph: the model-agnostic representation this
-    library is built around.
+    """A Hybrid Dependency Hypergraph: a quantum workload as states (nodes)
+    joined by the operations between them (hyperedges).
 
-    An HDH represents a quantum workload (from any computational model —
-    circuits, MBQC patterns, quantum walks, QCA) as a directed hypergraph of
-    node *states* connected by hyperedges that model operations. It's usually
-    not constructed directly; instead, build one of `hdh.models.circuit.Circuit`,
-    `hdh.models.mbqc.MBQC`, `hdh.models.qw.QW`, or `hdh.models.qca.QCA` and call
-    its `build_hdh()`, or convert an existing circuit with
-    `hdh.converters.qiskit_converter.from_qiskit` (or the Cirq/PennyLane/Braket
-    equivalents).
+    Usually built by a model (`Circuit`, `MBQC`, `QW`, `QCA`) or a
+    converter such as `from_qiskit`. Each node is the state of one wire at one
+    timestep, with ID ``"<wire>_t<time>"``. Core attributes have a readable
+    name and a formal one matching the HDH paper's notation; both refer to the
+    same object.
 
-    Each node is the state of one *wire* (a qubit, a classical bit, or a
-    model-specific label) at one timestep, with ID ``"<wire>_t<time>"``
-    built by `add_node`. Hyperedges connect a set of such nodes to represent
-    one operation's effect on the states it touches.
-
-    Each core attribute has a readable name and a formal one matching the
-    notation of the HDH paper; both refer to the same object.
+    Example:
+        >>> hdh = HDH()
+        >>> a = hdh.add_node("q0", 0)
+        >>> b = hdh.add_node("q0", 1)
+        >>> edge = hdh.add_hyperedge({a, b}, "q", name="h")
+        >>> sorted(hdh.nodes)
+        ['q0_t0', 'q0_t1']
+        >>> hdh.hyperedge_types[edge], hdh.gate_name[edge]
+        ('q', 'h')
 
     Attributes:
-        nodes (S): All node IDs in the hypergraph.
+        nodes (S): All node IDs.
         hyperedges (C): All hyperedges, each a frozenset of node IDs.
-        timesteps (T): All distinct timesteps that appear in `time_map`.
-        node_types (sigma): Node ID -> `"q"` (quantum) or `"c"` (classical).
-        hyperedge_types (tau): Hyperedge -> `"q"` or `"c"`.
-        node_realisation (upsilon): Node ID -> `"a"` (actualized) or `"p"`
-            (predicted: only exists if a classical condition holds).
-        hyperedge_realisation (phi): Hyperedge -> `"a"` or `"p"`.
-        time_map: Node ID -> the timestep it occurs at.
-        wire_of: Node ID -> the wire (qubit, bit, or model label) it is a
-            state of. Partitioners count capacity per quantum wire.
-        gate_name: Hyperedge -> the gate/operation name that produced it
-            (e.g. ``"h"``, ``"cx_stage2"``, ``"measure"``).
-        gate_params: Hyperedge -> rotation angles / gate parameters, for
-            hyperedges from a parametric gate that had params recorded.
-        edge_args: Hyperedge -> `(qubits_with_time, bits_with_time,
-            modifies_flags)`, used by converters to reconstruct a circuit
-            representation from the HDH.
-        edge_role: Hyperedge -> `"teledata"` or `"telegate"`, for hyperedges
-            that have been assigned a distribution primitive.
+        timesteps (T): All timesteps in use.
+        node_types (sigma): Node -> ``"q"`` or ``"c"``.
+        hyperedge_types (tau): Hyperedge -> ``"q"`` or ``"c"``.
+        node_realisation (upsilon): Node -> ``"a"`` (always happens) or
+            ``"p"`` (only if a classical condition holds).
+        hyperedge_realisation (phi): Hyperedge -> ``"a"`` or ``"p"``.
+        time_map: Node -> its timestep.
+        wire_of: Node -> the wire it is a state of. Partitioners count
+            capacity per quantum wire.
+        gate_name: Hyperedge -> the operation that produced it, e.g.
+            ``"cx_stage2"``.
+        gate_params: Hyperedge -> gate parameters, when recorded.
+        edge_args: Hyperedge -> data the converters use to rebuild a circuit.
+        edge_role: Hyperedge -> ``"teledata"`` or ``"telegate"``, once assigned.
         edge_metadata: Free-form per-hyperedge metadata.
-        motifs: Reserved for motif-matching passes; unused by the core API.
+        motifs: Reserved; unused by the core API.
     """
 
     def __init__(self):
@@ -163,9 +158,24 @@ class HDH:
                  node_real: NodeReal = Realisation.ACTUAL) -> NodeID:
         """Add the state of `wire` at `time` and return its node ID.
 
-        The ID is built for you (see `node_id`), and the wire is recorded in
-        `wire_of`, so nothing about the node is passed twice. Adding the same
-        wire and time again is a no-op apart from updating `node_real`.
+        The ID is ``"<wire>_t<time>"`` (see `node_id`) and the wire is recorded
+        in `wire_of`. Re-adding an existing state is a no-op apart from updating
+        `node_real`.
+
+        Args:
+            wire: Qubit, bit or model label, e.g. ``"q0"``, ``"c1"`` or ``"a"``.
+            time: Timestep of this state.
+            node_type: ``"q"`` (default) or ``"c"``, or a `NodeType`.
+            node_real: ``"a"`` (default) or ``"p"``, or a `Realisation`.
+
+        Returns:
+            The node ID.
+
+        Raises:
+            TypeError: If called with the pre-0.5 signature
+                ``add_node(node_id, node_type, time)``.
+            ValueError: On an invalid type, or if the state already exists with
+                another type.
 
         Example:
             >>> hdh = HDH()
@@ -173,23 +183,6 @@ class HDH:
             'q0_t1'
             >>> hdh.add_node("c0", 2, "c")
             'c0_t2'
-
-        Args:
-            wire: The qubit, classical bit or other carrier this state belongs
-                to, e.g. ``"q0"``, ``"c1"`` or an MBQC label like ``"a"``.
-                Partitioners count capacity per quantum wire.
-            time: Timestep this state occurs at.
-            node_type: A `NodeType`, or its value `"q"` / `"c"`.
-            node_real: A `Realisation`, or its value `"a"` / `"p"`.
-
-        Returns:
-            NodeID: the node's ID, ``"<wire>_t<time>"``.
-
-        Raises:
-            TypeError: If called with the pre-0.5 signature
-                ``add_node(node_id, node_type, time)``.
-            ValueError: If `node_type` or `node_real` is not a valid value, or
-                the node already exists with a different `node_type`.
         """
         if not isinstance(time, numbers.Integral) or isinstance(time, bool):
             raise TypeError(
@@ -219,25 +212,29 @@ class HDH:
         return node_id
 
     def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, node_real: EdgeReal = "a", role: Optional[EdgeRole] = None) -> Hyperedge:
-        """Add a hyperedge connecting `node_ids`, representing one operation.
+        """Connect `node_ids` with a hyperedge representing one operation.
 
         Args:
-            node_ids: The nodes this operation touches (its inputs and
-                outputs together, since HDH edges are undirected).
-            edge_type: A `NodeType`, or its value `"q"` / `"c"` — see `tau`.
-            name: Operation name, e.g. ``"h"``, ``"cx_stage2"``, ``"measure"``.
-                Stored lower-cased in `gate_name`; omit for an unnamed edge.
-            node_real: A `Realisation`, or its value `"a"` / `"p"` — see `phi`.
-            role: Distribution primitive this edge has been assigned, if any
-                — an `EdgeRole`, or `"teledata"` / `"telegate"`. Usually set
-                later by a partitioning pass, not at construction time.
+            node_ids: The states the operation touches, inputs and outputs together.
+            edge_type: ``"q"`` or ``"c"``, or a `NodeType`.
+            name: Operation name, stored lower-cased in `gate_name`.
+            node_real: ``"a"`` (default) or ``"p"``, or a `Realisation`.
+            role: ``"teledata"`` or ``"telegate"``, usually assigned later by a
+                partitioning pass.
 
         Returns:
-            Hyperedge: the edge, as added to `C` — use this as the key into
-            `tau`/`phi`/`gate_name`/`edge_args`/`gate_params`/etc.
+            The hyperedge (a frozenset), used as the key into `hyperedge_types`,
+            `gate_name` and the other per-edge maps.
 
         Raises:
-            ValueError: If `edge_type`, `node_real` or `role` is not a valid value.
+            ValueError: If `edge_type`, `node_real` or `role` is invalid.
+
+        Example:
+            >>> hdh = HDH()
+            >>> q, c = hdh.add_node("q0", 0), hdh.add_node("c0", 1, "c")
+            >>> edge = hdh.add_hyperedge({q, c}, "c", name="measure")
+            >>> sorted(edge)
+            ['c0_t1', 'q0_t0']
         """
         edge_type = _coerce(NodeType, edge_type, "edge type")
         node_real = _coerce(Realisation, node_real, "edge realisation")

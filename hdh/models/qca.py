@@ -8,20 +8,20 @@ from hdh.hdh import HDH
 # Quantum Cellular Automata (QCA) Model
 
 class QCA:
-    """Quantum cellular automaton (QCA) builder: a fixed neighbor topology
-    updated for a set number of steps, then optionally measured.
-
-    Unlike the other models, a `QCA` is fully specified at construction time
-    rather than built up incrementally — there's no `add_*` method, just
-    `build_hdh`.
+    """Quantum cellular automaton builder: cells updated from their neighbors for
+    a number of steps, then optionally measured.
 
     Args:
-        topology: Adjacency map from each cell label (any string, e.g.
-            ``"q0"`` or ``"A"``) to the list of neighbor labels its update
-            rule reads from.
-        measurements: Cell labels to measure at the final timestep.
-        steps: Number of update steps to simulate.
-        hdh_cls: HDH class to instantiate (override for a subclass).
+        topology: Each cell label (any string) -> the neighbor labels its
+            update reads.
+        measurements: Cells to measure after the last step.
+        steps: Number of update steps.
+        hdh_cls: HDH class to instantiate, for subclasses.
+
+    Example:
+        >>> qca = QCA(topology={"A": ["B"], "B": ["A"]}, measurements={"A"}, steps=1)
+        >>> sorted(qca.build_hdh().nodes)
+        ['A_t0', 'A_t1', 'B_t0', 'B_t1', 'c_A_t2']
     """
 
     def __init__(self, topology, measurements, steps, hdh_cls=HDH):
@@ -31,16 +31,9 @@ class QCA:
         self.hdh_cls = hdh_cls
 
     def build_hdh(self) -> HDH:
-        """Simulate `steps` update rounds, then measure, producing an HDH.
-
-        At each timestep, every qubit gets one hyperedge connecting its own
-        and its neighbors' previous-timestep nodes to its new-timestep node
-        (i.e. its update rule). After all steps, each qubit named in
-        `measurements` gets a measurement hyperedge to a classical output
-        node one timestep later.
-
-        Returns:
-            HDH: the built hypergraph.
+        """Build the HDH: per step, one hyperedge per cell joining its and its
+        neighbors' previous states to its new state; then one measurement
+        hyperedge per measured cell.
         """
         hdh = self.hdh_cls()
         time_map = {node: 0 for node in self.topology}

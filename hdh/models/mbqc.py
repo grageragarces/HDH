@@ -10,18 +10,20 @@ from hdh.hdh import HDH
 class MBQC:
     """Measurement-based quantum computing (MBQC) pattern builder.
 
-    Patterns are sequences of NEMC operations — N (auxiliary state
-    preparation), E (entanglement), M (measurement), C (classical correction)
-    — recorded via `add_operation` and translated into an HDH by `build_hdh`.
+    Record N (prepare), E (entangle), M (measure) and C (classical
+    correction) operations with `add_operation`, then call `build_hdh`.
+    Labels are free-form and become the HDH's wires; keep each label to one
+    type (never reuse a measurement result's label as a quantum state).
 
-    Unlike `hdh.models.circuit.Circuit`, node labels here are caller-chosen
-    strings rather than auto-derived from a qubit index: MBQC nodes don't
-    necessarily correspond 1:1 with qubits, so there's no automatic
-    ``q_``/``c_`` naming. By convention, though, a label's type must stay
-    consistent across every operation that references it (e.g. always use
-    ``"c0"`` for a classical output, never reuse it as a quantum input) —
-    each label is recorded as the node's wire, and `HDH.add_node` raises if
-    the same label is reused at the same timestep with a different type.
+    Example:
+        >>> m = MBQC()
+        >>> m.add_operation("N", [], "a")
+        >>> m.add_operation("N", [], "b")
+        >>> m.add_operation("E", ["a", "b"], "b")
+        >>> m.add_operation("M", ["a"], "m_a")
+        >>> hdh = m.build_hdh()
+        >>> sorted({hdh.wire_of[n] for n in hdh.nodes if hdh.node_types[n] == "q"})
+        ['a', 'b']
     """
 
     def __init__(self, hdh_cls=HDH):
@@ -29,30 +31,17 @@ class MBQC:
         self.hdh_cls = hdh_cls
 
     def add_operation(self, op_type: str, A: List[str], b: str):
-        """Append one NEMC operation to the pattern.
+        """Append one N, E, M or C operation.
 
         Args:
-            op_type: One of ``"N"``, ``"E"``, ``"M"``, ``"C"`` (case-insensitive).
-            A: Input node label(s) the operation reads. Empty for ``"N"``
-                (it has no inputs, only produces `b`).
-            b: Output node label the operation produces or measures. For
-                ``"E"`` (entanglement), reuse one of the entangled nodes'
-                existing labels rather than introducing a new one.
+            op_type: ``"N"``, ``"E"``, ``"M"`` or ``"C"`` (case-insensitive).
+            A: Labels the operation reads; empty for ``"N"``.
+            b: Label it produces. For ``"E"``, reuse one of the entangled labels.
         """
         self.pattern.append((op_type.upper(), A, b))
 
     def build_hdh(self) -> HDH:
-        """Translate the recorded NEMC pattern into an HDH.
-
-        Each operation gets its own timestep, in recording order. Node type
-        (quantum vs. classical) is inferred per operation via `_node_type`:
-        N produces a quantum output from a classical placeholder input, E is
-        purely quantum, M consumes a quantum input and produces a classical
-        output, and C is purely classical.
-
-        Returns:
-            HDH: the built hypergraph.
-        """
+        """Translate the recorded pattern into an HDH, one timestep per operation."""
         hdh = self.hdh_cls()
         time_map = {}
         current_time = 0

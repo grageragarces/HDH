@@ -164,22 +164,20 @@ def _process_if_else_op(qc, instr, circuit):
         )
 
 def from_qiskit(qc: QuantumCircuit) -> HDH:
-    """
-    Convert a Qiskit QuantumCircuit to HDH format.
-    
-    Supports:
-    - Standard gates (h, rx, cx, measure, etc.)
-    - IfElseOp with single-bit conditions == 1
-    - Both Clbit and single-bit ClassicalRegister conditions
-    
-    Args:
-        qc: Qiskit QuantumCircuit
-        
-    Returns:
-        HDH: HDH representation of the circuit
-        
+    """Convert a Qiskit `QuantumCircuit` to an HDH.
+
+    Supports standard gates, measurement, and `if_test` blocks conditioned on
+    a single classical bit equal to 1.
+
     Raises:
-        NotImplementedError: For unsupported operations or condition types
+        NotImplementedError: For unsupported operations or conditions.
+
+    Example:
+        >>> from qiskit import QuantumCircuit
+        >>> qc = QuantumCircuit(2, 1)
+        >>> _ = qc.h(0); _ = qc.cx(0, 1); _ = qc.measure(1, 0)
+        >>> from_qiskit(qc).get_num_qubits()
+        2
     """
     circuit = Circuit()
 
@@ -286,23 +284,18 @@ def _make_gate(name: str, params: Optional[List] = None):
 
 
 def to_qiskit(hdh: HDH) -> QuantumCircuit:
-    """
-    Convert an HDH back into a Qiskit QuantumCircuit.
+    """Convert an HDH back into a Qiskit `QuantumCircuit`.
 
-    Multi-qubit gates are stored in the HDH as three hyperedges (``<name>_stage1``,
-    ``_stage2``, ``_stage3``); only the ``_stage2`` edge carries the full qubit set,
-    so the stage 1 and 3 wire-continuity edges are skipped during reconstruction.
+    Each multi-qubit gate is rebuilt from its ``_stage2`` hyperedge. Gate
+    parameters come from `HDH.gate_params` when recorded (e.g. by
+    `from_qiskit`) and default to 0 otherwise.
 
-    Args:
-        hdh: HDH object
-
-    Returns:
-        QuantumCircuit: Qiskit representation
-
-    Note:
-        Gate parameters (rotation angles) are preserved via `hdh.gate_params`
-        when the HDH was built from a source that recorded them (e.g.
-        `from_qiskit`); otherwise they default to 0.
+    Example:
+        >>> from qiskit import QuantumCircuit
+        >>> qc = QuantumCircuit(2)
+        >>> _ = qc.h(0); _ = qc.cx(0, 1)
+        >>> [inst.operation.name for inst in to_qiskit(from_qiskit(qc)).data]
+        ['h', 'cx']
     """
     qubit_indices: Set[int] = set()
     bit_indices:   Set[int] = set()
@@ -452,15 +445,23 @@ def _project_hdh(hdh: HDH, node_set: Set[str]) -> HDH:
 
 
 def partitions_to_qiskit(hdh: HDH, partitions: List[Set[str]]) -> List[QuantumCircuit]:
-    """
-    Recover one Qiskit QuantumCircuit per partition of a cut HDH.
+    """Split a partitioned HDH into one Qiskit circuit per partition.
+
+    Each circuit keeps only the gates entirely inside its partition; gates
+    across partitions are the cuts a distributed run must implement with
+    communication primitives.
 
     Args:
-        hdh: The HDH that was partitioned
-        partitions: Node sets as returned by ``hdh.passes.cut.compute_cut``
+        partitions: Node sets, e.g. from `compute_cut`.
 
-    Returns:
-        One QuantumCircuit per partition, containing only the gates whose
-        qubits are entirely local to that partition.
+    Example:
+        >>> from qiskit import QuantumCircuit
+        >>> from hdh.passes.cut import compute_cut
+        >>> qc = QuantumCircuit(4)
+        >>> _ = qc.cx(0, 1); _ = qc.cx(2, 3)
+        >>> hdh = from_qiskit(qc)
+        >>> partitions, cut_cost = compute_cut(hdh, k=2, cap=2)
+        >>> cut_cost, [c.num_qubits for c in partitions_to_qiskit(hdh, partitions)]
+        (0, [2, 2])
     """
     return [to_qiskit(_project_hdh(hdh, node_set)) for node_set in partitions]

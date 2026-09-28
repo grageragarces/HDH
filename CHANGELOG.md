@@ -29,6 +29,13 @@
 - `plot_hdh` reads wires and timesteps from the HDH, so non-circuit models
   render instead of being skipped (#5).
 
+### Documentation
+
+- Shorter API docstrings, each with an example that runs as a doctest in
+  the test suite, covering every converter in both directions (#78, #61).
+- CI installs the Cirq, PennyLane and Braket extras on Python 3.11 and 3.12,
+  so their converter tests and examples run there instead of skipping.
+
 ### Added
 
 - `NodeType`, `Realisation` and `EdgeRole` enums; `add_node` and

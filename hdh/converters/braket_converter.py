@@ -52,16 +52,15 @@ def _is_ignorable(instr: BraketInstruction) -> bool:
 # ----- main -----
 
 def from_braket(bk: BraketCircuit) -> HDH:
-    """
-    Convert an AWS Braket Circuit to HDH via hdh.models.circuit.Circuit.
+    """Convert an Amazon Braket `Circuit` to an HDH.
 
-    Supported:
-    - Standard gates (all mapped by name)
-    - Measurements (Measure)
-    - Noise ops are treated as gates by name
+    Gates, including noise operations, are mapped by name, and measurements
+    are supported. Classical control flow raises `NotImplementedError`.
 
-    Not supported (raises NotImplementedError if encountered):
-    - Classical conditionals / control flow blocks
+    Example:
+        >>> from braket.circuits import Circuit as BraketCircuit
+        >>> from_braket(BraketCircuit().h(0).cnot(0, 1)).get_num_qubits()
+        2
     """
     qmap = _qindex_map(bk)
     circuit = Circuit()
