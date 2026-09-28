@@ -1,4 +1,5 @@
 from typing import List, Tuple, Optional, Set, Dict
+import re
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -15,9 +16,10 @@ class QCA:
     `build_hdh`.
 
     Args:
-        topology: Adjacency map from each qubit label (e.g. ``"q0"``) to the
-            list of neighbor labels its update rule reads from.
-        measurements: Qubit labels to measure at the final timestep.
+        topology: Adjacency map from each cell label (any string, e.g.
+            ``"q0"`` or ``"A"``) to the list of neighbor labels its update
+            rule reads from.
+        measurements: Cell labels to measure at the final timestep.
         steps: Number of update steps to simulate.
         hdh_cls: HDH class to instantiate (override for a subclass).
     """
@@ -45,9 +47,11 @@ class QCA:
 
         for t in range(1, self.steps + 1):
             for node, neighbors in self.topology.items():
-                inputs = [f"{n}_t{time_map[n]}" for n in neighbors + [node]]
-                for n in inputs:
-                    hdh.add_node(n, "q", int(n.split("_t")[1]))
+                inputs = []
+                for n in neighbors + [node]:
+                    in_node = f"{n}_t{time_map[n]}"
+                    hdh.add_node(in_node, "q", time_map[n])
+                    inputs.append(in_node)
 
                 out_node = f"{node}_t{t}"
                 hdh.add_node(out_node, "q", t)
@@ -58,9 +62,19 @@ class QCA:
         for node in self.measurements:
             t_meas = self.steps + 1  # important!
             out_node = f"{node}_t{self.steps}"
-            cl_index = int(node[1:])  # assumes "q0", "q1", etc.
-            c_node = f"c{cl_index}_t{t_meas}"
+            c_node = f"{self._classical_label(node)}_t{t_meas}"
             hdh.add_node(c_node, "c", t_meas)
             hdh.add_hyperedge(frozenset({out_node, c_node}), "c", name="measure")
 
         return hdh
+
+    @staticmethod
+    def _classical_label(cell: str) -> str:
+        """Label for the classical bit a measured cell writes to.
+
+        Cells named ``q<int>`` keep the circuit convention (``q3`` -> ``c3``)
+        so converters recognise the bit; any other name gets a ``c_`` prefix
+        (``"A"`` -> ``"c_A"``).
+        """
+        m = re.fullmatch(r"q(\d+)", cell)
+        return f"c{m.group(1)}" if m else f"c_{cell}"

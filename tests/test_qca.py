@@ -59,6 +59,26 @@ class TestQCA:
         assert not any(hdh.sigma[n] == "c" and n.startswith("c0_") for n in hdh.S)
         assert any(hdh.sigma[n] == "c" for n in hdh.S)  # q1 was measured
 
+    def test_non_numeric_cell_names_build_and_measure(self):
+        # Cell names used to be parsed as "q<int>", so "A" raised ValueError.
+        topology = {"A": ["B"], "B": ["A"]}
+        hdh = QCA(topology=topology, measurements={"A"}, steps=2).build_hdh()
+
+        assert {"A_t0", "A_t1", "A_t2", "B_t0", "B_t1", "B_t2"} <= hdh.S
+        assert hdh.sigma["c_A_t3"] == "c"
+        measure_edges = [e for e in hdh.C if hdh.gate_name.get(e) == "measure"]
+        assert measure_edges == [frozenset({"A_t2", "c_A_t3"})]
+
+    def test_cell_name_containing_t_separator(self):
+        # Timesteps used to be re-parsed with split("_t"), which a cell named
+        # "cell_top" broke.
+        topology = {"cell_top": ["cell_bottom"], "cell_bottom": ["cell_top"]}
+        hdh = QCA(topology=topology, measurements={"cell_top"}, steps=1).build_hdh()
+
+        assert hdh.time_map["cell_top_t0"] == 0
+        assert hdh.time_map["cell_top_t1"] == 1
+        assert hdh.time_map["c_cell_top_t2"] == 2
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

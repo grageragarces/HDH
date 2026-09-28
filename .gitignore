@@ -32,3 +32,14 @@ database/Workloads/Circuit/MQTBench/
 
 # Regeneratable benchmark output (run benchmarks/*.py to reproduce)
 benchmarks/results/
+
+# Local review checklist (JOSS round 2)
+todo.tex
+todo.aux
+todo.log
+todo.out
+todo.pdf
+todo.synctex.gz
+issues_to_open.md
+todo.fdb_latexmk
+todo.fls
