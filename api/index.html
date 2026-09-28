@@ -256,23 +256,17 @@ name and a formal one matching the HDH paper's notation; both refer to the
 same object.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>hdh = HDH()
-a = hdh.add_node("q0", 0)
-b = hdh.add_node("q0", 1)
-edge = hdh.add_hyperedge({a, b}, "q", name="h")
-sorted(hdh.nodes)
-['q0_t0', 'q0_t1']
-hdh.hyperedge_types[edge], hdh.gate_name[edge]
-('q', 'h')</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">HDH</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">hdh</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"q0"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">hdh</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"q0"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">edge</span> <span class="o">=</span> <span class="n">hdh</span><span class="o">.</span><span class="n">add_hyperedge</span><span class="p">({</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">},</span> <span class="s2">"q"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"h"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">hdh</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+<span class="go">['q0_t0', 'q0_t1']</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span><span class="o">.</span><span class="n">hyperedge_types</span><span class="p">[</span><span class="n">edge</span><span class="p">],</span> <span class="n">hdh</span><span class="o">.</span><span class="n">gate_name</span><span class="p">[</span><span class="n">edge</span><span class="p">]</span>
+<span class="go">('q', 'h')</span>
+</code></pre></div>
+
 
 <table class="field-list">
   <colgroup>
@@ -672,7 +666,7 @@ capacity per quantum wire.</p>
 <span class="sd">    name and a formal one matching the HDH paper's notation; both refer to the</span>
 <span class="sd">    same object.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; hdh = HDH()</span>
 <span class="sd">        &gt;&gt;&gt; a = hdh.add_node("q0", 0)</span>
 <span class="sd">        &gt;&gt;&gt; b = hdh.add_node("q0", 1)</span>
@@ -785,7 +779,7 @@ capacity per quantum wire.</p>
 <span class="sd">            ValueError: On an invalid type, or if the state already exists with</span>
 <span class="sd">                another type.</span>
 
-<span class="sd">        Example:</span>
+<span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; hdh = HDH()</span>
 <span class="sd">            &gt;&gt;&gt; hdh.add_node("q0", 1)</span>
 <span class="sd">            'q0_t1'</span>
@@ -837,7 +831,7 @@ capacity per quantum wire.</p>
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError: If `edge_type`, `node_real` or `role` is invalid.</span>
 
-<span class="sd">        Example:</span>
+<span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; hdh = HDH()</span>
 <span class="sd">            &gt;&gt;&gt; q, c = hdh.add_node("q0", 0), hdh.add_node("c0", 1, "c")</span>
 <span class="sd">            &gt;&gt;&gt; edge = hdh.add_hyperedge({q, c}, "c", name="measure")</span>
@@ -1206,20 +1200,14 @@ partitioning pass.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>hdh = HDH()
-q, c = hdh.add_node("q0", 0), hdh.add_node("c0", 1, "c")
-edge = hdh.add_hyperedge({q, c}, "c", name="measure")
-sorted(edge)
-['c0_t1', 'q0_t0']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">HDH</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">q</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">hdh</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"q0"</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">hdh</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"c0"</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">edge</span> <span class="o">=</span> <span class="n">hdh</span><span class="o">.</span><span class="n">add_hyperedge</span><span class="p">({</span><span class="n">q</span><span class="p">,</span> <span class="n">c</span><span class="p">},</span> <span class="s2">"c"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"measure"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">edge</span><span class="p">)</span>
+<span class="go">['c0_t1', 'q0_t0']</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\hdh.py</code></summary>
@@ -1278,7 +1266,7 @@ sorted(edge)
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: If `edge_type`, `node_real` or `role` is invalid.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; hdh = HDH()</span>
 <span class="sd">        &gt;&gt;&gt; q, c = hdh.add_node("q0", 0), hdh.add_node("c0", 1, "c")</span>
 <span class="sd">        &gt;&gt;&gt; edge = hdh.add_hyperedge({q, c}, "c", name="measure")</span>
@@ -1428,20 +1416,14 @@ another type.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>hdh = HDH()
-hdh.add_node("q0", 1)
-'q0_t1'
-hdh.add_node("c0", 2, "c")
-'c0_t2'</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">HDH</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"q0"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="go">'q0_t1'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="s2">"c0"</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">)</span>
+<span class="go">'c0_t2'</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\hdh.py</code></summary>
@@ -1523,7 +1505,7 @@ hdh.add_node("c0", 2, "c")
 <span class="sd">        ValueError: On an invalid type, or if the state already exists with</span>
 <span class="sd">            another type.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; hdh = HDH()</span>
 <span class="sd">        &gt;&gt;&gt; hdh.add_node("q0", 1)</span>
 <span class="sd">        'q0_t1'</span>
@@ -1975,18 +1957,12 @@ invariants below, so a new model should be added to its registry.</p>
 </ul>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from hdh.models.circuit import Circuit
-isinstance(Circuit(), Model)
-True</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">hdh.models.circuit</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">Circuit</span><span class="p">(),</span> <span class="n">Model</span><span class="p">)</span>
+<span class="go">True</span>
+</code></pre></div>
+
 
 
 
@@ -2041,7 +2017,7 @@ True</p>
 <span class="sd">    - only connect nodes that exist;</span>
 <span class="sd">    - keep quantum hyperedges free of classical nodes.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from hdh.models.circuit import Circuit</span>
 <span class="sd">        &gt;&gt;&gt; isinstance(Circuit(), Model)</span>
 <span class="sd">        True</span>
@@ -2120,24 +2096,18 @@ True</p>
         <p>Gate-model circuit builder: record gates in order, then call <code>build_hdh</code>.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>c = Circuit()
-c.add_instruction("h", [0])
-c.add_instruction("cx", [0, 1])
-c.add_instruction("measure", [1])
-hdh = c.build_hdh()
-hdh.get_num_qubits()
-2
-sorted({hdh.wire_of[n] for n in hdh.nodes})
-['c1', 'q0', 'q1']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"h"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"measure"</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span><span class="o">.</span><span class="n">get_num_qubits</span><span class="p">()</span>
+<span class="go">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">({</span><span class="n">hdh</span><span class="o">.</span><span class="n">wire_of</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">hdh</span><span class="o">.</span><span class="n">nodes</span><span class="p">})</span>
+<span class="go">['c1', 'q0', 'q1']</span>
+</code></pre></div>
+
 
 
 
@@ -2502,7 +2472,7 @@ sorted({hdh.wire_of[n] for n in hdh.nodes})
 <span class="normal">360</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Circuit</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Gate-model circuit builder: record gates in order, then call `build_hdh`.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("h", [0])</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("cx", [0, 1])</span>
@@ -2541,7 +2511,7 @@ sorted({hdh.wire_of[n] for n in hdh.nodes})
 <span class="sd">            params: Gate parameters such as ``[theta]`` for ``"rx"``; kept on the</span>
 <span class="sd">                HDH so converters can restore them.</span>
 
-<span class="sd">        Example:</span>
+<span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">            &gt;&gt;&gt; c.add_instruction("rx", [0], params=[0.5])</span>
 <span class="sd">            &gt;&gt;&gt; hdh = c.build_hdh()</span>
@@ -2580,7 +2550,7 @@ sorted({hdh.wire_of[n] for n in hdh.nodes})
 <span class="sd">            modifies_flags: As in `add_instruction`.</span>
 <span class="sd">            params: As in `add_instruction`.</span>
 
-<span class="sd">        Example:</span>
+<span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">            &gt;&gt;&gt; c.add_instruction("h", [0])</span>
 <span class="sd">            &gt;&gt;&gt; c.add_instruction("measure", [0])</span>
@@ -2955,22 +2925,16 @@ sorted({hdh.wire_of[n] for n in hdh.nodes})
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>c = Circuit()
-c.add_instruction("h", [0])
-c.add_instruction("measure", [0])
-c.add_conditional_gate(0, 1, "x")
-hdh = c.build_hdh()
-sorted(n for n in hdh.nodes if hdh.node_realisation[n] == "p")
-['q1_t3']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"h"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"measure"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_conditional_gate</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">hdh</span><span class="o">.</span><span class="n">nodes</span> <span class="k">if</span> <span class="n">hdh</span><span class="o">.</span><span class="n">node_realisation</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"p"</span><span class="p">)</span>
+<span class="go">['q1_t3']</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\models\circuit.py</code></summary>
@@ -3048,7 +3012,7 @@ sorted(n for n in hdh.nodes if hdh.node_realisation[n] == "p")
 <span class="sd">        modifies_flags: As in `add_instruction`.</span>
 <span class="sd">        params: As in `add_instruction`.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("h", [0])</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("measure", [0])</span>
@@ -3174,20 +3138,14 @@ HDH so converters can restore them.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>c = Circuit()
-c.add_instruction("rx", [0], params=[0.5])
-hdh = c.build_hdh()
-list(hdh.gate_params.values())
-[[0.5]]</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"rx"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="mf">0.5</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">list</span><span class="p">(</span><span class="n">hdh</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<span class="go">[[0.5]]</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\models\circuit.py</code></summary>
@@ -3250,7 +3208,7 @@ list(hdh.gate_params.values())
 <span class="sd">        params: Gate parameters such as ``[theta]`` for ``"rx"``; kept on the</span>
 <span class="sd">            HDH so converters can restore them.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("rx", [0], params=[0.5])</span>
 <span class="sd">        &gt;&gt;&gt; hdh = c.build_hdh()</span>
@@ -3833,23 +3791,17 @@ Labels are free-form and become the HDH's wires; keep each label to one
 type (never reuse a measurement result's label as a quantum state).</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>m = MBQC()
-m.add_operation("N", [], "a")
-m.add_operation("N", [], "b")
-m.add_operation("E", ["a", "b"], "b")
-m.add_operation("M", ["a"], "m_a")
-hdh = m.build_hdh()
-sorted({hdh.wire_of[n] for n in hdh.nodes if hdh.node_types[n] == "q"})
-['a', 'b']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">MBQC</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span><span class="o">.</span><span class="n">add_operation</span><span class="p">(</span><span class="s2">"N"</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">"a"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span><span class="o">.</span><span class="n">add_operation</span><span class="p">(</span><span class="s2">"N"</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">"b"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span><span class="o">.</span><span class="n">add_operation</span><span class="p">(</span><span class="s2">"E"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"a"</span><span class="p">,</span> <span class="s2">"b"</span><span class="p">],</span> <span class="s2">"b"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span><span class="o">.</span><span class="n">add_operation</span><span class="p">(</span><span class="s2">"M"</span><span class="p">,</span> <span class="p">[</span><span class="s2">"a"</span><span class="p">],</span> <span class="s2">"m_a"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">({</span><span class="n">hdh</span><span class="o">.</span><span class="n">wire_of</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">hdh</span><span class="o">.</span><span class="n">nodes</span> <span class="k">if</span> <span class="n">hdh</span><span class="o">.</span><span class="n">node_types</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"q"</span><span class="p">})</span>
+<span class="go">['a', 'b']</span>
+</code></pre></div>
+
 
 
 
@@ -3939,7 +3891,7 @@ sorted({hdh.wire_of[n] for n in hdh.nodes if hdh.node_types[n] == "q"})
 <span class="sd">    Labels are free-form and become the HDH's wires; keep each label to one</span>
 <span class="sd">    type (never reuse a measurement result's label as a quantum state).</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; m = MBQC()</span>
 <span class="sd">        &gt;&gt;&gt; m.add_operation("N", [], "a")</span>
 <span class="sd">        &gt;&gt;&gt; m.add_operation("N", [], "b")</span>
@@ -4246,18 +4198,12 @@ update reads.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>qca = QCA(topology={"A": ["B"], "B": ["A"]}, measurements={"A"}, steps=1)
-sorted(qca.build_hdh().nodes)
-['A_t0', 'A_t1', 'B_t0', 'B_t1', 'c_A_t2']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">qca</span> <span class="o">=</span> <span class="n">QCA</span><span class="p">(</span><span class="n">topology</span><span class="o">=</span><span class="p">{</span><span class="s2">"A"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"B"</span><span class="p">],</span> <span class="s2">"B"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"A"</span><span class="p">]},</span> <span class="n">measurements</span><span class="o">=</span><span class="p">{</span><span class="s2">"A"</span><span class="p">},</span> <span class="n">steps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">qca</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+<span class="go">['A_t0', 'A_t1', 'B_t0', 'B_t1', 'c_A_t2']</span>
+</code></pre></div>
+
 
 
 
@@ -4336,7 +4282,7 @@ sorted(qca.build_hdh().nodes)
 <span class="sd">        steps: Number of update steps.</span>
 <span class="sd">        hdh_cls: HDH class to instantiate, for subclasses.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; qca = QCA(topology={"A": ["B"], "B": ["A"]}, measurements={"A"}, steps=1)</span>
 <span class="sd">        &gt;&gt;&gt; sorted(qca.build_hdh().nodes)</span>
 <span class="sd">        ['A_t0', 'A_t1', 'B_t0', 'B_t1', 'c_A_t2']</span>
@@ -4505,20 +4451,14 @@ hyperedge per measured cell.</p>
 pass to the next step.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>w = QW()
-state = w.add_shift(w.add_coin("q0"))
-w.add_measurement(state, "m0")
-sorted(w.build_hdh().nodes)
-['m0_t3', 'q0_t0', 'q1_t1', 'q2_t2']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">w</span> <span class="o">=</span> <span class="n">QW</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">state</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">add_shift</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">add_coin</span><span class="p">(</span><span class="s2">"q0"</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">w</span><span class="o">.</span><span class="n">add_measurement</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">"m0"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+<span class="go">['m0_t3', 'q0_t0', 'q1_t1', 'q2_t2']</span>
+</code></pre></div>
+
 
 
 
@@ -4593,7 +4533,7 @@ sorted(w.build_hdh().nodes)
 <span class="sd">    `add_coin` and `add_shift` return the label of the new walker state, to</span>
 <span class="sd">    pass to the next step.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; w = QW()</span>
 <span class="sd">        &gt;&gt;&gt; state = w.add_shift(w.add_coin("q0"))</span>
 <span class="sd">        &gt;&gt;&gt; w.add_measurement(state, "m0")</span>
@@ -4874,19 +4814,13 @@ row of its own.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from hdh.models.circuit import Circuit
-c = Circuit()
-c.add_instruction("cx", [0, 1])
-plot_hdh(c.build_hdh(), save_path="cx.svg")  # doctest: +SKIP</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">hdh.models.circuit</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plot_hdh</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">(),</span> <span class="n">save_path</span><span class="o">=</span><span class="s2">"cx.svg"</span><span class="p">)</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\visualize.py</code></summary>
@@ -5041,7 +4975,7 @@ plot_hdh(c.build_hdh(), save_path="cx.svg")  # doctest: +SKIP</p>
 <span class="sd">        save_path: File to save to (the extension sets the format), or</span>
 <span class="sd">            ``None`` to show the plot instead.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from hdh.models.circuit import Circuit</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("cx", [0, 1])</span>
@@ -5217,20 +5151,14 @@ a single classical bit equal to 1.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from qiskit import QuantumCircuit
-qc = QuantumCircuit(2, 1)
-_ = qc.h(0); _ = qc.cx(0, 1); _ = qc.measure(1, 0)
-from_qiskit(qc).get_num_qubits()
-2</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qiskit</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantumCircuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">qc</span> <span class="o">=</span> <span class="n">QuantumCircuit</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">h</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">cx</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span> <span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">measure</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">from_qiskit</span><span class="p">(</span><span class="n">qc</span><span class="p">)</span><span class="o">.</span><span class="n">get_num_qubits</span><span class="p">()</span>
+<span class="go">2</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\qiskit_converter.py</code></summary>
@@ -5289,7 +5217,7 @@ from_qiskit(qc).get_num_qubits()
 <span class="sd">    Raises:</span>
 <span class="sd">        NotImplementedError: For unsupported operations or conditions.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from qiskit import QuantumCircuit</span>
 <span class="sd">        &gt;&gt;&gt; qc = QuantumCircuit(2, 1)</span>
 <span class="sd">        &gt;&gt;&gt; _ = qc.h(0); _ = qc.cx(0, 1); _ = qc.measure(1, 0)</span>
@@ -5350,19 +5278,14 @@ parameters come from <code>HDH.gate_params</code> when recorded (e.g. by
 <code>from_qiskit</code>) and default to 0 otherwise.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from qiskit import QuantumCircuit
-qc = QuantumCircuit(2)
-_ = qc.h(0); _ = qc.cx(0, 1)
-[inst.operation.name for inst in to_qiskit(from_qiskit(qc)).data]['h', 'cx']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qiskit</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantumCircuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">qc</span> <span class="o">=</span> <span class="n">QuantumCircuit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">h</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span> <span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">cx</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">inst</span><span class="o">.</span><span class="n">operation</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">inst</span> <span class="ow">in</span> <span class="n">to_qiskit</span><span class="p">(</span><span class="n">from_qiskit</span><span class="p">(</span><span class="n">qc</span><span class="p">))</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+<span class="go">['h', 'cx']</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\qiskit_converter.py</code></summary>
@@ -5499,7 +5422,7 @@ _ = qc.h(0); _ = qc.cx(0, 1)
 <span class="sd">    parameters come from `HDH.gate_params` when recorded (e.g. by</span>
 <span class="sd">    `from_qiskit`) and default to 0 otherwise.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from qiskit import QuantumCircuit</span>
 <span class="sd">        &gt;&gt;&gt; qc = QuantumCircuit(2)</span>
 <span class="sd">        &gt;&gt;&gt; _ = qc.h(0); _ = qc.cx(0, 1)</span>
@@ -5666,23 +5589,17 @@ communication primitives.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from qiskit import QuantumCircuit
-from hdh.passes.cut import compute_cut
-qc = QuantumCircuit(4)
-_ = qc.cx(0, 1); _ = qc.cx(2, 3)
-hdh = from_qiskit(qc)
-partitions, cut_cost = compute_cut(hdh, k=2, cap=2)
-cut_cost, [c.num_qubits for c in partitions_to_qiskit(hdh, partitions)]
-(0, [2, 2])</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">qiskit</span><span class="w"> </span><span class="kn">import</span> <span class="n">QuantumCircuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">hdh.passes.cut</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_cut</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">qc</span> <span class="o">=</span> <span class="n">QuantumCircuit</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">cx</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span> <span class="n">_</span> <span class="o">=</span> <span class="n">qc</span><span class="o">.</span><span class="n">cx</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">from_qiskit</span><span class="p">(</span><span class="n">qc</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partitions</span><span class="p">,</span> <span class="n">cut_cost</span> <span class="o">=</span> <span class="n">compute_cut</span><span class="p">(</span><span class="n">hdh</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cut_cost</span><span class="p">,</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">num_qubits</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">partitions_to_qiskit</span><span class="p">(</span><span class="n">hdh</span><span class="p">,</span> <span class="n">partitions</span><span class="p">)]</span>
+<span class="go">(0, [2, 2])</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\qiskit_converter.py</code></summary>
@@ -5716,7 +5633,7 @@ cut_cost, [c.num_qubits for c in partitions_to_qiskit(hdh, partitions)]
 <span class="sd">    Args:</span>
 <span class="sd">        partitions: Node sets, e.g. from `compute_cut`.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from qiskit import QuantumCircuit</span>
 <span class="sd">        &gt;&gt;&gt; from hdh.passes.cut import compute_cut</span>
 <span class="sd">        &gt;&gt;&gt; qc = QuantumCircuit(4)</span>
@@ -5803,18 +5720,12 @@ QASM source.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>src = 'OPENQASM 2.0; include "qelib1.inc"; qreg q[2]; h q[0]; cx q[0], q[1];'
-from_qasm("string", src).get_num_qubits()
-2</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">src</span> <span class="o">=</span> <span class="s1">'OPENQASM 2.0; include "qelib1.inc"; qreg q[2]; h q[0]; cx q[0], q[1];'</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">from_qasm</span><span class="p">(</span><span class="s2">"string"</span><span class="p">,</span> <span class="n">src</span><span class="p">)</span><span class="o">.</span><span class="n">get_num_qubits</span><span class="p">()</span>
+<span class="go">2</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\qasm_converter.py</code></summary>
@@ -5852,7 +5763,7 @@ from_qasm("string", src).get_num_qubits()
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: If `input_type` is neither.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; src = 'OPENQASM 2.0; include "qelib1.inc"; qreg q[2]; h q[0]; cx q[0], q[1];'</span>
 <span class="sd">        &gt;&gt;&gt; from_qasm("string", src).get_num_qubits()</span>
 <span class="sd">        2</span>
@@ -5887,20 +5798,14 @@ from_qasm("string", src).get_num_qubits()
 operations are not supported.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>import cirq
-a, b = cirq.LineQubit.range(2)
-circuit = cirq.Circuit([cirq.H(a), cirq.CNOT(a, b), cirq.measure(b)])
-from_cirq(circuit).get_num_qubits()
-2</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">cirq</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">cirq</span><span class="o">.</span><span class="n">LineQubit</span><span class="o">.</span><span class="n">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">circuit</span> <span class="o">=</span> <span class="n">cirq</span><span class="o">.</span><span class="n">Circuit</span><span class="p">([</span><span class="n">cirq</span><span class="o">.</span><span class="n">H</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">cirq</span><span class="o">.</span><span class="n">CNOT</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">cirq</span><span class="o">.</span><span class="n">measure</span><span class="p">(</span><span class="n">b</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">from_cirq</span><span class="p">(</span><span class="n">circuit</span><span class="p">)</span><span class="o">.</span><span class="n">get_num_qubits</span><span class="p">()</span>
+<span class="go">2</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\cirq_converter.py</code></summary>
@@ -5938,7 +5843,7 @@ from_cirq(circuit).get_num_qubits()
 <span class="sd">    Supports standard gates and measurement. Classically controlled</span>
 <span class="sd">    operations are not supported.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; import cirq</span>
 <span class="sd">        &gt;&gt;&gt; a, b = cirq.LineQubit.range(2)</span>
 <span class="sd">        &gt;&gt;&gt; circuit = cirq.Circuit([cirq.H(a), cirq.CNOT(a, b), cirq.measure(b)])</span>
@@ -6007,20 +5912,14 @@ from_cirq(circuit).get_num_qubits()
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>import pennylane as qml
-script = qml.tape.QuantumScript(
-...     [qml.Hadamard(0), qml.CNOT([0, 1])], [qml.probs(wires=1)])
-from_pennylane(script).get_num_qubits()
-2</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pennylane</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">qml</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">script</span> <span class="o">=</span> <span class="n">qml</span><span class="o">.</span><span class="n">tape</span><span class="o">.</span><span class="n">QuantumScript</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="p">[</span><span class="n">qml</span><span class="o">.</span><span class="n">Hadamard</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">qml</span><span class="o">.</span><span class="n">CNOT</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])],</span> <span class="p">[</span><span class="n">qml</span><span class="o">.</span><span class="n">probs</span><span class="p">(</span><span class="n">wires</span><span class="o">=</span><span class="mi">1</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">from_pennylane</span><span class="p">(</span><span class="n">script</span><span class="p">)</span><span class="o">.</span><span class="n">get_num_qubits</span><span class="p">()</span>
+<span class="go">2</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\pennylane_converter.py</code></summary>
@@ -6100,7 +5999,7 @@ from_pennylane(script).get_num_qubits()
 <span class="sd">    Raises:</span>
 <span class="sd">        NotImplementedError: If a `qml.cond` condition is not a measurement.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; import pennylane as qml</span>
 <span class="sd">        &gt;&gt;&gt; script = qml.tape.QuantumScript(</span>
 <span class="sd">        ...     [qml.Hadamard(0), qml.CNOT([0, 1])], [qml.probs(wires=1)])</span>
@@ -6180,18 +6079,13 @@ from_pennylane(script).get_num_qubits()
 <code>qml.measure</code> and <code>qml.cond</code>.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>import pennylane as qml
-script = qml.tape.QuantumScript([qml.Hadamard(0), qml.CNOT([0, 1])])
-[op.name for op in to_pennylane(from_pennylane(script)).operations]['Hadamard', 'CNOT']</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pennylane</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">qml</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">script</span> <span class="o">=</span> <span class="n">qml</span><span class="o">.</span><span class="n">tape</span><span class="o">.</span><span class="n">QuantumScript</span><span class="p">([</span><span class="n">qml</span><span class="o">.</span><span class="n">Hadamard</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">qml</span><span class="o">.</span><span class="n">CNOT</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">to_pennylane</span><span class="p">(</span><span class="n">from_pennylane</span><span class="p">(</span><span class="n">script</span><span class="p">))</span><span class="o">.</span><span class="n">operations</span><span class="p">]</span>
+<span class="go">['Hadamard', 'CNOT']</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\pennylane_converter.py</code></summary>
@@ -6302,7 +6196,7 @@ script = qml.tape.QuantumScript([qml.Hadamard(0), qml.CNOT([0, 1])])
 <span class="sd">    `to_qiskit`. Measurements and conditional gates are replayed through</span>
 <span class="sd">    `qml.measure` and `qml.cond`.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; import pennylane as qml</span>
 <span class="sd">        &gt;&gt;&gt; script = qml.tape.QuantumScript([qml.Hadamard(0), qml.CNOT([0, 1])])</span>
 <span class="sd">        &gt;&gt;&gt; [op.name for op in to_pennylane(from_pennylane(script)).operations]</span>
@@ -6418,18 +6312,12 @@ script = qml.tape.QuantumScript([qml.Hadamard(0), qml.CNOT([0, 1])])
 are supported. Classical control flow raises <code>NotImplementedError</code>.</p>
 
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from braket.circuits import Circuit as BraketCircuit
-from_braket(BraketCircuit().h(0).cnot(0, 1)).get_num_qubits()
-2</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">braket.circuits</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circuit</span> <span class="k">as</span> <span class="n">BraketCircuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">from_braket</span><span class="p">(</span><span class="n">BraketCircuit</span><span class="p">()</span><span class="o">.</span><span class="n">h</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">cnot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">get_num_qubits</span><span class="p">()</span>
+<span class="go">2</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\converters\braket_converter.py</code></summary>
@@ -6474,7 +6362,7 @@ from_braket(BraketCircuit().h(0).cnot(0, 1)).get_num_qubits()
 <span class="sd">    Gates, including noise operations, are mapped by name, and measurements</span>
 <span class="sd">    are supported. Classical control flow raises `NotImplementedError`.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from braket.circuits import Circuit as BraketCircuit</span>
 <span class="sd">        &gt;&gt;&gt; from_braket(BraketCircuit().h(0).cnot(0, 1)).get_num_qubits()</span>
 <span class="sd">        2</span>
@@ -6636,22 +6524,16 @@ smaller than the number of qubits.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from hdh.models.circuit import Circuit
-c = Circuit()
-for q in range(3):
-...     c.add_instruction("cx", [q, q + 1])
-partitions, cost = compute_cut(c.build_hdh(), k=2, cap=2)
-cost
-1</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">hdh.models.circuit</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="p">[</span><span class="n">q</span><span class="p">,</span> <span class="n">q</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">partitions</span><span class="p">,</span> <span class="n">cost</span> <span class="o">=</span> <span class="n">compute_cut</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">(),</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cost</span>
+<span class="go">1</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\passes\cut.py</code></summary>
@@ -6901,7 +6783,7 @@ cost
 <span class="sd">        RuntimeError: If no complete assignment exists, i.e. ``k * cap`` is</span>
 <span class="sd">            smaller than the number of qubits.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from hdh.models.circuit import Circuit</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; for q in range(3):</span>
@@ -7220,16 +7102,10 @@ share a hyperedge with. Requires the <code>kahypar</code> extra.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>partitions, cut_cost = kahypar_cutter(hdh, k=2, cap=3)  # doctest: +SKIP</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">partitions</span><span class="p">,</span> <span class="n">cut_cost</span> <span class="o">=</span> <span class="n">kahypar_cutter</span><span class="p">(</span><span class="n">hdh</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\passes\cut.py</code></summary>
@@ -7444,7 +7320,7 @@ share a hyperedge with. Requires the <code>kahypar</code> extra.</p>
 <span class="sd">        ValueError: If `k` exceeds the number of qubits, or `cap` is below</span>
 <span class="sd">            ``ceil(n_qubits / k)``.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; partitions, cut_cost = kahypar_cutter(hdh, k=2, cap=3)  # doctest: +SKIP</span>
 <span class="sd">    """</span>
     <span class="k">try</span><span class="p">:</span>
@@ -7981,22 +7857,16 @@ Kernighan-Lin bisection when METIS is unavailable.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from hdh.models.circuit import Circuit
-c = Circuit()
-c.add_instruction("cx", [0, 1])
-c.add_instruction("cx", [2, 3])
-bins, cut_cost, fits, method = metis_telegate(c.build_hdh(), 2, 2)
-sorted(sorted(b) for b in bins), cut_cost, fits
-([['q0', 'q1'], ['q2', 'q3']], 0, True)</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">hdh.models.circuit</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bins</span><span class="p">,</span> <span class="n">cut_cost</span><span class="p">,</span> <span class="n">fits</span><span class="p">,</span> <span class="n">method</span> <span class="o">=</span> <span class="n">metis_telegate</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">(),</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bins</span><span class="p">),</span> <span class="n">cut_cost</span><span class="p">,</span> <span class="n">fits</span>
+<span class="go">([['q0', 'q1'], ['q2', 'q3']], 0, True)</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\passes\cut.py</code></summary>
@@ -8064,7 +7934,7 @@ sorted(sorted(b) for b in bins), cut_cost, fits
 <span class="sd">        the number of cut graph edges, whether every bin fits, and</span>
 <span class="sd">        ``"metis"`` or ``"kl"``.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from hdh.models.circuit import Circuit</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("cx", [0, 1])</span>
@@ -8140,22 +8010,16 @@ in no partition are ignored.</p>
   </tbody>
 </table>
 
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>from hdh.models.circuit import Circuit
-c = Circuit()
-c.add_instruction("cx", [0, 1])
-hdh = c.build_hdh()
-q0 = {n for n in hdh.nodes if hdh.wire_of[n] == "q0"}
-cost(hdh, [q0, hdh.nodes - q0])
-(1.0, 0.0)</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">hdh.models.circuit</span><span class="w"> </span><span class="kn">import</span> <span class="n">Circuit</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">Circuit</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add_instruction</span><span class="p">(</span><span class="s2">"cx"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hdh</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">build_hdh</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">q0</span> <span class="o">=</span> <span class="p">{</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">hdh</span><span class="o">.</span><span class="n">nodes</span> <span class="k">if</span> <span class="n">hdh</span><span class="o">.</span><span class="n">wire_of</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"q0"</span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cost</span><span class="p">(</span><span class="n">hdh</span><span class="p">,</span> <span class="p">[</span><span class="n">q0</span><span class="p">,</span> <span class="n">hdh</span><span class="o">.</span><span class="n">nodes</span> <span class="o">-</span> <span class="n">q0</span><span class="p">])</span>
+<span class="go">(1.0, 0.0)</span>
+</code></pre></div>
+
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>hdh\passes\cut.py</code></summary>
@@ -8223,7 +8087,7 @@ cost(hdh, [q0, hdh.nodes - q0])
 <span class="sd">    Returns:</span>
 <span class="sd">        ``(quantum_cuts, classical_cuts)``, as floats.</span>
 
-<span class="sd">    Example:</span>
+<span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; from hdh.models.circuit import Circuit</span>
 <span class="sd">        &gt;&gt;&gt; c = Circuit()</span>
 <span class="sd">        &gt;&gt;&gt; c.add_instruction("cx", [0, 1])</span>
