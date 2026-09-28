@@ -716,7 +716,7 @@ if __name__ == "__main__":
 
 import re
 
-from hdh.passes.cut import compute_cut
+from hdh.passes.cut import compute_cut, cost
 
 _Q = re.compile(r"^q(\d+)_t\d+$")
 
@@ -784,6 +784,107 @@ class TestPartitionerCapacityFeasibility:
         hdh = _chain(6)
         with pytest.raises(RuntimeError):
             compute_cut(hdh, k=2, cap=2)  # 4 slots for 6 qubits
+
+
+def _detached_segment_hdh():
+    """Four qubits where q0's late state q0_t5 is reachable only through q1.
+
+    Bin 0 is seeded on q0 and holds q0_t0-q0_t1; bin 1 is seeded on q1 and
+    then meets q0_t5, so the greedy has to decide whether to split q0 across
+    both bins while q2 and q3 are still unplaced. q2/q3 come last in time so
+    the residual phase also meets q0_t5 before them.
+    """
+    hdh = HDH()
+    nodes = [("q0_t0", 0), ("q0_t1", 1), ("q1_t0", 0), ("q1_t1", 1), ("q0_t5", 5),
+             ("q2_t6", 6), ("q2_t7", 7), ("q3_t6", 6), ("q3_t7", 7)]
+    for node, t in nodes:
+        hdh.add_node(node, "q", t)
+    for edge in [("q0_t0", "q0_t1"), ("q1_t0", "q1_t1"), ("q1_t1", "q0_t5"),
+                 ("q2_t6", "q2_t7"), ("q3_t6", "q3_t7")]:
+        hdh.add_hyperedge(set(edge), "q")
+    return hdh
+
+
+class TestPartitionerSplitBudget:
+    """Exercise both outcomes of `_split_is_safe()` inside `compute_cut`.
+
+    Real circuits rarely make the greedy attempt a split, so these use a
+    hand-built HDH that forces the attempt: at zero slack it must be refused
+    (in both the growth and the residual phase), with one slot of slack or
+    more it is taken.
+    """
+
+    def test_split_refused_at_zero_slack(self):
+        hdh = _detached_segment_hdh()
+        partitions, _ = compute_cut(hdh, k=2, cap=2)  # 4 slots, 4 qubits
+
+        assert set().union(*partitions) == hdh.S
+        bins_holding_q0 = [i for i, p in enumerate(partitions) if 0 in _qubits_in(p)]
+        assert len(bins_holding_q0) == 1, "q0 was split with no slack to pay for it"
+        for partition in partitions:
+            assert len(_qubits_in(partition)) <= 2
+
+    def test_split_taken_when_slack_allows(self):
+        hdh = _detached_segment_hdh()
+        partitions, cut_cost = compute_cut(hdh, k=2, cap=3)  # 6 slots, 4 qubits
+
+        assert set().union(*partitions) == hdh.S
+        bins_holding_q0 = [i for i, p in enumerate(partitions) if 0 in _qubits_in(p)]
+        assert len(bins_holding_q0) == 2, "spare slots should let q0 follow q1"
+        assert cut_cost == 0  # q0_t5 sits with q1, so no hyperedge crosses bins
+        for partition in partitions:
+            assert len(_qubits_in(partition)) <= 3
+
+
+class TestCost:
+    """`cost()` against hand-computed values on a small hand-built HDH."""
+
+    @staticmethod
+    def _hdh():
+        # q0_t0 -q- q0_t1 -q- q1_t1 (a 3-node quantum edge with q2_t1),
+        # and a classical edge from q1_t1 to c0_t2.
+        hdh = HDH()
+        for node, kind, t in [("q0_t0", "q", 0), ("q0_t1", "q", 1), ("q1_t1", "q", 1),
+                              ("q2_t1", "q", 1), ("c0_t2", "c", 2)]:
+            hdh.add_node(node, kind, t)
+        hdh.add_hyperedge({"q0_t0", "q0_t1"}, "q")
+        hdh.add_hyperedge({"q0_t1", "q1_t1", "q2_t1"}, "q")
+        hdh.add_hyperedge({"q1_t1", "c0_t2"}, "c")
+        return hdh
+
+    def test_single_partition_costs_nothing(self):
+        hdh = self._hdh()
+        assert cost(hdh, [set(hdh.S)]) == (0.0, 0.0)
+
+    def test_empty_partition_list_costs_nothing(self):
+        assert cost(self._hdh(), []) == (0.0, 0.0)
+
+    def test_one_quantum_cut(self):
+        hdh = self._hdh()
+        partitions = [{"q0_t0"}, hdh.S - {"q0_t0"}]
+        assert cost(hdh, partitions) == (1.0, 0.0)
+
+    def test_one_classical_cut(self):
+        hdh = self._hdh()
+        partitions = [{"c0_t2"}, hdh.S - {"c0_t2"}]
+        assert cost(hdh, partitions) == (0.0, 1.0)
+
+    def test_edge_across_three_bins_counts_once(self):
+        hdh = self._hdh()
+        partitions = [{"q0_t0", "q0_t1"}, {"q1_t1", "c0_t2"}, {"q2_t1"}]
+        assert cost(hdh, partitions) == (1.0, 0.0)
+
+    def test_unassigned_nodes_are_ignored(self):
+        # Only assigned endpoints count: with q0_t0 left out, its edge touches
+        # a single bin and is not cut.
+        hdh = self._hdh()
+        partitions = [{"q0_t1", "q1_t1", "q2_t1"}, {"c0_t2"}]
+        assert cost(hdh, partitions) == (0.0, 1.0)
+
+    def test_quantum_and_classical_cuts_are_separated(self):
+        hdh = self._hdh()
+        partitions = [{"q0_t0", "q0_t1"}, {"q1_t1", "q2_t1"}, {"c0_t2"}]
+        assert cost(hdh, partitions) == (1.0, 1.0)
 
 
 class TestPartitionerIsModelAgnostic:

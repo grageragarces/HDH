@@ -33,6 +33,34 @@ class TestCircuitBasics:
         # Check both qubits have nodes
         assert any(n.startswith("q0_") for n in hdh.S)
         assert any(n.startswith("q1_") for n in hdh.S)
+
+    def test_cnot_offers_three_cut_positions(self):
+        """A CNOT is staged as three hyperedge layers, not one edge, so a
+        partitioner can cut before it (teledata), through it (telegate) or
+        after it (teledata)."""
+        from hdh.passes.cut import cost
+
+        circuit = Circuit()
+        circuit.add_instruction("cx", [0, 1])
+        hdh = circuit.build_hdh()
+
+        edges = {frozenset(e): hdh.gate_name[e] for e in hdh.C}
+        assert edges == {
+            frozenset({"q0_t0", "q0_t1"}): "cx_stage1",
+            frozenset({"q1_t0", "q1_t1"}): "cx_stage1",
+            frozenset({"q0_t1", "q0_t2", "q1_t1", "q1_t2"}): "cx_stage2",
+            frozenset({"q0_t2", "q0_t3"}): "cx_stage3",
+            frozenset({"q1_t2", "q1_t3"}): "cx_stage3",
+        }
+
+        # Each position is a distinct one-edge cut.
+        before = [{"q1_t0"}, hdh.S - {"q1_t0"}]
+        through = [{n for n in hdh.S if n.startswith("q0_")},
+                   {n for n in hdh.S if n.startswith("q1_")}]
+        after = [{"q1_t3"}, hdh.S - {"q1_t3"}]
+        assert cost(hdh, before) == (1.0, 0.0)
+        assert cost(hdh, through) == (1.0, 0.0)
+        assert cost(hdh, after) == (1.0, 0.0)
     
     def test_measurement(self):
         """Test measurement instruction"""
