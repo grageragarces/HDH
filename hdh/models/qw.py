@@ -10,7 +10,7 @@ class QW:
     `add_coin` and `add_shift` return the label of the new walker state, to
     pass to the next step.
 
-    Example:
+    Examples:
         >>> w = QW()
         >>> state = w.add_shift(w.add_coin("q0"))
         >>> w.add_measurement(state, "m0")

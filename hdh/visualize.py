@@ -17,7 +17,7 @@ def plot_hdh(hdh, save_path="hdh_plot.svg"):
         save_path: File to save to (the extension sets the format), or
             ``None`` to show the plot instead.
 
-    Example:
+    Examples:
         >>> from hdh.models.circuit import Circuit
         >>> c = Circuit()
         >>> c.add_instruction("cx", [0, 1])

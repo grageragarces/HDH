@@ -22,7 +22,7 @@ class Model(Protocol):
     - only connect nodes that exist;
     - keep quantum hyperedges free of classical nodes.
 
-    Example:
+    Examples:
         >>> from hdh.models.circuit import Circuit
         >>> isinstance(Circuit(), Model)
         True

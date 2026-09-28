@@ -100,7 +100,7 @@ def kahypar_cutter(
         ValueError: If `k` exceeds the number of qubits, or `cap` is below
             ``ceil(n_qubits / k)``.
 
-    Example:
+    Examples:
         >>> partitions, cut_cost = kahypar_cutter(hdh, k=2, cap=3)  # doctest: +SKIP
     """
     try:
@@ -607,7 +607,7 @@ def compute_cut(hdh_graph, k: int, cap: int, *,
         RuntimeError: If no complete assignment exists, i.e. ``k * cap`` is
             smaller than the number of qubits.
 
-    Example:
+    Examples:
         >>> from hdh.models.circuit import Circuit
         >>> c = Circuit()
         >>> for q in range(3):
@@ -800,7 +800,7 @@ def cost(hdh_graph, partitions) -> Tuple[float, float]:
     Returns:
         ``(quantum_cuts, classical_cuts)``, as floats.
 
-    Example:
+    Examples:
         >>> from hdh.models.circuit import Circuit
         >>> c = Circuit()
         >>> c.add_instruction("cx", [0, 1])
@@ -1059,7 +1059,7 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
         the number of cut graph edges, whether every bin fits, and
         ``"metis"`` or ``"kl"``.
 
-    Example:
+    Examples:
         >>> from hdh.models.circuit import Circuit
         >>> c = Circuit()
         >>> c.add_instruction("cx", [0, 1])

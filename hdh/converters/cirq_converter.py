@@ -67,7 +67,7 @@ def from_cirq(c: cirq.Circuit) -> HDH:
     Supports standard gates and measurement. Classically controlled
     operations are not supported.
 
-    Example:
+    Examples:
         >>> import cirq
         >>> a, b = cirq.LineQubit.range(2)
         >>> circuit = cirq.Circuit([cirq.H(a), cirq.CNOT(a, b), cirq.measure(b)])

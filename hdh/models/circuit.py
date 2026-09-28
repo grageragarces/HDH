@@ -7,7 +7,7 @@ from hdh.hdh import HDH
 class Circuit:
     """Gate-model circuit builder: record gates in order, then call `build_hdh`.
 
-    Example:
+    Examples:
         >>> c = Circuit()
         >>> c.add_instruction("h", [0])
         >>> c.add_instruction("cx", [0, 1])
@@ -46,7 +46,7 @@ class Circuit:
             params: Gate parameters such as ``[theta]`` for ``"rx"``; kept on the
                 HDH so converters can restore them.
 
-        Example:
+        Examples:
             >>> c = Circuit()
             >>> c.add_instruction("rx", [0], params=[0.5])
             >>> hdh = c.build_hdh()
@@ -85,7 +85,7 @@ class Circuit:
             modifies_flags: As in `add_instruction`.
             params: As in `add_instruction`.
 
-        Example:
+        Examples:
             >>> c = Circuit()
             >>> c.add_instruction("h", [0])
             >>> c.add_instruction("measure", [0])

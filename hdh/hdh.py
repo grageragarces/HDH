@@ -64,7 +64,7 @@ class HDH:
     name and a formal one matching the HDH paper's notation; both refer to the
     same object.
 
-    Example:
+    Examples:
         >>> hdh = HDH()
         >>> a = hdh.add_node("q0", 0)
         >>> b = hdh.add_node("q0", 1)
@@ -177,7 +177,7 @@ class HDH:
             ValueError: On an invalid type, or if the state already exists with
                 another type.
 
-        Example:
+        Examples:
             >>> hdh = HDH()
             >>> hdh.add_node("q0", 1)
             'q0_t1'
@@ -229,7 +229,7 @@ class HDH:
         Raises:
             ValueError: If `edge_type`, `node_real` or `role` is invalid.
 
-        Example:
+        Examples:
             >>> hdh = HDH()
             >>> q, c = hdh.add_node("q0", 0), hdh.add_node("c0", 1, "c")
             >>> edge = hdh.add_hyperedge({q, c}, "c", name="measure")

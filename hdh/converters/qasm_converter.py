@@ -12,7 +12,7 @@ def from_qasm(input_type: str, qasm: str):
     Raises:
         ValueError: If `input_type` is neither.
 
-    Example:
+    Examples:
         >>> src = 'OPENQASM 2.0; include "qelib1.inc"; qreg q[2]; h q[0]; cx q[0], q[1];'
         >>> from_qasm("string", src).get_num_qubits()
         2

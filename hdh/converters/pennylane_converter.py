@@ -79,7 +79,7 @@ def from_pennylane(circ_like: Union[QuantumScript, OperationRecorder]) -> HDH:
     Raises:
         NotImplementedError: If a `qml.cond` condition is not a measurement.
 
-    Example:
+    Examples:
         >>> import pennylane as qml
         >>> script = qml.tape.QuantumScript(
         ...     [qml.Hadamard(0), qml.CNOT([0, 1])], [qml.probs(wires=1)])
@@ -147,7 +147,7 @@ def to_pennylane(hdh: HDH) -> QuantumScript:
     `to_qiskit`. Measurements and conditional gates are replayed through
     `qml.measure` and `qml.cond`.
 
-    Example:
+    Examples:
         >>> import pennylane as qml
         >>> script = qml.tape.QuantumScript([qml.Hadamard(0), qml.CNOT([0, 1])])
         >>> [op.name for op in to_pennylane(from_pennylane(script)).operations]

@@ -18,7 +18,7 @@ class QCA:
         steps: Number of update steps.
         hdh_cls: HDH class to instantiate, for subclasses.
 
-    Example:
+    Examples:
         >>> qca = QCA(topology={"A": ["B"], "B": ["A"]}, measurements={"A"}, steps=1)
         >>> sorted(qca.build_hdh().nodes)
         ['A_t0', 'A_t1', 'B_t0', 'B_t1', 'c_A_t2']

@@ -172,7 +172,7 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
     Raises:
         NotImplementedError: For unsupported operations or conditions.
 
-    Example:
+    Examples:
         >>> from qiskit import QuantumCircuit
         >>> qc = QuantumCircuit(2, 1)
         >>> _ = qc.h(0); _ = qc.cx(0, 1); _ = qc.measure(1, 0)
@@ -290,7 +290,7 @@ def to_qiskit(hdh: HDH) -> QuantumCircuit:
     parameters come from `HDH.gate_params` when recorded (e.g. by
     `from_qiskit`) and default to 0 otherwise.
 
-    Example:
+    Examples:
         >>> from qiskit import QuantumCircuit
         >>> qc = QuantumCircuit(2)
         >>> _ = qc.h(0); _ = qc.cx(0, 1)
@@ -454,7 +454,7 @@ def partitions_to_qiskit(hdh: HDH, partitions: List[Set[str]]) -> List[QuantumCi
     Args:
         partitions: Node sets, e.g. from `compute_cut`.
 
-    Example:
+    Examples:
         >>> from qiskit import QuantumCircuit
         >>> from hdh.passes.cut import compute_cut
         >>> qc = QuantumCircuit(4)

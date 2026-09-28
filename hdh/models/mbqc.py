@@ -15,7 +15,7 @@ class MBQC:
     Labels are free-form and become the HDH's wires; keep each label to one
     type (never reuse a measurement result's label as a quantum state).
 
-    Example:
+    Examples:
         >>> m = MBQC()
         >>> m.add_operation("N", [], "a")
         >>> m.add_operation("N", [], "b")

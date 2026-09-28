@@ -57,7 +57,7 @@ def from_braket(bk: BraketCircuit) -> HDH:
     Gates, including noise operations, are mapped by name, and measurements
     are supported. Classical control flow raises `NotImplementedError`.
 
-    Example:
+    Examples:
         >>> from braket.circuits import Circuit as BraketCircuit
         >>> from_braket(BraketCircuit().h(0).cnot(0, 1)).get_num_qubits()
         2
