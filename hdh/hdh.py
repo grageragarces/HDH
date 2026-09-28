@@ -1,13 +1,57 @@
 from collections import defaultdict
-from typing import Dict, Set, Tuple, List, Literal, Union, Optional  
+from enum import Enum
+from typing import Dict, FrozenSet, Set, Tuple, List, Union, Optional
 
-NodeType = Literal["q", "c"]  # quantum or classical
-EdgeType = Literal["q", "c"]
-NodeReal = Literal["a", "p"]  # actualized or predicted
-EdgeReal = Literal["a", "p"]
+
+class _StrEnum(str, Enum):
+    """A str-valued Enum that prints as its value, e.g. ``str(NodeType.QUANTUM) == "q"``."""
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class NodeType(_StrEnum):
+    """Whether a node (or hyperedge) carries quantum or classical information.
+
+    Members compare equal to their values, so ``"q"`` and
+    ``NodeType.QUANTUM`` are interchangeable wherever a type is expected.
+    """
+    QUANTUM = "q"
+    CLASSICAL = "c"
+
+
+class Realisation(_StrEnum):
+    """Whether a node (or hyperedge) always happens, or only if a classical
+    condition holds."""
+    ACTUAL = "a"
+    PREDICTED = "p"
+
+
+class EdgeRole(_StrEnum):
+    """Distribution primitive assigned to a cut hyperedge."""
+    TELEDATA = "teledata"
+    TELEGATE = "telegate"
+
+
+EdgeType = NodeType
+NodeReal = Realisation
+EdgeReal = Realisation
 NodeID = str
-# need an edge ID? - to map back?
 TimeStep = int
+Hyperedge = FrozenSet[NodeID]
+
+
+def _coerce(enum_cls, value, what: str) -> str:
+    """Validate `value` against `enum_cls` and return its plain string value.
+
+    Storing plain strings (not members) keeps `sigma`, `tau` etc. identical to
+    what they held before the Enums existed.
+    """
+    try:
+        return enum_cls(value).value
+    except ValueError:
+        allowed = ", ".join(repr(m.value) for m in enum_cls)
+        raise ValueError(f"Invalid {what} {value!r}; expected one of {allowed}.") from None
 
 class HDH:
     """A Hybrid Dependency Hypergraph: the model-agnostic representation this
@@ -52,19 +96,19 @@ class HDH:
 
     def __init__(self):
         self.S: Set[NodeID] = set()
-        self.C: Set[frozenset] = set()
+        self.C: Set[Hyperedge] = set()
         self.T: Set[TimeStep] = set()
-        self.sigma: Dict[NodeID, NodeType] = {}  # node types 
-        self.tau: Dict[frozenset, EdgeType] = {}  # hyperedge types
-        self.upsilon: Dict[NodeID, NodeReal] = {} # node realization a,p
-        self.phi: Dict[frozenset, EdgeReal] = {} # hyperedge realization 
+        self.sigma: Dict[NodeID, str] = {}  # node types, a NodeType value
+        self.tau: Dict[Hyperedge, str] = {}  # hyperedge types, a NodeType value
+        self.upsilon: Dict[NodeID, str] = {} # node realization, a Realisation value
+        self.phi: Dict[Hyperedge, str] = {} # hyperedge realization, a Realisation value
         self.time_map: Dict[NodeID, TimeStep] = {}  # f: S -> T
-        self.gate_name: Dict[frozenset, str] = {}  # maps hyperedge → gate name string
-        self.gate_params: Dict[frozenset, List[float]] = {}  # maps hyperedge → rotation params, if any
-        self.edge_args: Dict[frozenset, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
-        self.edge_role: Dict[frozenset, Literal["teledata", "telegate"]] = {}  # tracks nature edges -> for primitive implementation
-        self.motifs = {}  
-        self.edge_metadata: Dict[frozenset, Dict] = {}
+        self.gate_name: Dict[Hyperedge, str] = {}  # maps hyperedge → gate name string
+        self.gate_params: Dict[Hyperedge, List[float]] = {}  # maps hyperedge → rotation params, if any
+        self.edge_args: Dict[Hyperedge, Tuple[List[int], List[int], List[bool]]] = {} #mapping for nackwards translations
+        self.edge_role: Dict[Hyperedge, str] = {}  # an EdgeRole value -> for primitive implementation
+        self.motifs = {}
+        self.edge_metadata: Dict[Hyperedge, Dict] = {}
 
     def add_node(self, node_id: NodeID, node_type: NodeType, time: TimeStep, node_real: NodeReal = "a"):
         """Add a node, or no-op if an identical node already exists.
@@ -72,16 +116,19 @@ class HDH:
         Args:
             node_id: Node ID, e.g. ``"q0_t0"`` or ``"c1_t2"``. The leading
                 letter must match `node_type` ("q"/"c") — see `sigma`.
-            node_type: `"q"` (quantum) or `"c"` (classical).
+            node_type: A `NodeType`, or its value `"q"` / `"c"`.
             time: Timestep this node occurs at.
-            node_real: `"a"` (actualized) or `"p"` (potential).
+            node_real: A `Realisation`, or its value `"a"` / `"p"`.
 
         Raises:
-            ValueError: If `node_id` already exists with a *different*
+            ValueError: If `node_type` or `node_real` is not a valid value,
+                or if `node_id` already exists with a *different*
                 `node_type`. Re-adding the same ID with the same type is
                 fine (e.g. a later gate referencing an already-created
                 input node) and simply leaves the existing node untouched.
         """
+        node_type = _coerce(NodeType, node_type, "node type")
+        node_real = _coerce(Realisation, node_real, "node realisation")
         existing_type = self.sigma.get(node_id)
         if existing_type is not None and existing_type != node_type:
             raise ValueError(
@@ -95,24 +142,31 @@ class HDH:
         self.T.add(time)
         self.upsilon[node_id] = node_real
 
-    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, node_real: EdgeReal = "a", role: Optional[Literal["teledata", "telegate"]] = None):
+    def add_hyperedge(self, node_ids: Set[NodeID], edge_type: EdgeType, name: Optional[str] = None, node_real: EdgeReal = "a", role: Optional[EdgeRole] = None) -> Hyperedge:
         """Add a hyperedge connecting `node_ids`, representing one operation.
 
         Args:
             node_ids: The nodes this operation touches (its inputs and
                 outputs together, since HDH edges are undirected).
-            edge_type: `"q"` (quantum) or `"c"` (classical) — see `tau`.
+            edge_type: A `NodeType`, or its value `"q"` / `"c"` — see `tau`.
             name: Operation name, e.g. ``"h"``, ``"cx_stage2"``, ``"measure"``.
                 Stored lower-cased in `gate_name`; omit for an unnamed edge.
-            node_real: `"a"` (actualized) or `"p"` (potential) — see `phi`.
+            node_real: A `Realisation`, or its value `"a"` / `"p"` — see `phi`.
             role: Distribution primitive this edge has been assigned, if any
-                — `"teledata"` or `"telegate"`. Usually set later by a
-                partitioning pass, not at construction time.
+                — an `EdgeRole`, or `"teledata"` / `"telegate"`. Usually set
+                later by a partitioning pass, not at construction time.
 
         Returns:
-            frozenset: the edge, as added to `C` — use this as the key into
+            Hyperedge: the edge, as added to `C` — use this as the key into
             `tau`/`phi`/`gate_name`/`edge_args`/`gate_params`/etc.
+
+        Raises:
+            ValueError: If `edge_type`, `node_real` or `role` is not a valid value.
         """
+        edge_type = _coerce(NodeType, edge_type, "edge type")
+        node_real = _coerce(Realisation, node_real, "edge realisation")
+        if role:
+            role = _coerce(EdgeRole, role, "edge role")
         edge = frozenset(node_ids)
         self.C.add(edge)
         self.tau[edge] = edge_type

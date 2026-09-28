@@ -6,6 +6,12 @@ Auto-generated from the library's docstrings.
 
 ::: hdh.hdh.HDH
 
+::: hdh.hdh.NodeType
+
+::: hdh.hdh.Realisation
+
+::: hdh.hdh.EdgeRole
+
 ## Models
 
 ::: hdh.models.circuit.Circuit

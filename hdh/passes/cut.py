@@ -27,6 +27,13 @@ import heapq
 from typing import List, Set, Tuple, Dict, Optional, Iterable
 from collections import defaultdict
 import networkx as nx
+
+from hdh.hdh import Hyperedge, NodeID
+
+# node -> [(incident hyperedge, that edge's time), ...]
+Incidence = Dict[NodeID, List[Tuple[Hyperedge, int]]]
+# hyperedge -> the nodes it connects
+Pins = Dict[Hyperedge, Set[NodeID]]
 from networkx.algorithms.community import kernighan_lin_bisection
 
 # ------------------------------ Regexes ------------------------------
@@ -364,7 +371,7 @@ def _extract_qubit_id(node_id: str) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
-def _build_temporal_incidence(hdh) -> Tuple[Dict[str, List[Tuple[frozenset, int]]], Dict[frozenset, Set[str]]]:
+def _build_temporal_incidence(hdh) -> Tuple[Incidence, Pins]:
     """
     Build temporal incidence structure for HDH.
     
@@ -388,8 +395,8 @@ def _build_temporal_incidence(hdh) -> Tuple[Dict[str, List[Tuple[frozenset, int]
 
 def _push_next_valid_neighbors(hdh, node: str, frontier: List[Tuple[int, int, str]], 
                                 unassigned: Set[str], 
-                                inc: Dict[str, List[Tuple[frozenset, int]]],
-                                pins: Dict[frozenset, Set[str]], 
+                                inc: Incidence,
+                                pins: Pins, 
                                 counter: List[int]):
     """
     Push unassigned neighbors of node to the frontier priority queue.
@@ -421,8 +428,8 @@ def _push_next_valid_neighbors(hdh, node: str, frontier: List[Tuple[int, int, st
 def _compute_delta_cost_simple(node: str, 
                                 bin_idx: int, 
                                 partitions: List[Set[str]],
-                                inc: Dict[str, List[Tuple[frozenset, int]]],
-                                pins: Dict[frozenset, Set[str]]) -> int:
+                                inc: Incidence,
+                                pins: Pins) -> int:
     """
     Compute delta cost of adding node to bin_idx.
     
@@ -467,8 +474,8 @@ def _select_best_from_frontier_with_rejected(frontier: List[Tuple[int, int, str]
                                               rejected: Set[str],
                                               bin_idx: int,
                                               partitions: List[Set[str]],
-                                              inc: Dict[str, List[Tuple[frozenset, int]]],
-                                              pins: Dict[frozenset, Set[str]],
+                                              inc: Incidence,
+                                              pins: Pins,
                                               beam_k: int = 3,
                                               partition_qubits: Optional[List[Set[int]]] = None,
                                               hdh_graph=None) -> Optional[str]:
