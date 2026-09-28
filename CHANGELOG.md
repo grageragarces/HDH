@@ -38,3 +38,5 @@
   `node_types`, `hyperedge_types`, `node_realisation` and
   `hyperedge_realisation` alias `S`, `C`, `T`, `sigma`, `tau`, `upsilon` and
   `phi`, which remain as the paper's notation (#79).
+- `hdh.models.Model` Protocol for computational models, with conformance
+  tests every registered model must pass; see CONTRIBUTING.md (#80).

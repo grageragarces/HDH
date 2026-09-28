@@ -14,6 +14,8 @@ Auto-generated from the library's docstrings.
 
 ## Models
 
+::: hdh.models.base.Model
+
 ::: hdh.models.circuit.Circuit
 
 ::: hdh.models.mbqc.MBQC

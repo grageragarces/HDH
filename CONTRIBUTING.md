@@ -48,6 +48,20 @@ generated from the library's docstrings.
 5. Open a pull request describing what changed and why. CI runs the test suite
    on Python 3.10, 3.11, and 3.12.
 
+### Adding a computational model
+
+A model is any class with a `build_hdh()` method returning an `HDH`; it
+satisfies the `hdh.models.Model` Protocol without inheriting from anything.
+
+1. Create every node with `hdh.add_node(wire, time, node_type)`. The wire is
+   what partitioners count toward qubit capacity, so give each qubit (or
+   model-specific carrier) its own label, and keep each label to one type.
+2. Connect nodes with `hdh.add_hyperedge(nodes, edge_type, name=...)`, keeping
+   classical nodes out of quantum hyperedges.
+3. Add a small example workload to the `MODELS` registry in
+   `tests/test_model_protocol.py`. The conformance tests there then check your
+   model against the Protocol's invariants and run the partitioner on it.
+
 Areas where contributions are particularly welcome:
 
 - additional SDK conversions, especially HDH -> SDK directions
