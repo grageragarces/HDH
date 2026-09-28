@@ -49,7 +49,7 @@ regenerates from one of these commands. The scripts are deterministic.
 | `python -m benchmarks.switching_sweep` | `switching_sweep.csv` | exact cut costs as a qubit's interaction pattern shifts |
 
 `mqtbench_sweep.csv` and `switching_sweep.csv` record, per row, the number
-of placement units each mode exposes (`units_<mode>`): the atomic groups of
+of possible placements each mode exposes (`units_<mode>`): the atomic groups of
 HDH nodes the placer assigns. `combined` places every node on its own,
 `telegate_only` contracts each qubit's timeline into one unit, and
 `teledata_only` each multi-qubit gate's nodes.

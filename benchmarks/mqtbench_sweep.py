@@ -10,7 +10,7 @@ typical real algorithms," without cherry-picking for the answer.
 Requires mqt.bench (`pip install mqt.bench`) - not a project dependency,
 only needed to reproduce this specific benchmark.
 
-Each row also records the number of placement units per mode: the atomic
+Each row also records the number of possible placements per mode: the atomic
 groups of HDH nodes the placer assigns. combined places every node on its
 own; telegate_only contracts each qubit's whole timeline into one unit, and
 teledata_only each multi-qubit gate's nodes, with every other node (e.g.
@@ -92,7 +92,7 @@ def summarize(rows):
     """Exact summary statistics over the sweep, as (statistic, value) rows.
 
     Cut costs are compared only on instances where both modes being compared
-    are feasible; placement units are per circuit, so each circuit is
+    are feasible; possible placements are per circuit, so each circuit is
     counted once rather than once per (k, cap) setting.
     """
     out = [("instances", len(rows))]
