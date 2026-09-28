@@ -137,7 +137,7 @@ over circuits, MBQC patterns, quantum walks, and quantum cellular automata,
 exercised across all four by the test suite. Comparing distribution overhead
 between computational models is not a question a circuit-only library can pose;
 here it is a matter of swapping the workload builder. A first such study
-appears in a companion manuscript currently under review.
+is being developed by the authors.
 
 Every quantitative claim in this section regenerates from `benchmarks/`.
 
