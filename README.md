@@ -96,17 +96,28 @@ hdh = from_qiskit(qc)
 plot_hdh(hdh)
 ```
 
-### From QASM file
+### From OpenQASM 2.0
 
 ```python
 from hdh.converters import from_qasm
 from hdh.visualize import plot_hdh
 
-qasm_path = os.path.join(os.path.dirname(__file__), 'test_qasm_file.qasm')
-hdh = from_qasm('file', qasm_path)
+qasm = """
+OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0], q[1];
+measure q -> c;
+"""
+
+hdh = from_qasm('string', qasm)
+# or, from a file: hdh = from_qasm('file', 'path/to/circuit.qasm')
 
 plot_hdh(hdh)
 ```
+
 ---
 
 ## Tests and Demos

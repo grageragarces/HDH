@@ -4,7 +4,8 @@ import pytest
 # qiskit is a hard dependency of hdh (see pyproject.toml), so these are plain
 # imports: a missing symbol must fail loudly here rather than silently skip the
 # whole module, which is how the hdh_to_qiskit -> to_qiskit rename went unnoticed.
-from qiskit import QuantumCircuit
+from qiskit import ClassicalRegister, QuantumCircuit
+from qiskit.circuit.classical import expr
 
 from hdh.converters.qiskit_converter import (
     from_qiskit,
@@ -145,6 +146,135 @@ class TestQiskitConverter:
         c_nodes = [n for n in hdh.S if hdh.sigma[n] == "c"]
         assert len(c_nodes) >= 2
 
+    def test_measurement_writes_to_target_clbit(self):
+        # Qubit 1 is measured into clbit 0, so the result belongs on c0, not c1.
+        qc = QuantumCircuit(2, 1)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.measure(1, 0)
+
+        hdh = from_qiskit(qc)
+
+        (measure_edge,) = [e for e in hdh.hyperedges if hdh.gate_name.get(e) == "measure"]
+        assert {hdh.wire_of[n] for n in measure_edge} == {"q1", "c0"}
+
+    def test_condition_reads_the_measured_clbit(self):
+        # Teleportation pattern: a condition on clbit 0 must depend on the
+        # measurement written there, even though it came from qubit 2.
+        qc = QuantumCircuit(3, 1)
+        qc.h(0)
+        qc.measure(2, 0)
+        with qc.if_test((qc.clbits[0], 1)):
+            qc.x(1)
+
+        hdh = from_qiskit(qc)
+
+        (measure_edge,) = [e for e in hdh.hyperedges if hdh.gate_name.get(e) == "measure"]
+        (cond_edge,) = [e for e in hdh.hyperedges
+                        if hdh.gate_name.get(e) == "x" and hdh.hyperedge_types[e] == "c"]
+        measured = {n for n in measure_edge if hdh.node_types[n] == "c"}
+        assert measured & cond_edge
+
+
+# ---------------------------------------------------------------------------
+# TestQiskitIfElse
+# ---------------------------------------------------------------------------
+
+def _measured_circuit(n_qubits=2, n_clbits=1):
+    """Qubit 0 measured into clbit 0, ready for an if_test on it."""
+    qc = QuantumCircuit(n_qubits, n_clbits)
+    qc.h(0)
+    qc.measure(0, 0)
+    return qc
+
+
+class TestQiskitIfElse:
+    def test_if_body_becomes_predicted_gate(self):
+        qc = _measured_circuit()
+        with qc.if_test((qc.clbits[0], 1)):
+            qc.x(1)
+
+        hdh = from_qiskit(qc)
+
+        x_edges = [e for e in hdh.hyperedges if hdh.gate_name.get(e) == "x"]
+        assert x_edges
+        assert all(hdh.hyperedge_realisation[e] == "p" for e in x_edges)
+
+    @pytest.mark.parametrize("fill_else", [lambda qc: None, lambda qc: qc.barrier()],
+                             ids=["empty", "barrier-only"])
+    def test_no_op_else_is_accepted(self, fill_else):
+        qc = _measured_circuit()
+        with qc.if_test((qc.clbits[0], 1)) as else_:
+            qc.x(1)
+        with else_:
+            fill_else(qc)
+
+        hdh = from_qiskit(qc)
+
+        assert any(hdh.gate_name.get(e) == "x" for e in hdh.hyperedges)
+
+    def test_else_branch_raises(self):
+        qc = _measured_circuit()
+        with qc.if_test((qc.clbits[0], 1)) as else_:
+            qc.x(1)
+        with else_:
+            qc.z(1)
+
+        with pytest.raises(NotImplementedError, match="else branches"):
+            from_qiskit(qc)
+
+    def test_condition_on_zero_raises(self):
+        qc = _measured_circuit()
+        with qc.if_test((qc.clbits[0], 0)):
+            qc.x(1)
+
+        with pytest.raises(NotImplementedError, match="== 1"):
+            from_qiskit(qc)
+
+    def test_multi_bit_register_condition_raises(self):
+        cr = ClassicalRegister(2)
+        qc = QuantumCircuit(2)
+        qc.add_register(cr)
+        qc.measure([0, 1], [0, 1])
+        with qc.if_test((cr, 1)):
+            qc.x(1)
+
+        with pytest.raises(NotImplementedError, match="1-bit ClassicalRegister"):
+            from_qiskit(qc)
+
+    def test_expression_condition_raises(self):
+        qc = _measured_circuit(2, 2)
+        qc.measure(1, 1)
+        with qc.if_test(expr.logic_and(qc.clbits[0], qc.clbits[1])):
+            qc.x(1)
+
+        with pytest.raises(NotImplementedError, match="Expression-based"):
+            from_qiskit(qc)
+
+    def test_measure_in_body_raises(self):
+        # Converting it would write the result into the control bit c0, not c1.
+        qc = _measured_circuit(2, 2)
+        with qc.if_test((qc.clbits[0], 1)):
+            qc.measure(1, 1)
+
+        with pytest.raises(NotImplementedError, match="'measure'"):
+            from_qiskit(qc)
+
+    @pytest.mark.parametrize("nest", ["if_else", "for_loop"])
+    def test_nested_control_flow_in_body_raises(self, nest):
+        qc = _measured_circuit(3, 2)
+        qc.measure(1, 1)
+        with qc.if_test((qc.clbits[0], 1)):
+            if nest == "if_else":
+                with qc.if_test((qc.clbits[1], 1)):
+                    qc.x(2)
+            else:
+                with qc.for_loop(range(2)):
+                    qc.x(2)
+
+        with pytest.raises(NotImplementedError, match=f"'{nest}'"):
+            from_qiskit(qc)
+
 
 # ---------------------------------------------------------------------------
 # TestQiskitRoundtrip
@@ -183,6 +313,18 @@ class TestQiskitRoundtrip:
         measures = [i for i in qc2.data if i.operation.name == "measure"]
         assert len(measures) == 2
         assert qc2.num_clbits == 2
+
+    def test_roundtrip_preserves_clbit_mapping(self):
+        qc = QuantumCircuit(2, 2)
+        qc.x(0)
+        qc.measure(0, 1)
+        qc.measure(1, 0)
+
+        qc2 = to_qiskit(from_qiskit(qc))
+
+        pairs = {(qc2.find_bit(i.qubits[0]).index, qc2.find_bit(i.clbits[0]).index)
+                 for i in qc2.data if i.operation.name == "measure"}
+        assert pairs == {(0, 1), (1, 0)}
 
     def test_roundtrip_ghz(self):
         qc = QuantumCircuit(3)

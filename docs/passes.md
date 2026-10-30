@@ -20,7 +20,7 @@ The main partitioning function is `compute_cut`, which implements the **Capacity
 * **No automatic sibling co-location:** temporal siblings of the same qubit are *not* forced into the same bin (teledata-style cuts are therefore possible).
 * **Temporal validity:** candidates are expanded through a time-respecting frontier (edges “activate” at the max time of their pins). -->
 
-#### Default cut algorithm
+#### The three phases
 
 The default capacity-aware HDH partitioning algorithm operates in three phases.
 
@@ -191,7 +191,7 @@ def metis_telegate(hdh: "HDH", partitions: int, capacities: int) -> Tuple[List[S
 ### KaHyPar hypergraph partitioner 
 
 `cut.py` also includes a KaHyPar-based partitioner, taken from the [KaHyPar library](https://kahypar.org).
-To versions are included (qubit and node based):
+Two versions are included (qubit and node based):
 
 **`kahypar_cutter`**
 
@@ -205,20 +205,23 @@ To versions are included (qubit and node based):
 
 * Vertices are *HDH nodes* (time-expanded).
 * Balance is therefore in **node count**, not in unique logical qubits.
-* As a result, it can produce partitions that look well-balanced to KaHyPar but **do not respect logical-qubit capacity** (this is kind-off not respected by the other version either, but this one is even egregious as it doesn't know if a node would require a new active qubit in use).
+* As a result, it can produce partitions that look well-balanced to KaHyPar but **do not respect logical-qubit capacity** (this is kind of not respected by the other version either, but this one is even more egregious as it doesn't know if a node would require a new active qubit in use).
+
 ---
 
 ## Cut Cost Evaluation
 
-The quality of a partition is determined by the number of cut hyperedges, that is, the number of hyperedges that span across multiple QPUs (bins). The library provides two functions to evaluate this cost given a partitioning:
+The quality of a partition is determined by the number of cut hyperedges, that is, the number of hyperedges that span across multiple QPUs (bins). The library provides the following functions to evaluate this cost given a partitioning:
 
-### `_total_cost_hdh`
+### `cost` and `weighted_cost`
 
-Calculates the total cost of a partition on an HDH graph. This function:
+`cost(hdh, partitions)` calculates the cost of a partition on an HDH graph. This function:
 
 * Iterates through all hyperedges in the HDH
-* Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins
-* Returns the sum of weights of all cut hyperedges (quantum hyperedges count as 10 and classic hyperedges count as 1 - you can modify these values in the source code but if you would like this to be adjustable please feel free to open an issue)
+* Counts a hyperedge as "cut" if its pins (nodes) are distributed across 2 or more bins (nodes in no bin are ignored)
+* Returns the cut counts separately, as `(quantum_cuts, classical_cuts)`
+
+`weighted_cost` combines that pair into a single number: quantum hyperedges count as 10 and classical hyperedges count as 1 (you can modify these values in the source code, but if you would like this to be adjustable please feel free to open an issue).
 
 ### `_cut_edges_unweighted`
 
@@ -242,7 +245,7 @@ The `cut.py` file contains helper utilities for the partitioners (note that some
 * `_push_next_valid_neighbors`: expands a node into the min-heap frontier, pushing only temporally valid neighbour candidates. 
 * `_select_best_from_frontier_with_rejected`: takes the earliest `beam_k` frontier items (skipping rejected), evaluates delta cost, and returns the best candidate. 
 * `_compute_delta_cost_simple`: delta in (unweighted) cut-hyperedge count if a node is added to a specific bin. 
-* `_extract_qubit_id`: parses `q{idx}_t{t}` to extract the logical qubit index for capacity accounting. 
+* `_qubit_of`: returns the quantum wire a node is a state of (read from the HDH's `wire_of`, not parsed from the node ID), for capacity accounting. 
 
 ### METIS utilities
 
