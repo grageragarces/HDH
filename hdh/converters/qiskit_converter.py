@@ -7,7 +7,7 @@ from typing import List, Optional, Set
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from hdh.hdh import HDH
 from qiskit.circuit import Clbit
-from qiskit.circuit.controlflow import IfElseOp
+from qiskit.circuit.controlflow import ControlFlowOp, IfElseOp
 from qiskit.circuit.library import (
     HGate, IGate, XGate, YGate, ZGate,
     SGate, SdgGate, TGate, TdgGate,
@@ -27,6 +27,9 @@ from hdh.models.circuit import Circuit
 # here. Model-agnostic code should read `hdh.wire_of` instead.
 _Q_RE = re.compile(r'^q(\d+)_t\d+$')
 _C_RE = re.compile(r'^c(\d+)_t\d+$')
+
+# Instructions with no effect on the computation, skipped on import.
+_METADATA_OPS = {"barrier", "snapshot", "delay", "label"}
 
 
 def _parse_qubit(node_id: str) -> Optional[int]:
@@ -65,41 +68,62 @@ def _bit_index_from_cond_target(qc, target):
 def _process_if_else_op(qc, instr, circuit):
     """
     Process an IfElseOp instruction and add it to the HDH circuit.
-    
-    Uses the new add_conditional_gate method for cleaner, more maintainable code.
-    
+
+    An HDH conditional gate only fires when its bit is 1 and has no negated
+    form, so only the true branch of a single-bit ``== 1`` test can be
+    represented.
+
     Args:
         qc: QuantumCircuit
         instr: IfElseOp instance
         circuit: HDH Circuit object
-        
+
     Raises:
-        NotImplementedError: For unsupported condition types or values
+        NotImplementedError: For an ``else`` branch, an unsupported condition,
+            or a body holding anything other than gates.
     """
     # Extract condition - can be tuple or expr.Expr
     cond = instr.condition
-    
+
     # Handle tuple condition: (Clbit|ClassicalRegister, int)
     if isinstance(cond, tuple):
         target, val = cond
-        
+
         # Only support condition value == 1 for now
         if int(val) != 1:
             raise NotImplementedError(
                 f"Only IfElseOp conditions == 1 are supported, got {val}"
             )
-        
+
         bit_index = _bit_index_from_cond_target(qc, target)
-        
+
+        # An empty (or barrier-only) else is a no-op and safe to drop.
+        false_body = instr.blocks[1] if len(instr.blocks) > 1 else None
+        if false_body is not None and any(
+            item.operation.name not in _METADATA_OPS for item in false_body.data
+        ):
+            raise NotImplementedError(
+                "IfElseOp else branches are not supported: HDH conditional "
+                "gates only fire when their bit is 1."
+            )
+
         # Process true_body (blocks[0]) - executes when condition == 1
         if len(instr.blocks) > 0:
             true_body = instr.blocks[0]
             for inner_item in true_body.data:
                 inner_instr, inner_qargs = inner_item.operation, inner_item.qubits
                 # Skip metadata instructions
-                if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
+                if inner_instr.name in _METADATA_OPS:
                     continue
-                    
+
+                # Each body instruction becomes a gate conditioned on bit_index;
+                # one that reads or writes bits of its own would be rewired
+                # onto that bit instead.
+                if isinstance(inner_instr, ControlFlowOp) or inner_item.clbits:
+                    raise NotImplementedError(
+                        f"IfElseOp bodies may only contain gates, got '{inner_instr.name}'"
+                    )
+
                 inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
                 inner_params = getattr(inner_instr, "params", None) or []
                 try:
@@ -125,38 +149,6 @@ def _process_if_else_op(qc, instr, circuit):
                         additional_qubits=inner_qidx[1:],
                         params=inner_params,
                     )
-        
-        # Process false_body (blocks[1]) - executes when condition == 0
-        # Note: Currently uses add_instruction with cond_flag="n" since
-        # add_conditional_gate doesn't support negated conditions yet
-        if len(instr.blocks) > 1 and instr.blocks[1] is not None:
-            false_body = instr.blocks[1]
-            for inner_item in false_body.data:
-                inner_instr, inner_qargs, inner_cargs = (
-                    inner_item.operation, inner_item.qubits, inner_item.clbits
-                )
-                # Skip metadata instructions
-                if inner_instr.name in {"barrier", "snapshot", "delay", "label"}:
-                    continue
-                    
-                inner_qidx = [qc.qubits.index(q) for q in inner_qargs]
-                inner_cidx = [qc.clbits.index(c) for c in inner_cargs] if inner_cargs else []
-                inner_params = getattr(inner_instr, "params", None) or []
-                try:
-                    inner_params = [float(p) for p in inner_params] or None
-                except (TypeError, ValueError):
-                    inner_params = None
-
-                # Use add_instruction with negated condition for else block
-                # TODO: Consider adding add_conditional_gate_negated() method
-                circuit.add_instruction(
-                    inner_instr.name,
-                    inner_qidx,
-                    bits=[bit_index],
-                    modifies_flags=[True] * len(inner_qidx),
-                    cond_flag="n",  # Negated condition
-                    params=inner_params,
-                )
     else:
         # For expr.Expr conditions, would need additional handling
         raise NotImplementedError(
@@ -166,8 +158,8 @@ def _process_if_else_op(qc, instr, circuit):
 def from_qiskit(qc: QuantumCircuit) -> HDH:
     """Convert a Qiskit `QuantumCircuit` to an HDH.
 
-    Supports standard gates, measurement, and `if_test` blocks conditioned on
-    a single classical bit equal to 1.
+    Supports standard gates, measurement, and `if_test` blocks of gates
+    conditioned on a single classical bit equal to 1, without an ``else``.
 
     Raises:
         NotImplementedError: For unsupported operations or conditions.
@@ -184,7 +176,7 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
     for item in qc.data:
         instr, qargs, cargs = item.operation, item.qubits, item.clbits
         # Skip metadata instructions
-        if instr.name in {"barrier", "snapshot", "delay", "label"}:
+        if instr.name in _METADATA_OPS:
             continue
 
         # Get indices
