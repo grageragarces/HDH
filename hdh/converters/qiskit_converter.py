@@ -198,7 +198,7 @@ def from_qiskit(qc: QuantumCircuit) -> HDH:
 
         # Handle standard instructions
         if instr.name == "measure":
-            circuit.add_instruction("measure", q_indices, None)
+            circuit.add_instruction("measure", q_indices, c_indices)
         else:
             modifies_flags = [True] * len(q_indices)
             raw_params = getattr(instr, "params", None) or []

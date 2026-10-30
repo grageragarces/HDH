@@ -145,6 +145,35 @@ class TestQiskitConverter:
         c_nodes = [n for n in hdh.S if hdh.sigma[n] == "c"]
         assert len(c_nodes) >= 2
 
+    def test_measurement_writes_to_target_clbit(self):
+        # Qubit 1 is measured into clbit 0, so the result belongs on c0, not c1.
+        qc = QuantumCircuit(2, 1)
+        qc.h(0)
+        qc.cx(0, 1)
+        qc.measure(1, 0)
+
+        hdh = from_qiskit(qc)
+
+        (measure_edge,) = [e for e in hdh.hyperedges if hdh.gate_name.get(e) == "measure"]
+        assert {hdh.wire_of[n] for n in measure_edge} == {"q1", "c0"}
+
+    def test_condition_reads_the_measured_clbit(self):
+        # Teleportation pattern: a condition on clbit 0 must depend on the
+        # measurement written there, even though it came from qubit 2.
+        qc = QuantumCircuit(3, 1)
+        qc.h(0)
+        qc.measure(2, 0)
+        with qc.if_test((qc.clbits[0], 1)):
+            qc.x(1)
+
+        hdh = from_qiskit(qc)
+
+        (measure_edge,) = [e for e in hdh.hyperedges if hdh.gate_name.get(e) == "measure"]
+        (cond_edge,) = [e for e in hdh.hyperedges
+                        if hdh.gate_name.get(e) == "x" and hdh.hyperedge_types[e] == "c"]
+        measured = {n for n in measure_edge if hdh.node_types[n] == "c"}
+        assert measured & cond_edge
+
 
 # ---------------------------------------------------------------------------
 # TestQiskitRoundtrip
@@ -183,6 +212,18 @@ class TestQiskitRoundtrip:
         measures = [i for i in qc2.data if i.operation.name == "measure"]
         assert len(measures) == 2
         assert qc2.num_clbits == 2
+
+    def test_roundtrip_preserves_clbit_mapping(self):
+        qc = QuantumCircuit(2, 2)
+        qc.x(0)
+        qc.measure(0, 1)
+        qc.measure(1, 0)
+
+        qc2 = to_qiskit(from_qiskit(qc))
+
+        pairs = {(qc2.find_bit(i.qubits[0]).index, qc2.find_bit(i.clbits[0]).index)
+                 for i in qc2.data if i.operation.name == "measure"}
+        assert pairs == {(0, 1), (1, 0)}
 
     def test_roundtrip_ghz(self):
         qc = QuantumCircuit(3)
