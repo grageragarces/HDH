@@ -137,7 +137,7 @@ Early community engagement has been encouraging. The project was presented as a 
 We are also in discussion with companies in the distributed quantum computing space about integrating the library into their stack.
 
 # AI usage disclosure
-Claude was used during both library development and paper writing. Claude Opus 5, Claude Opus 5.5 and Claude Sonnet 5 (through Claude Code) were used for the library, as recorded in the repository's commit history. 
+Claude was used during both library development and paper writing. Claude Opus 5 and Claude Sonnet 5.5 (through Claude Code) were the models used, for both the library and the paper. 
 
 In the library, Claude generated initial draft code implementations that were subsequently rewritten by the author. 
 It also assisted in producing unit tests, which were validated against expected behaviour across both passing and failing scenarios. These were not always fully re-written but they were revised and thoroughly tested.

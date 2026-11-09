@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.5.1
+## 1.0.0
+
+First stable release, the version archived for the JOSS paper. It contains the
+fixes below on top of 0.5.0; no 0.5.1 was published.
 
 ### Fixed
 
