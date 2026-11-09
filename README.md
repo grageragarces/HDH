@@ -15,6 +15,8 @@
   <a href="https://unitary.foundation">
     <img src="https://img.shields.io/badge/Supported%20By-UNITARY%20FOUNDATION-brightgreen.svg?style=for-the-badge" alt="Unitary Foundation">
   </a>
+  · 
+  <a href="https://doi.org/10.5281/zenodo.24083992"><img src="https://zenodo.org/badge/989576103.svg" alt="DOI"></a>
   · MIT Licensed
   <br><br>
 </p>
