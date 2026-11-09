@@ -100,11 +100,11 @@ HDHs use the following notation to describe quantum workload dependencies,
 including predicted elements that represent potential future state 
 transformations based on classical measurement outcomes:
 
-![HDH symbol legend.\label{fig:hdh_legend}](docs/img/HDHobjects.png){ width=35% }
+![HDH symbol legend.\label{fig:hdh_legend}](docs/img/HDHobjects.svg){ width=35% }
 
 Mapping a quantum workload such as a circuit to an HDH applies correspondences between model elements and hypergraph motifs. Model-specific classes such as `Circuit` perform these conversions; any class with a `build_hdh()` method satisfies the library's `Model` protocol and is checked by the same conformance tests:
 
-![Circuit to HDH mapping table.\label{fig:circuit_mappings}](docs/img/circuitmappings.png){ width=35% }
+![Circuit to HDH mapping table.\label{fig:circuit_mappings}](docs/img/circuitmappings.svg){ width=35% }
 
 In the context of DQC, entangling operations in a model can be made non-local (namely non-local gates) and thus partitioned through 
 a quantum network via quantum communication primitives [@Wu:2022]. Alternatively, 

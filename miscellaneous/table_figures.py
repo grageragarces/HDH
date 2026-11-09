@@ -1,8 +1,8 @@
 """
 Regenerates the two small table figures used in paper.md at print resolution:
 
-    docs/img/HDHobjects.png         symbol legend
-    docs/img/circuitmappings.png    circuit operation -> HDH motif table
+    docs/img/HDHobjects.{png,svg}         symbol legend
+    docs/img/circuitmappings.{png,svg}    circuit operation -> HDH motif table
 
 The earlier versions were ~300 px wide screenshots and blurred when zoomed.
 Run from the repository root:  python miscellaneous/table_figures.py
@@ -20,6 +20,7 @@ ORANGE = "#ff7f0e"
 GREY = "#555555"
 BLACK = "#000000"
 
+plt.rcParams["svg.fonttype"] = "path"  # text becomes outlines, so SVGs render without the font
 plt.rcParams["font.family"] = "STIX Two Text"
 plt.rcParams["font.serif"] = ["STIX Two Text", "STIXGeneral", "Times New Roman"]
 
@@ -35,7 +36,9 @@ def canvas(width, height):
 
 
 def save(fig, name):
-    fig.savefig(os.path.join(OUT, name), dpi=DPI, facecolor="white")
+    """Write a 600 dpi PNG (used by the docs) and an SVG (used by the paper)."""
+    fig.savefig(os.path.join(OUT, name + ".png"), dpi=DPI, facecolor="white")
+    fig.savefig(os.path.join(OUT, name + ".svg"), facecolor="white")
     plt.close(fig)
 
 
@@ -73,7 +76,7 @@ def legend_figure():
     for x0, x1 in ((150, 175), (202, 228)):
         ax.plot([x0 * s, x1 * s], [672 * s] * 2, color="#888888", lw=1.0, solid_capstyle="butt")
 
-    save(fig, "HDHobjects.png")
+    save(fig, "HDHobjects")
 
 
 def mapping_figure():
@@ -131,7 +134,7 @@ def mapping_figure():
     ]:
         ax.text(x_text, y, label, **text)
 
-    save(fig, "circuitmappings.png")
+    save(fig, "circuitmappings")
 
 
 if __name__ == "__main__":
