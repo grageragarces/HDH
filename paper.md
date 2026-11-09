@@ -113,7 +113,7 @@ qubit states can be individually forwarded through teleportation protocols
 
 Unlike prior abstractions, which represent only non-local gates or only teleportation, HDHs capture both (\autoref{fig:comparison_table}).
 
-![Table showing HDH expressivity.\label{fig:comparison_table}](docs/img/comparison_table.png){ width=50% }
+![Table showing HDH expressivity.\label{fig:comparison_table}](docs/img/comparison_table.svg){ width=50% }
 
 \autoref{fig:circuit_example} shows the HDH of a six-qubit circuit with a Toffoli gate, a classically conditioned gate and mid-circuit measurements, drawn as a graph. Each gate contributes the hyperedge of its state transformation plus the preceding and following hyperedges that allow pre- and post-teleportation, nodes are possible state transformations rather than qubits or operations, and classical data flow (orange) is part of the hypergraph.
 
