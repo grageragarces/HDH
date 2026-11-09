@@ -25,16 +25,12 @@ Today's quantum computers are limited by how many qubits a single device can hol
 
 # Statement of need
 
-HDHs (Hybrid Dependency Hypergraphs) are an abstraction which transforms quantum computation, originating from any quantum computational model (including circuits, measurement-based quantum computing, quantum cellular automata, and quantum walks), to a directed hypergraph that expresses all possible partitions available within the computation.
-They were originally proposed in [@Gragera:2025] as a unifying approach to quantum distribution, extending the hypergraph abstraction method for partitioning across devices originally proposed in [@Andres:2019].
-Various partitioning strategies have 
-since been proposed building on that earlier abstraction [@Clark:2023; @Escofet:2023; @Sundaram:2023], but many are tested on inconsistent hypergraph abstractions, hindering cross-partitioner comparison and improvement.
+HDHs were originally proposed by @Gragera:2025 as a unifying approach to quantum distribution, extending the hypergraph abstraction that @Andres:2019 introduced for partitioning across devices.
+Various partitioning strategies have since been proposed building on that earlier abstraction [@Clark:2023; @Escofet:2023; @Sundaram:2023], but many are tested on inconsistent hypergraph abstractions, hindering cross-partitioner comparison and improvement.
 
-Having an easy to implement, open-source, and model-agnostic abstraction will enable the fair and consistent cross-comparison of partitioning strategies in future work. 
-Furthermore, HDHs extend this capability beyond the circuit model, addressing a current blind spot in DQC research. 
-
-`HDH` is designed to be used by both distributed quantum architecture researchers 
-and compiler developers building on existing frameworks who require a model-agnostic distribution layer.
+An open-source, model-agnostic abstraction enables fair cross-comparison of partitioning strategies, and extends it beyond the circuit model, a current blind spot in DQC research. 
+`HDH` is designed for distributed quantum architecture researchers 
+and for compiler developers who need a model-agnostic distribution layer.
 
 # State of the field
 
@@ -45,19 +41,17 @@ This framing has two fundamental limitations:
 1. It reduces distribution to a balanced partitioning problem that ignores a hard physical constraint: individual QPUs have fixed qubit capacities, and a valid distribution must respect these limits strictly rather than treating them as soft penalties.
 2. Existing hypergraph abstractions are model-specific and encode only a subset of possible partition cuts, meaning partitioning strategies are routinely evaluated on inconsistent abstractions, making cross-comparison unreliable and hindering the systematic development of improved heuristics.
 
-While libraries for distributed quantum computing exist 
-(DISQCO [@burt2026multilevel], Qdislib [@tejedor2025orchestrating], 
-Optyx [@kupper2025optyx], DC-MBQC [@xue2026dc]), these implement end-to-end 
-distribution pipelines rather than exposing the underlying abstraction as a 
-research tool. No existing library provides a model-agnostic hypergraph abstraction 
-designed specifically to enable the development and fair comparison of partitioning 
-heuristics (the role `HDH` is built to fill).
+Libraries for distributed quantum computing exist, such as DISQCO [@burt2026multilevel], 
+Qdislib [@tejedor2025orchestrating], Optyx [@kupper2025optyx] and DC-MBQC [@xue2026dc], 
+but they implement end-to-end distribution pipelines rather than exposing the underlying 
+abstraction as a research tool. No existing library provides a model-agnostic hypergraph 
+abstraction designed to enable the development and fair comparison of partitioning 
+heuristics, which is the role `HDH` is built to fill.
 
 Quantum compilation frameworks like Qiskit [@Qiskit], Cirq [@Cirq], and 
-PennyLane [@PennyLane] provide circuit optimization and device mapping, but they do 
-not offer model-agnostic abstractions for distributed quantum computing. 
-The `HDH` library is compatible with these SDKs, making it a seamless addition 
-to state-of-the-art quantum software stacks rather than a replacement for them.
+PennyLane [@PennyLane] provide circuit optimization and device mapping, but not 
+model-agnostic abstractions for distributed quantum computing. 
+`HDH` is compatible with these SDKs and adds to them rather than replacing them.
 
 # Software design
 
@@ -67,10 +61,13 @@ hypergraphs and partitions them, `HDH` exposes the HDH as a first-class data
 structure that any downstream partitioner can consume. This makes the library 
 useful both as a standalone research tool and as a substrate for third-party heuristics.
 
-A hypergraph-based representation was chosen over simpler graph 
-alternatives, as quantum computing models frequently involve operations with more 
-than two inputs or outputs (a Toffoli gate, for instance, acts on three qubits 
-simultaneously), requiring multi-way correlations.
+`HDH` uses hypergraphs because quantum operations are not limited to two qubits: 
+a Toffoli gate, for instance, acts on three at once. An ordinary graph is the special 
+case in which every edge joins exactly two nodes, so a multi-qubit operation must be 
+split into several pairwise edges. A partition that cuts through it can then be charged once per 
+severed edge, although the operation is a single unit that is cut, and communicated, 
+as a whole. A hyperedge keeps it as one object, so the cut cost matches the 
+communication cost.
 
 Two further design choices trade added complexity for partitioning flexibility. 
 First, HDHs represent each qubit's state at every timestep as a separate node 
@@ -91,15 +88,11 @@ on.
 
 The library includes a capacity-aware greedy heuristic as a built-in baseline. 
 Existing DQC research typically benchmarks against KaHyPar [@schlag2023high], a 
-general-purpose hypergraph partitioner not designed for quantum hardware constraints. 
-While simpler than KaHyPar, the included heuristic treats per-device qubit 
-capacity as a hard constraint, and returns a feasible assignment whenever one 
-exists rather than trading feasibility off against balance. That makes it a more 
-appropriate DQC baseline and a concrete starting point for researchers developing 
+general-purpose partitioner not designed for quantum hardware constraints. 
+The included heuristic is simpler, but treats per-device qubit 
+capacity as a hard constraint and returns a feasible assignment whenever one 
+exists, making it a more appropriate DQC baseline and a starting point for 
 improved strategies.
-
-Finally, `HDH` is written in Python, the quantum software community's primary 
-language, and is compatible with Qiskit, Cirq and PennyLane from the outset.
 
 ## From computational models to HDHs
 
@@ -109,7 +102,7 @@ transformations based on classical measurement outcomes:
 
 ![HDH symbol legend.\label{fig:hdh_legend}](docs/img/HDHobjects.png){ width=35% }
 
-Mapping a quantum workload such as a circuit to an HDH involves applying specific correspondences between model elements and hypergraph motifs. This library provides model-specific classes such as the `Circuit` class that enable straightforward conversions to HDHs using mapping tables; any class with a `build_hdh()` method satisfies the library's `Model` protocol and is checked by the same conformance tests:
+Mapping a quantum workload such as a circuit to an HDH applies correspondences between model elements and hypergraph motifs. Model-specific classes such as `Circuit` perform these conversions; any class with a `build_hdh()` method satisfies the library's `Model` protocol and is checked by the same conformance tests:
 
 ![Circuit to HDH mapping table.\label{fig:circuit_mappings}](docs/img/circuitmappings.png){ width=35% }
 
@@ -135,17 +128,16 @@ Carrying teledata and telegate cuts in one structure means the combined formulat
 What has no counterpart elsewhere is that the same partitioner runs unmodified
 over circuits, MBQC patterns, quantum walks, and quantum cellular automata,
 exercised across all four by the test suite. Comparing distribution overhead
-between computational models is not a question a circuit-only library can pose;
-here it is a matter of swapping the workload builder. A first such study
-is being developed by the authors.
+between computational models, which a circuit-only library cannot do, is here a matter 
+of swapping the workload builder; a first such study is being developed by the authors.
 
 Every quantitative claim in this section regenerates from `benchmarks/`.
 
-Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025] (a major networking venue), has received funding through the Unitary Fund microgrant program (dedicated to supporting open source quantum software to benefit humanity) and has already seen external contributors (acknowledged below).
-Further, we are in discussion with companies in the Distributed Quantum Computing space regarding the library's integration within their stack.
+Early community engagement has been encouraging. The project was presented as a poster at SIGCOMM 2025 [@Gragera:2025], has received funding through the Unitary Fund microgrant program and has already seen external contributors (acknowledged below).
+We are also in discussion with companies in the distributed quantum computing space about integrating the library into their stack.
 
 # AI usage disclosure
-Claude was used during both library development and paper writing. 
+Claude was used during both library development and paper writing. Claude Opus 5, Claude Opus 5.5 and Claude Sonnet 5 (through Claude Code) were used for the library, as recorded in the repository's commit history. 
 
 In the library, Claude generated initial draft code implementations that were subsequently rewritten by the author. 
 It also assisted in producing unit tests, which were validated against expected behaviour across both passing and failing scenarios. These were not always fully re-written but they were revised and thoroughly tested.

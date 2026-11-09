@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.5.1
+
+### Fixed
+
+- `from_qiskit` (and so `from_qasm`) measures into the classical bit Qiskit
+  names instead of the qubit's own index. Circuits whose qubit-to-clbit mapping
+  is not the identity, such as a teleportation pattern with `measure(2, 0)`
+  followed by a condition on clbit 0, were silently converted wrongly.
+- `from_qiskit` raises `NotImplementedError` for `IfElseOp` constructs an HDH
+  cannot represent (an else branch with gates, a measurement inside the body,
+  nested control flow) instead of crashing or converting them incorrectly. An
+  empty or barrier-only else branch is still accepted.
+
+### Documentation
+
+- The README QASM quickstart runs as written; `docs/passes.md` names the
+  current cost functions and fixes several typos.
+- The JOSS paper figures are regenerated at print resolution
+  (`miscellaneous/table_figures.py`).
+
+### Added
+
+- `CITATION.cff` and `.zenodo.json` for archiving releases on Zenodo.
+
 ## 0.5.0
 
 ### Breaking

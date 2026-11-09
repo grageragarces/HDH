@@ -1,0 +1,26 @@
+{
+  "title": "HDH: A Python Library for Hypergraph-Based Distributed Quantum Computing Partitioning",
+  "upload_type": "software",
+  "description": "HDH (Hybrid Dependency Hypergraphs) is a Python library that converts a quantum computation, expressed as a circuit, a measurement-based pattern, a quantum walk or a quantum cellular automaton, into a hypergraph that captures every way the computation could be split across devices, and provides a capacity-aware partitioning baseline.",
+  "creators": [
+    {
+      "name": "Gragera Garces, Maria",
+      "orcid": "0009-0000-9018-7435",
+      "affiliation": "University of Edinburgh"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "Python",
+    "distributed quantum computing",
+    "quantum partitioning",
+    "hypergraphs"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/grageragarces/HDH",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

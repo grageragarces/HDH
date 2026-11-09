@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use HDH, please cite it as below."
+title: "HDH: A Python Library for Hypergraph-Based Distributed Quantum Computing Partitioning"
+type: software
+version: 0.5.1
+license: MIT
+repository-code: "https://github.com/grageragarces/HDH"
+authors:
+  - family-names: Gragera Garces
+    given-names: Maria
+    orcid: "https://orcid.org/0009-0000-9018-7435"
+    affiliation: "University of Edinburgh"
+keywords:
+  - Python
+  - distributed quantum computing
+  - quantum partitioning
+  - hypergraphs
