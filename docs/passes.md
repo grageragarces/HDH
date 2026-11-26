@@ -235,6 +235,64 @@ Counts the number of edges that cross between different bins in a standard graph
 
 ---
 
+## Temporal Communication Schedule & Traffic Metrics
+
+Scalar cut counts measure *how many* cross-partition operations occur, but not *when* they happen, how many can execute concurrently, or whether the inter-device traffic pattern repeats across timesteps. The `hdh.passes.comm_schedule` module (re-exported from `hdh.passes`) extracts the temporal inter-partition communication schedule and summarizes its network-level demand profile:
+
+* **`communication_layers(hdh, partitions, *, quantum_only=True)`**: maps each timestep to the sorted list of cross-partition pairs `(u, v)` (`u < v`) induced by cut hyperedges (assigning each cut hyperedge to the maximum timestep of its incident nodes, matching `parallelism()`). Cut hyperedges touching $k > 2$ partitions are decomposed into a star of $k - 1$ pairs anchored at the lowest-index touched partition. Accepts both **node-level partitions** (from `compute_cut` / `kahypar_cutter`) and **wire-level bins** (from `metis_telegate`).
+* **`pack_matching_rounds(pairs)`**: greedily edge-colors a timestep's cross-partition pairs into vertex-disjoint matching rounds (`list[tuple[tuple[int, int], ...]]`), where every pair in a round involves distinct endpoint partitions and can execute concurrently without endpoint contention.
+* **`communication_metrics(hdh, partitions, *, quantum_only=True, round_capacity=None)`**: returns a dictionary summarizing:
+  * `total_cut_pairs` — total pairwise cross-partition demands across all timesteps,
+  * `active_layers` — number of timesteps with at least one cut hyperedge,
+  * `matching_rounds` — total vertex-disjoint matching rounds (communication depth),
+  * `max_concurrent_pairs` / `avg_concurrent_pairs` — peak and average concurrent inter-partition pairs per round,
+  * `unique_matchings` / `matching_reuse_ratio` — how many distinct matching patterns appear and how often they repeat (`0.0` when every round is unique, approaching `1.0` for static/repeating traffic),
+  * `pair_demand` — total demand count per `(u, v)` partition pair,
+  * `rounds_at_capacity` *(when `round_capacity` is given)* — total resource rounds required if each network/switch round serves at most `round_capacity` simultaneous pairs.
+
+### Example
+
+```python
+from hdh.models.circuit import Circuit
+from hdh.passes import (
+    communication_layers,
+    communication_metrics,
+    compute_cut,
+    pack_matching_rounds,
+)
+from hdh.passes.cut import metis_telegate
+
+c = Circuit()
+# Layer 1: three disjoint two-qubit gates
+c.add_instruction("cx", [0, 1])
+c.add_instruction("cx", [2, 3])
+c.add_instruction("cx", [4, 5])
+# Layer 2: shifted disjoint layer
+c.add_instruction("cx", [1, 2])
+c.add_instruction("cx", [3, 4])
+c.add_instruction("cx", [5, 0])
+
+hdh = c.build_hdh()
+
+# Works with node-level partitions (compute_cut / kahypar_cutter)
+partitions, _ = compute_cut(hdh, 3, 2)
+layers = communication_layers(hdh, partitions)
+for t, pairs in layers.items():
+    print(f"t={t}: {pack_matching_rounds(pairs)}")
+
+# Or wire-level bins (metis_telegate), with optional per-round capacity bound
+wire_bins, _, _, _ = metis_telegate(hdh, 3, 2)
+metrics = communication_metrics(hdh, wire_bins, round_capacity=2)
+print(
+    metrics["matching_rounds"],
+    metrics["max_concurrent_pairs"],
+    metrics["unique_matchings"],
+    metrics["rounds_at_capacity"],
+)
+```
+
+---
+
 ## Helper Functions and Internal Components
 
 The `cut.py` file contains helper utilities for the partitioners (note that some older helpers/classes remain in the file as legacy code paths).
