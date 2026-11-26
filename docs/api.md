@@ -57,3 +57,11 @@ Auto-generated from the library's docstrings.
 ::: hdh.passes.cut.metis_telegate
 
 ::: hdh.passes.cut.cost
+
+## Communication Scheduling
+
+::: hdh.passes.comm_schedule.communication_layers
+
+::: hdh.passes.comm_schedule.pack_matching_rounds
+
+::: hdh.passes.comm_schedule.communication_metrics
